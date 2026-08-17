@@ -1,26 +1,234 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ============================================================
+   LabourBook Design System — AgroLedger Narrative
+   "Modern Digital Notebook" — earthy, warm, utility-first
+   ============================================================ */
+
+/* --- Google Fonts --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+
+/* ============================================================
+   Tailwind v4 Theme — Design Tokens
+   ============================================================ */
+@theme {
+  /* --- Fonts --- */
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* --- Color Palette --- */
+
+  /* Primary — Deep Forest Green */
+  --color-primary:                #012d1d;
+  --color-on-primary:             #ffffff;
+  --color-primary-container:      #1b4332;
+  --color-on-primary-container:   #86af99;
+  --color-primary-fixed:          #c1ecd4;
+  --color-primary-fixed-dim:      #a5d0b9;
+  --color-on-primary-fixed:       #002114;
+  --color-on-primary-fixed-variant: #274e3d;
+  --color-inverse-primary:        #a5d0b9;
+
+  /* Secondary — Slate Blue-Gray */
+  --color-secondary:              #53606a;
+  --color-on-secondary:           #ffffff;
+  --color-secondary-container:    #d7e4f0;
+  --color-on-secondary-container: #596670;
+  --color-secondary-fixed:        #d7e4f0;
+  --color-secondary-fixed-dim:    #bbc8d3;
+  --color-on-secondary-fixed:     #111d25;
+  --color-on-secondary-fixed-variant: #3c4851;
+
+  /* Tertiary — Burnt Orange-Red (debt / money out) */
+  --color-tertiary:               #510900;
+  --color-on-tertiary:            #ffffff;
+  --color-tertiary-container:     #781300;
+  --color-on-tertiary-container:  #ff8266;
+  --color-tertiary-fixed:         #ffdad3;
+  --color-tertiary-fixed-dim:     #ffb4a4;
+  --color-on-tertiary-fixed:      #3e0500;
+  --color-on-tertiary-fixed-variant: #8c1700;
+
+  /* Surface layers — warm whites / creams */
+  --color-background:             #fcf9f8;
+  --color-on-background:          #1b1c1c;
+  --color-surface:                #fcf9f8;
+  --color-on-surface:             #1b1c1c;
+  --color-surface-bright:         #fcf9f8;
+  --color-surface-dim:            #dcd9d9;
+  --color-surface-variant:        #e4e2e1;
+  --color-on-surface-variant:     #414844;
+  --color-surface-container-lowest:  #ffffff;
+  --color-surface-container-low:    #f6f3f2;
+  --color-surface-container:        #f0eded;
+  --color-surface-container-high:   #eae7e7;
+  --color-surface-container-highest: #e4e2e1;
+  --color-inverse-surface:        #303030;
+  --color-inverse-on-surface:     #f3f0f0;
+  --color-surface-tint:           #3f6653;
+
+  /* Outline */
+  --color-outline:                #717973;
+  --color-outline-variant:        #c1c8c2;
+
+  /* Error */
+  --color-error:                  #ba1a1a;
+  --color-on-error:               #ffffff;
+  --color-error-container:        #ffdad6;
+  --color-on-error-container:     #93000a;
+
+  /* --- Typography Scale --- */
+  --font-size-display-currency: 40px;
+  --line-height-display-currency: 48px;
+  --font-weight-display-currency: 700;
+
+  --font-size-headline-lg: 32px;
+  --line-height-headline-lg: 40px;
+  --font-weight-headline-lg: 600;
+
+  --font-size-headline-lg-mobile: 28px;
+  --line-height-headline-lg-mobile: 36px;
+  --font-weight-headline-lg-mobile: 600;
+
+  --font-size-headline-md: 24px;
+  --line-height-headline-md: 32px;
+  --font-weight-headline-md: 600;
+
+  --font-size-body-lg: 18px;
+  --line-height-body-lg: 28px;
+  --font-weight-body-lg: 400;
+
+  --font-size-body-md: 16px;
+  --line-height-body-md: 24px;
+  --font-weight-body-md: 400;
+
+  --font-size-label-caps: 12px;
+  --line-height-label-caps: 16px;
+  --font-weight-label-caps: 600;
+  --letter-spacing-label-caps: 0.05em;
+
+  /* --- Spacing --- */
+  --spacing-sidebar-width:    280px;
+  --spacing-drawer-width:     400px;
+  --spacing-container-margin: 24px;
+  --spacing-gutter:           16px;
+  --spacing-base:             8px;
+
+  /* --- Border Radius --- */
+  --radius-sm:      4px;
+  --radius-DEFAULT: 10px;
+  --radius-lg:      16px;
+  --radius-full:    9999px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ============================================================
+   Global Base Styles
+   ============================================================ */
+
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-body-md);
+  line-height: var(--line-height-body-md);
+  background-color: var(--color-background);
+  color: var(--color-on-background);
+}
+
+/* Material Symbols default style */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-size: 24px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+}
+
+.icon-fill {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* ============================================================
+   Scrollbar — clean, minimal
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline);
+}
+
+/* ============================================================
+   Typography Utility Classes
+   ============================================================ */
+.text-display-currency {
+  font-size: var(--font-size-display-currency);
+  line-height: var(--line-height-display-currency);
+  font-weight: var(--font-weight-display-currency);
+  letter-spacing: -0.02em;
+}
+
+.text-headline-lg {
+  font-size: var(--font-size-headline-lg);
+  line-height: var(--line-height-headline-lg);
+  font-weight: var(--font-weight-headline-lg);
+}
+
+.text-headline-lg-mobile {
+  font-size: var(--font-size-headline-lg-mobile);
+  line-height: var(--line-height-headline-lg-mobile);
+  font-weight: var(--font-weight-headline-lg-mobile);
+}
+
+.text-headline-md {
+  font-size: var(--font-size-headline-md);
+  line-height: var(--line-height-headline-md);
+  font-weight: var(--font-weight-headline-md);
+}
+
+.text-body-lg {
+  font-size: var(--font-size-body-lg);
+  line-height: var(--line-height-body-lg);
+  font-weight: var(--font-weight-body-lg);
+}
+
+.text-body-md {
+  font-size: var(--font-size-body-md);
+  line-height: var(--line-height-body-md);
+  font-weight: var(--font-weight-body-md);
+}
+
+.text-label-caps {
+  font-size: var(--font-size-label-caps);
+  line-height: var(--line-height-label-caps);
+  font-weight: var(--font-weight-label-caps);
+  letter-spacing: var(--letter-spacing-label-caps);
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   Selection Color
+   ============================================================ */
+::selection {
+  background-color: var(--color-primary-container);
+  color: var(--color-on-primary);
 }

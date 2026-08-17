@@ -1,0 +1,314 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Labour Teams - LabourBook</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#eae7e7",
+                        "on-tertiary-fixed": "#3e0500",
+                        "surface-container": "#f0eded",
+                        "on-primary-fixed-variant": "#274e3d",
+                        "surface": "#fcf9f8",
+                        "error": "#ba1a1a",
+                        "secondary-fixed-dim": "#bbc8d3",
+                        "on-secondary-fixed-variant": "#3c4851",
+                        "surface-variant": "#e4e2e1",
+                        "primary": "#012d1d",
+                        "outline": "#717973",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed": "#ffdad3",
+                        "background": "#fcf9f8",
+                        "inverse-primary": "#a5d0b9",
+                        "on-primary-container": "#86af99",
+                        "surface-container-low": "#f6f3f2",
+                        "surface-container-highest": "#e4e2e1",
+                        "primary-container": "#1b4332",
+                        "secondary-container": "#d7e4f0",
+                        "on-secondary-container": "#596670",
+                        "surface-bright": "#fcf9f8",
+                        "on-error": "#ffffff",
+                        "tertiary": "#510900",
+                        "primary-fixed": "#c1ecd4",
+                        "inverse-surface": "#303030",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#ff8266",
+                        "on-surface": "#1b1c1c",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface-variant": "#414844",
+                        "outline-variant": "#c1c8c2",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "surface-dim": "#dcd9d9",
+                        "secondary": "#53606a",
+                        "on-secondary-fixed": "#111d25",
+                        "on-primary": "#ffffff",
+                        "on-background": "#1b1c1c",
+                        "on-primary-fixed": "#002114",
+                        "primary-fixed-dim": "#a5d0b9",
+                        "inverse-on-surface": "#f3f0f0",
+                        "tertiary-fixed-dim": "#ffb4a4",
+                        "surface-tint": "#3f6653",
+                        "secondary-fixed": "#d7e4f0",
+                        "on-tertiary-fixed-variant": "#8c1700",
+                        "tertiary-container": "#781300"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-margin": "24px",
+                        "sidebar-width": "280px",
+                        "gutter": "16px",
+                        "base": "8px",
+                        "drawer-width": "400px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "display-currency": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-caps": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "display-currency": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background min-h-screen flex font-body-md text-body-md">
+<!-- SideNavBar (Shared Component) -->
+<nav class="hidden md:flex w-[280px] h-screen fixed left-0 top-0 border-r border-outline-variant dark:border-outline bg-surface dark:bg-surface-container-low flex-col py-8 px-4 z-50">
+<!-- Brand Logo -->
+<div class="mb-12 px-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-[32px] text-primary dark:text-primary-fixed" style="font-variation-settings: &quot;FILL&quot; 1;">book</span>
+<div>
+<h1 class="text-headline-md font-headline-md font-extrabold text-primary dark:text-primary-fixed tracking-tight">LabourBook</h1>
+<p class="text-label-caps font-label-caps text-on-surface-variant uppercase tracking-wider">Modern Ledger</p>
+</div>
+</div>
+<!-- Main Navigation Tabs -->
+<ul class="flex flex-col gap-2 flex-grow">
+<!-- Dashboard -->
+<li class="">
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container dark:hover:bg-surface-container-high transition-colors active:scale-[0.99] transition-transform" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-body-md font-body-md">Dashboard</span>
+</a>
+</li>
+<!-- Today's Attendance -->
+<li class="">
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container dark:hover:bg-surface-container-high transition-colors active:scale-[0.99] transition-transform" href="#">
+<span class="material-symbols-outlined">event_available</span>
+<span class="text-body-md font-body-md">Today's Attendance</span>
+</a>
+</li>
+<!-- Labour -->
+<li class="">
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container dark:hover:bg-surface-container-high transition-colors active:scale-[0.99] transition-transform" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="text-body-md font-body-md">Labours</span>
+</a>
+</li>
+<!-- Teams (ACTIVE) -->
+<li class="">
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-primary dark:text-primary-fixed font-bold border-r-4 border-primary dark:border-primary-fixed bg-surface-container-low dark:bg-surface-container-high active:scale-[0.99] transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1;">group_work</span>
+<span class="text-body-md font-body-md">Teams</span>
+</a>
+</li>
+<!-- Contracts -->
+<li class="">
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container dark:hover:bg-surface-container-high transition-colors active:scale-[0.99] transition-transform" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="text-body-md font-body-md">Contracts</span>
+</a>
+</li>
+<!-- Payments -->
+<li class="">
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container dark:hover:bg-surface-container-high transition-colors active:scale-[0.99] transition-transform" href="#"><span class="material-symbols-outlined">payments</span><span class="text-body-md font-body-md">Payments</span></a>
+</li>
+<!-- Statements -->
+<li class="">
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface hover:bg-surface-container dark:hover:bg-surface-container-high transition-colors active:scale-[0.99] transition-transform" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="text-body-md font-body-md">Statements</span>
+</a>
+</li>
+</ul>
+<!-- CTA Button -->
+<div class="mt-8 mb-8 px-2">
+</div>
+<!-- Footer Tabs -->
+<div class="mt-auto pt-4 border-t border-outline-variant dark:border-outline">
+<ul class="flex flex-col gap-2">
+<li class="">
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-body-md font-body-md">Settings</span>
+</a>
+</li>
+<li class="">
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+<span class="text-body-md font-body-md">Support</span>
+</a>
+</li>
+</ul>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 md:ml-[280px] w-full max-w-full">
+<!-- TopAppBar (Shared Component Equivalent) -->
+<header class="sticky top-0 z-40 bg-background/95 backdrop-blur-sm px-container-margin py-base flex justify-between items-center border-b border-transparent transition-all" id="main-header">
+<!-- Mobile Menu Toggle (Visible only on mobile) -->
+<button class="md:hidden p-2 text-on-surface-variant">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<!-- Placeholder for alignment if search was on right, but we need title here -->
+<div class="flex-1 md:hidden"></div>
+<!-- Actions -->
+<div class="flex items-center gap-4 ml-auto">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-lg focus:border-primary-container focus:ring-1 focus:ring-primary-container outline-none text-body-md font-body-md w-64 transition-all" placeholder="Search teams..." type="text">
+</div>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors p-2">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-container-margin max-w-7xl mx-auto pb-32">
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-12">
+<div>
+<h2 class="text-headline-lg font-headline-lg text-primary dark:text-primary-fixed mb-2 tracking-tight">Labour Teams</h2>
+<p class="text-body-lg font-body-lg text-on-surface-variant">Manage labour teams, managers and team charges.</p>
+</div>
+<div class="flex gap-4 shrink-0"><button class="bg-primary-container text-on-primary py-2.5 px-6 rounded-[10px] font-bold shadow-sm hover:opacity-90 transition-opacity flex items-center gap-2"><span class="material-symbols-outlined text-[20px]">add</span>Add Team</button></div>
+</div>
+<!-- Team Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"><!-- Card 1 -->
+<div class="bg-[#FFFFFF] border border-[#E5E2D9] rounded-xl p-6 flex flex-col gap-6 hover:shadow-sm transition-shadow relative group cursor-pointer">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-bold text-lg">S</div>
+<div>
+<h3 class="text-body-lg font-semibold text-on-surface">Shinde Team</h3>
+<p class="text-sm text-on-surface-variant">Ganesh Shinde</p>
+</div>
+</div>
+
+</div>
+<div class="grid grid-cols-2 gap-4 py-4 border-y border-[#E5E2D9]">
+<div>
+<p class="text-label-caps text-on-surface-variant uppercase mb-1">Daily Rate</p>
+<p class="text-body-md font-semibold text-on-surface">₹300 / labour</p>
+</div>
+<div>
+<p class="text-label-caps text-on-surface-variant uppercase mb-1">Last Worked</p>
+<p class="text-body-md font-semibold text-on-surface">15 Aug 2023</p>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex-1 py-2 px-4 rounded-lg border border-outline-variant text-on-surface font-semibold text-sm hover:bg-surface-container transition-colors">View Profile</button>
+
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-[#FFFFFF] border border-[#E5E2D9] rounded-xl p-6 flex flex-col gap-6 hover:shadow-sm transition-shadow relative group cursor-pointer">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed font-bold text-lg">Pre</div>
+<div>
+<h3 class="text-body-lg font-semibold text-on-surface">Patil Harvesters</h3>
+<p class="text-sm text-on-surface-variant">Ramesh Patil</p>
+</div>
+</div>
+<span class="px-2 py-1 rounded bg-primary-container/10 text-primary text-[10px] font-bold uppercase tracking-wider">Active</span>
+</div>
+<div class="grid grid-cols-2 gap-4 py-4 border-y border-[#E5E2D9]">
+<div>
+<p class="text-label-caps text-on-surface-variant uppercase mb-1">Daily Rate</p>
+<p class="text-body-md font-semibold text-on-surface">₹350 / labour</p>
+</div>
+<div>
+<p class="text-label-caps text-on-surface-variant uppercase mb-1">Last Worked</p>
+<p class="text-body-md font-semibold text-on-surface">14 Aug 2023</p>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex-1 py-2 px-4 rounded-lg border border-outline-variant text-on-surface font-semibold text-sm hover:bg-surface-container transition-colors">View Profile</button>
+
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-[#FFFFFF] border border-[#E5E2D9] rounded-xl p-6 flex flex-col gap-6 hover:shadow-sm transition-shadow relative group cursor-pointer">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant font-bold text-lg">K</div>
+<div>
+<h3 class="text-body-lg font-semibold text-on-surface">Kale Group</h3>
+<p class="text-sm text-on-surface-variant">Sanjay Kale</p>
+</div>
+</div>
+<span class="px-2 py-1 rounded bg-primary-container/10 text-primary text-[10px] font-bold uppercase tracking-wider">Active</span>
+</div>
+<div class="grid grid-cols-2 gap-4 py-4 border-y border-[#E5E2D9]">
+<div>
+<p class="text-label-caps text-on-surface-variant uppercase mb-1">Daily Rate</p>
+<p class="text-body-md font-semibold text-on-surface">₹280 / labour</p>
+</div>
+<div>
+<p class="text-label-caps text-on-surface-variant uppercase mb-1">Last Worked</p>
+<p class="text-body-md font-semibold text-on-surface">02 Aug 2023</p>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex-1 py-2 px-4 rounded-lg border border-outline-variant text-on-surface font-semibold text-sm hover:bg-surface-container transition-colors">View Profile</button>
+
+</div>
+</div></div>
+</div>
+</main>
+<script>
+        // Simple script to add slight shadow to header on scroll to separate from content
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('main-header');
+            if (window.scrollY > 10) {
+                header.classList.add('shadow-[0_2px_10px_rgba(0,0,0,0.05)]');
+                header.classList.add('border-b');
+                header.classList.remove('border-transparent');
+                header.classList.add('border-[#E5E2D9]');
+            } else {
+                header.classList.remove('shadow-[0_2px_10px_rgba(0,0,0,0.05)]');
+                header.classList.remove('border-b');
+                header.classList.add('border-transparent');
+                header.classList.remove('border-[#E5E2D9]');
+            }
+        });
+    </script>
+
+
+</body></html>
