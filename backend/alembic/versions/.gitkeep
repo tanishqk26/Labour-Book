@@ -1,0 +1,4 @@
+# This file keeps the versions/ directory tracked by git.
+# Alembic will generate migration files here.
+# Individual migration files are gitignored (see ../.gitignore) — 
+# but you can remove that rule if you want to track migrations in git (recommended for teams).
