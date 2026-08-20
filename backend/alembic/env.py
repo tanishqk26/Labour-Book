@@ -6,6 +6,8 @@ It wires up the async engine and discovers all ORM models via app.models.
 """
 
 import asyncio
+import selectors
+import sys
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -27,7 +29,8 @@ from app.models import Base  # noqa: F401
 config = context.config
 
 # Override sqlalchemy.url with the value from our settings
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# ConfigParser treats % as interpolation; escape it to %%
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 # Setup logging from alembic.ini
 if config.config_file_name is not None:
@@ -73,7 +76,17 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    asyncio.run(run_async_migrations())
+    # On Windows with Python 3.12+, asyncio defaults to ProactorEventLoop
+    # which is incompatible with psycopg async. Use SelectorEventLoop instead.
+    if sys.platform == "win32":
+        loop = asyncio.SelectorEventLoop(selectors.SelectSelector())
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(run_async_migrations())
+        finally:
+            loop.close()
+    else:
+        asyncio.run(run_async_migrations())
 
 
 # ---------------------------------------------------------------------------

@@ -29,8 +29,7 @@ env/
 .env
 
 # Alembic
-alembic/versions/*.py
-!alembic/versions/.gitkeep
+# alembic/versions/*.py tracked in git
 
 # Testing
 .pytest_cache/
