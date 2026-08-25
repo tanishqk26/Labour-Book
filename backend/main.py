@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routers.health import router as health_router
+from app.routers.labours import router as labours_router
+from app.routers.attendance import router as attendance_router
 
 
 # ---------------------------------------------------------------------------
@@ -14,10 +16,10 @@ from app.routers.health import router as health_router
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     # -- Startup --
-    print(f"🌿 LabourBook API starting up [{settings.app_env}]")
+    print(f"[LabourBook] API starting up [{settings.app_env}]")
     yield
     # -- Shutdown --
-    print("🌿 LabourBook API shutting down")
+    print("[LabourBook] API shutting down")
 
 
 # ---------------------------------------------------------------------------
@@ -49,10 +51,8 @@ app.add_middleware(
 # Routers
 # ---------------------------------------------------------------------------
 app.include_router(health_router)
-
-# Add feature routers below as you build them, e.g.:
-# from app.routers.labours import router as labours_router
-# app.include_router(labours_router, prefix="/api/v1")
+app.include_router(labours_router)
+app.include_router(attendance_router)
 
 
 # ---------------------------------------------------------------------------
