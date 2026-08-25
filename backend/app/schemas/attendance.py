@@ -19,9 +19,12 @@ VALID_STATUSES = {"present", "absent", "half_day"}
 # ---------------------------------------------------------------------------
 
 class AttendanceBase(BaseModel):
-    status: str = Field("present", description="present | absent | half_day")
+    status: str = Field("present", description="present | absent  (half_day kept for legacy data)")
     task: Optional[str] = Field(None, max_length=200)
     hours_worked: Optional[float] = Field(None, ge=0, le=24)
+    # Raw clock-in / clock-out stored as HH:MM strings (for note-keeping)
+    work_start_time: Optional[str] = Field(None, description="HH:MM clock-in time")
+    work_end_time: Optional[str] = Field(None, description="HH:MM clock-out time")
 
     @field_validator("status")
     @classmethod
@@ -62,6 +65,8 @@ class AttendanceUpdate(BaseModel):
     status: Optional[str] = None
     task: Optional[str] = Field(None, max_length=200)
     hours_worked: Optional[float] = Field(None, ge=0, le=24)
+    work_start_time: Optional[str] = Field(None, description="HH:MM clock-in time")
+    work_end_time: Optional[str] = Field(None, description="HH:MM clock-out time")
 
     @field_validator("status")
     @classmethod
@@ -123,4 +128,6 @@ class LabourAttendanceStatus(BaseModel):
     status: Optional[str] = None          # None = not yet marked
     task: Optional[str] = None
     hours_worked: Optional[float] = None
+    work_start_time: Optional[str] = None
+    work_end_time: Optional[str] = None
     wage_earned: Optional[float] = None

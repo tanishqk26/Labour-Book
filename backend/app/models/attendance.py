@@ -43,6 +43,10 @@ class Attendance(Base):
     # Hours worked (optional)
     hours_worked = Column(Numeric(4, 1), nullable=True)
 
+    # Raw clock-in / clock-out times for note-keeping ("HH:MM" strings)
+    work_start_time = Column(String(5), nullable=True)
+    work_end_time = Column(String(5), nullable=True)
+
     # Computed wage for this attendance record (snapshot at time of recording)
     wage_earned = Column(Numeric(10, 2), nullable=False, default=0)
 

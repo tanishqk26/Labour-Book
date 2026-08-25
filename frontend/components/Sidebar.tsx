@@ -23,7 +23,7 @@ export default function Sidebar() {
 
   return (
     <nav
-      className="hidden md:flex flex-col py-8 px-4 border-r"
+      className="hidden md:flex flex-col py-8 px-3 border-r"
       style={{
         width: "var(--spacing-sidebar-width)",
         position: "fixed",
@@ -36,14 +36,14 @@ export default function Sidebar() {
       }}
     >
       {/* Brand */}
-      <div className="flex items-center gap-3 px-4 mb-12">
+      <div className="flex items-center gap-3 px-4 mb-10">
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: "var(--color-primary-container)" }}
+          className="w-9 h-9 rounded-xl flex items-center justify-center"
+          style={{ backgroundColor: "var(--color-primary)" }}
         >
           <span
             className="material-symbols-outlined icon-fill"
-            style={{ color: "var(--color-on-primary)", fontSize: "20px" }}
+            style={{ color: "#ffffff", fontSize: "18px" }}
           >
             agriculture
           </span>
@@ -65,30 +65,27 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation items */}
-      <div className="flex-1 flex flex-col gap-1">
+      <div className="flex-1 flex flex-col gap-0.5">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors"
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all"
               style={{
                 color: isActive
                   ? "var(--color-primary)"
                   : "var(--color-on-surface-variant)",
                 backgroundColor: isActive
-                  ? "var(--color-surface-container-low)"
+                  ? "var(--color-primary-fixed)"
                   : "transparent",
                 fontWeight: isActive ? 600 : 400,
-                borderRight: isActive
-                  ? "3px solid var(--color-primary)"
-                  : "3px solid transparent",
               }}
             >
               <span
                 className={`material-symbols-outlined ${isActive ? "icon-fill" : ""}`}
-                style={{ fontSize: "22px" }}
+                style={{ fontSize: "20px" }}
               >
                 {item.icon}
               </span>
@@ -100,12 +97,12 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div
-        className="pt-4 flex flex-col gap-1"
+        className="pt-4 flex flex-col gap-0.5"
         style={{ borderTop: "1px solid var(--color-outline-variant)" }}
       >
         <Link
           href="/settings"
-          className="flex items-center gap-3 px-4 py-2 rounded-lg transition-colors"
+          className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors"
           style={{ color: "var(--color-on-surface-variant)" }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>
@@ -115,7 +112,7 @@ export default function Sidebar() {
         </Link>
         <Link
           href="/support"
-          className="flex items-center gap-3 px-4 py-2 rounded-lg transition-colors"
+          className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors"
           style={{ color: "var(--color-on-surface-variant)" }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>

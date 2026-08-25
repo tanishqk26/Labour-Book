@@ -1,11 +1,19 @@
-"""
+﻿"""
 Attendance Router
 
 Daily attendance endpoints for labourers.
+
+Changes (2026-08-25):
+- /daily endpoint now carries forward yesterday's present labourers as the
+  seed list for today if no attendance has been recorded yet.
+- work_start_time / work_end_time stored per record for note-keeping.
+- Wage computation simplified: present = full daily wage, absent = 0.
+  half_day kept in valid statuses for backward compatibility with existing data
+  but will no longer be created from the new UI.
 """
 
 import uuid
-from datetime import date, timezone
+from datetime import date, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -34,13 +42,20 @@ router = APIRouter(prefix="/api/v1/attendance", tags=["Attendance"])
 # ---------------------------------------------------------------------------
 
 def _compute_wage(labour: Labour, status: str, hours_worked: Optional[float]) -> float:
-    """Compute wage earned for a single attendance record."""
+    """Compute wage earned for a single attendance record.
+
+    Rules (as of 2026-08-25 UI update):
+    - present  → full daily wage (hours_worked is informational only, not used for pay)
+    - absent   → 0
+    - half_day → kept for legacy data; computes 50% of daily wage
+    """
     daily = float(labour.daily_wage)
     if status == "absent":
         return 0.0
     if status == "half_day":
+        # Legacy — new UI no longer creates half_day records
         return round(daily / 2, 2)
-    # present — full day (or proportional if hours provided)
+    # present
     return round(daily, 2)
 
 
@@ -73,35 +88,72 @@ async def get_daily_attendance(
     db: AsyncSession = Depends(get_db),
 ) -> list[LabourAttendanceStatus]:
     """
-    Returns all *active* labours enriched with their attendance for the given date.
-    If no attendance record exists for a labour, status=None (not yet marked).
+    Returns labours enriched with their attendance for the given date.
+
+    Carry-forward behaviour:
+    - If no attendance records exist for today yet, we return all labourers
+      who were marked *present* yesterday as the seed list (mirroring the
+      "carry forward yesterday's workers" UX feature).
+    - Labourers not in the returned list are considered absent by default.
+    - If no records exist for yesterday either, we fall back to all active
+      labourers (full list as before).
     """
     target_date = for_date or date.today()
 
-    # Fetch all active labours
+    # Fetch all active labours (needed for carry-forward fallback)
     labour_result = await db.execute(
         select(Labour).where(Labour.is_active.is_(True)).order_by(Labour.name)
     )
-    labours = labour_result.scalars().all()
+    all_labours = labour_result.scalars().all()
 
-    if not labours:
+    if not all_labours:
         return []
 
-    labour_ids = [l.id for l in labours]
+    labour_map: dict[uuid.UUID, Labour] = {l.id: l for l in all_labours}
 
-    # Fetch existing attendance records for the date
-    att_result = await db.execute(
+    # Fetch today's existing attendance records
+    today_att_result = await db.execute(
         select(Attendance).where(
-            Attendance.labour_id.in_(labour_ids),
+            Attendance.labour_id.in_(list(labour_map.keys())),
             Attendance.date == target_date,
         )
     )
-    attendances = att_result.scalars().all()
-    att_map: dict[uuid.UUID, Attendance] = {a.labour_id: a for a in attendances}
+    today_attendances = today_att_result.scalars().all()
+    today_att_map: dict[uuid.UUID, Attendance] = {a.labour_id: a for a in today_attendances}
 
+    # -----------------------------------------------------------------------
+    # Carry-forward: if no attendance recorded today, use yesterday's present
+    # labourers as the list (so user doesn't have to re-add the same people
+    # every day).
+    # -----------------------------------------------------------------------
+    if not today_attendances:
+        yesterday = target_date - timedelta(days=1)
+        yesterday_att_result = await db.execute(
+            select(Attendance).where(
+                Attendance.labour_id.in_(list(labour_map.keys())),
+                Attendance.date == yesterday,
+                Attendance.status == "present",
+            )
+        )
+        yesterday_present = yesterday_att_result.scalars().all()
+
+        if yesterday_present:
+            # Use the set of labourers who were present yesterday
+            seed_labour_ids = {a.labour_id for a in yesterday_present}
+        else:
+            # No yesterday data — use all active labourers as seed
+            seed_labour_ids = set(labour_map.keys())
+    else:
+        # Today already has data — use the labourers already in the list
+        seed_labour_ids = set(today_att_map.keys())
+
+    # Build response rows
     rows: list[LabourAttendanceStatus] = []
-    for labour in labours:
-        att = att_map.get(labour.id)
+    for labour_id in seed_labour_ids:
+        labour = labour_map.get(labour_id)
+        if labour is None:
+            continue  # Labour was deactivated since yesterday
+        att = today_att_map.get(labour_id)
         rows.append(
             LabourAttendanceStatus(
                 labour_id=labour.id,
@@ -112,9 +164,14 @@ async def get_daily_attendance(
                 status=att.status if att else None,
                 task=att.task if att else None,
                 hours_worked=float(att.hours_worked) if att and att.hours_worked else None,
+                work_start_time=att.work_start_time if att else None,
+                work_end_time=att.work_end_time if att else None,
                 wage_earned=float(att.wage_earned) if att else None,
             )
         )
+
+    # Sort alphabetically by name
+    rows.sort(key=lambda r: r.labour_name)
     return rows
 
 
@@ -180,7 +237,8 @@ async def upsert_attendance(
 ) -> AttendanceRead:
     """
     Mark attendance for a labour on a date.
-    If a record already exists for (labour_id, date), it is updated instead of creating a duplicate.
+    If a record already exists for (labour_id, date), it is updated instead of
+    creating a duplicate.
     """
     # Check labour exists
     labour_result = await db.execute(
@@ -209,6 +267,8 @@ async def upsert_attendance(
         existing.status = payload.status
         existing.task = payload.task
         existing.hours_worked = payload.hours_worked
+        existing.work_start_time = payload.work_start_time
+        existing.work_end_time = payload.work_end_time
         existing.wage_earned = wage
         await db.flush()
         await db.refresh(existing)
@@ -220,6 +280,8 @@ async def upsert_attendance(
             status=payload.status,
             task=payload.task,
             hours_worked=payload.hours_worked,
+            work_start_time=payload.work_start_time,
+            work_end_time=payload.work_end_time,
             wage_earned=wage,
         )
         db.add(att)

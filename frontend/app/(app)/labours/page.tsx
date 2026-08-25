@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import { apiGet } from "@/lib/api";
 import { Labour, PaginatedResponse } from "@/types";
 import LabourCard from "@/components/LabourCard";
-import LabourDrawer from "@/components/LabourDrawer";
+import LabourModal from "@/components/LabourModal";
 import { getInitials } from "@/lib/utils";
 
 // Note: metadata is static — dynamic metadata requires a separate server component
@@ -64,7 +64,7 @@ export default function LaboursPage() {
     <>
       <title>{PAGE_TITLE}</title>
 
-      <LabourDrawer
+      <LabourModal
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onSuccess={fetchLabours}
