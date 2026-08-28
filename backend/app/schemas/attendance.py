@@ -2,6 +2,7 @@
 Attendance Pydantic Schemas
 
 Request/response validation for Attendance endpoints.
+Supports both individual labourers and teams.
 """
 
 import uuid
@@ -40,14 +41,18 @@ class AttendanceBase(BaseModel):
 
 class AttendanceCreate(AttendanceBase):
     """Schema for creating or upserting attendance for a labour on a date."""
-    labour_id: uuid.UUID
+    labour_id: Optional[uuid.UUID] = None
+    team_id: Optional[uuid.UUID] = None
     date: date
+    num_labourers: Optional[int] = Field(None, ge=0, description="Number of team labourers (teams only)")
 
 
 class AttendanceBulkItem(AttendanceBase):
     """A single item in a bulk upsert payload."""
-    labour_id: uuid.UUID
+    labour_id: Optional[uuid.UUID] = None
+    team_id: Optional[uuid.UUID] = None
     date: date
+    num_labourers: Optional[int] = Field(None, ge=0)
 
 
 class AttendanceBulkCreate(BaseModel):
@@ -67,6 +72,7 @@ class AttendanceUpdate(BaseModel):
     hours_worked: Optional[float] = Field(None, ge=0, le=24)
     work_start_time: Optional[str] = Field(None, description="HH:MM clock-in time")
     work_end_time: Optional[str] = Field(None, description="HH:MM clock-out time")
+    num_labourers: Optional[int] = Field(None, ge=0)
 
     @field_validator("status")
     @classmethod
@@ -89,14 +95,28 @@ class AttendanceLabourInfo(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AttendanceTeamInfo(BaseModel):
+    """Minimal team info nested in attendance responses."""
+    id: uuid.UUID
+    name: str
+    daily_wage: float
+    car_rent: float
+    manager_fee: float
+
+    model_config = {"from_attributes": True}
+
+
 class AttendanceRead(AttendanceBase):
     id: uuid.UUID
-    labour_id: uuid.UUID
+    labour_id: Optional[uuid.UUID] = None
+    team_id: Optional[uuid.UUID] = None
     date: date
+    num_labourers: Optional[int] = None
     wage_earned: float
     created_at: datetime
     updated_at: datetime
     labour: Optional[AttendanceLabourInfo] = None
+    team: Optional[AttendanceTeamInfo] = None
 
     model_config = {"from_attributes": True}
 
@@ -131,3 +151,26 @@ class LabourAttendanceStatus(BaseModel):
     work_start_time: Optional[str] = None
     work_end_time: Optional[str] = None
     wage_earned: Optional[float] = None
+
+
+class TeamAttendanceStatus(BaseModel):
+    """Team enriched with their attendance status for a specific date."""
+    team_id: uuid.UUID
+    team_name: str
+    daily_wage: float
+    car_rent: float
+    manager_fee: float
+    attendance_id: Optional[uuid.UUID] = None
+    status: Optional[str] = None
+    num_labourers: Optional[int] = None
+    task: Optional[str] = None
+    hours_worked: Optional[float] = None
+    work_start_time: Optional[str] = None
+    work_end_time: Optional[str] = None
+    wage_earned: Optional[float] = None
+
+
+class DailyAttendanceView(BaseModel):
+    """Combined view of labours + teams for the daily attendance page."""
+    labours: list[LabourAttendanceStatus]
+    teams: list[TeamAttendanceStatus]

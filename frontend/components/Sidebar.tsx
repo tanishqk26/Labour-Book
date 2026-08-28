@@ -32,7 +32,7 @@ export default function Sidebar() {
         height: "100vh",
         backgroundColor: "var(--color-surface)",
         borderColor: "var(--color-outline-variant)",
-        zIndex: 50,
+        zIndex: 30,
       }}
     >
       {/* Brand */}

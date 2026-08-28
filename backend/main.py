@@ -7,6 +7,7 @@ from app.config import settings
 from app.routers.health import router as health_router
 from app.routers.labours import router as labours_router
 from app.routers.attendance import router as attendance_router
+from app.routers.teams import router as teams_router
 
 
 # ---------------------------------------------------------------------------
@@ -53,6 +54,7 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(labours_router)
 app.include_router(attendance_router)
+app.include_router(teams_router)
 
 
 # ---------------------------------------------------------------------------

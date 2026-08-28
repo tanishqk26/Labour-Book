@@ -47,6 +47,7 @@ class Labour(Base):
         "Attendance",
         back_populates="labour",
         cascade="all, delete-orphan",
+        foreign_keys="[Attendance.labour_id]",
     )
 
     def __repr__(self) -> str:
