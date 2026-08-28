@@ -33,18 +33,54 @@ export interface Labour {
   daily_wage: number;
   work_start_time?: string;   // "08:00"
   work_end_time?: string;     // "17:00"
+  is_active: boolean;
   status: LabourStatus;
   created_at: string;
   updated_at: string;
 }
 
-/** Labour team (group of workers) */
-export interface Team {
+/** Labour team summary (used in list views — no members array) */
+export interface TeamSummary {
   id: string;
   name: string;
-  member_count: number;
+  description?: string;
+  daily_wage: number;
+  car_rent: number;
+  manager_fee: number;
+  is_active: boolean;
   status: LabourStatus;
+  member_count: number;
   created_at: string;
+  updated_at: string;
+}
+
+/** Labour team detail (includes members) */
+export interface Team extends TeamSummary {
+  members: Labour[];
+}
+
+/** Request to create a team */
+export interface TeamCreate {
+  name: string;
+  description?: string;
+  daily_wage: number;
+  car_rent?: number;
+  manager_fee?: number;
+}
+
+/** Request to update a team */
+export interface TeamUpdate {
+  name?: string;
+  description?: string;
+  daily_wage?: number;
+  car_rent?: number;
+  manager_fee?: number;
+  is_active?: boolean;
+}
+
+/** Request to add/remove members */
+export interface TeamMemberPayload {
+  labour_ids: string[];
 }
 
 /** A single attendance record */

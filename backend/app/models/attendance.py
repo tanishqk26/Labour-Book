@@ -1,13 +1,16 @@
-"""
+﻿"""
 Attendance ORM Model
 
-Records daily attendance for individual labourers.
+Records daily attendance for individual labourers OR teams.
 Uses classic column definitions for Python 3.14 compatibility.
+
+For individual labourers: labour_id is set, team_id is NULL.
+For teams: team_id is set, labour_id is NULL, num_labourers holds headcount.
 """
 
 import uuid
 
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Numeric, String, UniqueConstraint, func
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -17,25 +20,38 @@ from app.database import Base
 class Attendance(Base):
     __tablename__ = "attendances"
 
-    # Unique constraint: one attendance record per labour per date
+    # At most one attendance record per entity per date
     __table_args__ = (
         UniqueConstraint("labour_id", "date", name="uq_attendance_labour_date"),
+        UniqueConstraint("team_id",   "date", name="uq_attendance_team_date"),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
+    # Individual labourer (nullable when team_id is set)
     labour_id = Column(
         UUID(as_uuid=True),
         ForeignKey("labours.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+
+    # Team (nullable when labour_id is set)
+    team_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("teams.id", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
 
     # ISO date of attendance
     date = Column(Date, nullable=False, index=True)
 
-    # present | absent | half_day
+    # present | absent
     status = Column(String(10), nullable=False, default="present")
+
+    # Number of labourers from team who worked (teams only)
+    num_labourers = Column(Integer, nullable=True)
 
     # Optional task description for the day
     task = Column(String(200), nullable=True)
@@ -58,8 +74,12 @@ class Attendance(Base):
         nullable=False,
     )
 
-    # Relationship back to Labour
-    labour = relationship("Labour", back_populates="attendances")
+    # Relationships
+    labour = relationship("Labour", back_populates="attendances", foreign_keys=[labour_id])
+    team   = relationship("Team",   back_populates="attendances", foreign_keys=[team_id])
 
     def __repr__(self) -> str:
-        return f"<Attendance id={self.id} labour_id={self.labour_id} date={self.date} status={self.status!r}>"
+        entity = f"labour_id={self.labour_id}" if self.labour_id else f"team_id={self.team_id}"
+        return f"<Attendance id={self.id} {entity} date={self.date} status={self.status!r}>"
+
+

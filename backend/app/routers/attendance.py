@@ -1,15 +1,13 @@
-﻿"""
+"""
 Attendance Router
 
-Daily attendance endpoints for labourers.
+Daily attendance endpoints for labourers and teams.
 
-Changes (2026-08-25):
-- /daily endpoint now carries forward yesterday's present labourers as the
-  seed list for today if no attendance has been recorded yet.
-- work_start_time / work_end_time stored per record for note-keeping.
-- Wage computation simplified: present = full daily wage, absent = 0.
-  half_day kept in valid statuses for backward compatibility with existing data
-  but will no longer be created from the new UI.
+Changes (2026-08-28):
+- Added team attendance support: teams have team_id, num_labourers.
+- Wage for teams = num_labourers * daily_wage + car_rent + manager_fee.
+- /daily endpoint now returns DailyAttendanceView with both labours and teams.
+- /bulk endpoint supports both labour and team records.
 """
 
 import uuid
@@ -18,20 +16,22 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.attendance import Attendance
 from app.models.labour import Labour
+from app.models.team import Team
 from app.schemas.attendance import (
     AttendanceCreate,
     AttendanceBulkCreate,
     AttendanceRead,
     AttendanceUpdate,
     DailyAttendanceSummary,
+    DailyAttendanceView,
     LabourAttendanceStatus,
+    TeamAttendanceStatus,
 )
 
 router = APIRouter(prefix="/api/v1/attendance", tags=["Attendance"])
@@ -41,28 +41,30 @@ router = APIRouter(prefix="/api/v1/attendance", tags=["Attendance"])
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _compute_wage(labour: Labour, status: str, hours_worked: Optional[float]) -> float:
-    """Compute wage earned for a single attendance record.
-
-    Rules (as of 2026-08-25 UI update):
-    - present  → full daily wage (hours_worked is informational only, not used for pay)
-    - absent   → 0
-    - half_day → kept for legacy data; computes 50% of daily wage
-    """
+def _compute_wage_labour(labour: Labour, att_status: str, hours_worked: Optional[float]) -> float:
+    """Compute wage for an individual labourer."""
     daily = float(labour.daily_wage)
-    if status == "absent":
+    if att_status == "absent":
         return 0.0
-    if status == "half_day":
-        # Legacy — new UI no longer creates half_day records
+    if att_status == "half_day":
         return round(daily / 2, 2)
-    # present
     return round(daily, 2)
+
+
+def _compute_wage_team(team: Team, att_status: str, num_labourers: Optional[int]) -> float:
+    """Compute wage for a team: num_labourers * daily_wage + car_rent + manager_fee."""
+    if att_status == "absent" or not num_labourers or num_labourers == 0:
+        return 0.0
+    daily = float(team.daily_wage)
+    car = float(team.car_rent)
+    mgr = float(team.manager_fee)
+    return round(num_labourers * daily + car + mgr, 2)
 
 
 async def _get_or_404(db: AsyncSession, attendance_id: uuid.UUID) -> Attendance:
     result = await db.execute(
         select(Attendance)
-        .options(selectinload(Attendance.labour))
+        .options(selectinload(Attendance.labour), selectinload(Attendance.team))
         .where(Attendance.id == attendance_id)
     )
     att = result.scalar_one_or_none()
@@ -75,86 +77,67 @@ async def _get_or_404(db: AsyncSession, attendance_id: uuid.UUID) -> Attendance:
 
 
 # ---------------------------------------------------------------------------
-# Daily view — all labours with their attendance status for a date
+# Daily view — all labours AND teams with their attendance status for a date
 # ---------------------------------------------------------------------------
 
 @router.get(
     "/daily",
-    response_model=list[LabourAttendanceStatus],
-    summary="Get all labours with attendance status for a date",
+    response_model=DailyAttendanceView,
+    summary="Get all labours and teams with attendance status for a date",
 )
 async def get_daily_attendance(
     for_date: Optional[date] = Query(None, description="ISO date, defaults to today"),
     db: AsyncSession = Depends(get_db),
-) -> list[LabourAttendanceStatus]:
+) -> DailyAttendanceView:
     """
-    Returns labours enriched with their attendance for the given date.
-
-    Carry-forward behaviour:
-    - If no attendance records exist for today yet, we return all labourers
-      who were marked *present* yesterday as the seed list (mirroring the
-      "carry forward yesterday's workers" UX feature).
-    - Labourers not in the returned list are considered absent by default.
-    - If no records exist for yesterday either, we fall back to all active
-      labourers (full list as before).
+    Returns labours and teams enriched with their attendance for the given date.
     """
     target_date = for_date or date.today()
 
-    # Fetch all active labours (needed for carry-forward fallback)
+    # --- Labours ---
     labour_result = await db.execute(
         select(Labour).where(Labour.is_active.is_(True)).order_by(Labour.name)
     )
     all_labours = labour_result.scalars().all()
-
-    if not all_labours:
-        return []
-
     labour_map: dict[uuid.UUID, Labour] = {l.id: l for l in all_labours}
 
-    # Fetch today's existing attendance records
+    # Fetch today's labour attendance records
     today_att_result = await db.execute(
         select(Attendance).where(
-            Attendance.labour_id.in_(list(labour_map.keys())),
+            Attendance.labour_id.isnot(None),
             Attendance.date == target_date,
         )
     )
-    today_attendances = today_att_result.scalars().all()
-    today_att_map: dict[uuid.UUID, Attendance] = {a.labour_id: a for a in today_attendances}
+    today_labour_att = today_att_result.scalars().all()
+    today_labour_att_map: dict[uuid.UUID, Attendance] = {
+        a.labour_id: a for a in today_labour_att if a.labour_id in labour_map
+    }
 
-    # -----------------------------------------------------------------------
-    # Carry-forward: if no attendance recorded today, use yesterday's present
-    # labourers as the list (so user doesn't have to re-add the same people
-    # every day).
-    # -----------------------------------------------------------------------
-    if not today_attendances:
+    # Carry-forward for labours
+    if not today_labour_att:
         yesterday = target_date - timedelta(days=1)
         yesterday_att_result = await db.execute(
             select(Attendance).where(
-                Attendance.labour_id.in_(list(labour_map.keys())),
+                Attendance.labour_id.isnot(None),
                 Attendance.date == yesterday,
                 Attendance.status == "present",
             )
         )
         yesterday_present = yesterday_att_result.scalars().all()
-
         if yesterday_present:
-            # Use the set of labourers who were present yesterday
-            seed_labour_ids = {a.labour_id for a in yesterday_present}
+            seed_labour_ids = {a.labour_id for a in yesterday_present if a.labour_id in labour_map}
         else:
-            # No yesterday data — use all active labourers as seed
             seed_labour_ids = set(labour_map.keys())
     else:
-        # Today already has data — use the labourers already in the list
-        seed_labour_ids = set(today_att_map.keys())
+        seed_labour_ids = set(today_labour_att_map.keys())
 
-    # Build response rows
-    rows: list[LabourAttendanceStatus] = []
+    labour_rows: list[LabourAttendanceStatus] = []
     for labour_id in seed_labour_ids:
         labour = labour_map.get(labour_id)
         if labour is None:
-            continue  # Labour was deactivated since yesterday
-        att = today_att_map.get(labour_id)
-        rows.append(
+            continue
+        att = today_labour_att_map.get(labour_id)
+        labour_rows.append(
             LabourAttendanceStatus(
                 labour_id=labour.id,
                 labour_name=labour.name,
@@ -169,10 +152,49 @@ async def get_daily_attendance(
                 wage_earned=float(att.wage_earned) if att else None,
             )
         )
+    labour_rows.sort(key=lambda r: r.labour_name)
 
-    # Sort alphabetically by name
-    rows.sort(key=lambda r: r.labour_name)
-    return rows
+    # --- Teams ---
+    team_result = await db.execute(
+        select(Team).where(Team.is_active.is_(True)).order_by(Team.name)
+    )
+    all_teams = team_result.scalars().all()
+    team_map: dict[uuid.UUID, Team] = {t.id: t for t in all_teams}
+
+    today_team_att_result = await db.execute(
+        select(Attendance).where(
+            Attendance.team_id.isnot(None),
+            Attendance.date == target_date,
+        )
+    )
+    today_team_att = today_team_att_result.scalars().all()
+    today_team_att_map: dict[uuid.UUID, Attendance] = {
+        a.team_id: a for a in today_team_att if a.team_id in team_map
+    }
+
+    # For teams: always show all active teams (no carry-forward logic)
+    team_rows: list[TeamAttendanceStatus] = []
+    for team in all_teams:
+        att = today_team_att_map.get(team.id)
+        team_rows.append(
+            TeamAttendanceStatus(
+                team_id=team.id,
+                team_name=team.name,
+                daily_wage=float(team.daily_wage),
+                car_rent=float(team.car_rent),
+                manager_fee=float(team.manager_fee),
+                attendance_id=att.id if att else None,
+                status=att.status if att else None,
+                num_labourers=att.num_labourers if att else None,
+                task=att.task if att else None,
+                hours_worked=float(att.hours_worked) if att and att.hours_worked else None,
+                work_start_time=att.work_start_time if att else None,
+                work_end_time=att.work_end_time if att else None,
+                wage_earned=float(att.wage_earned) if att else None,
+            )
+        )
+
+    return DailyAttendanceView(labours=labour_rows, teams=team_rows)
 
 
 @router.get(
@@ -204,7 +226,7 @@ async def get_attendance_by_date(
 async def _build_daily_summary(db: AsyncSession, target_date: date) -> DailyAttendanceSummary:
     result = await db.execute(
         select(Attendance)
-        .options(selectinload(Attendance.labour))
+        .options(selectinload(Attendance.labour), selectinload(Attendance.team))
         .where(Attendance.date == target_date)
         .order_by(Attendance.created_at)
     )
@@ -222,7 +244,142 @@ async def _build_daily_summary(db: AsyncSession, target_date: date) -> DailyAtte
 
 
 # ---------------------------------------------------------------------------
-# Create / Upsert attendance
+# Bulk upsert attendance (labours + teams)
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/bulk",
+    response_model=list[AttendanceRead],
+    status_code=status.HTTP_200_OK,
+    summary="Bulk create/update attendance records",
+)
+async def bulk_upsert_attendance(
+    payload: AttendanceBulkCreate,
+    db: AsyncSession = Depends(get_db),
+) -> list[AttendanceRead]:
+    """
+    Bulk upsert multiple attendance records for a given date.
+    Supports both individual labourers (labour_id) and teams (team_id).
+    """
+    # Separate labour and team records
+    labour_items = [r for r in payload.records if r.labour_id]
+    team_items = [r for r in payload.records if r.team_id]
+
+    # Fetch all labours
+    labour_ids = [item.labour_id for item in labour_items]
+    labours: dict[uuid.UUID, Labour] = {}
+    if labour_ids:
+        labour_result = await db.execute(
+            select(Labour).where(Labour.id.in_(labour_ids))
+        )
+        labours = {l.id: l for l in labour_result.scalars().all()}
+
+    # Fetch all teams
+    team_ids = [item.team_id for item in team_items]
+    teams: dict[uuid.UUID, Team] = {}
+    if team_ids:
+        team_result = await db.execute(
+            select(Team).where(Team.id.in_(team_ids))
+        )
+        teams = {t.id: t for t in team_result.scalars().all()}
+
+    # Fetch existing attendance records for this date
+    existing_result = await db.execute(
+        select(Attendance).where(Attendance.date == payload.date)
+    )
+    existing_all = existing_result.scalars().all()
+    existing_labour_map: dict[uuid.UUID, Attendance] = {
+        a.labour_id: a for a in existing_all if a.labour_id
+    }
+    existing_team_map: dict[uuid.UUID, Attendance] = {
+        a.team_id: a for a in existing_all if a.team_id
+    }
+
+    result_ids: list[uuid.UUID] = []
+
+    # Process labour items
+    for item in labour_items:
+        labour = labours.get(item.labour_id)
+        if labour is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Labour '{item.labour_id}' not found",
+            )
+        wage = _compute_wage_labour(labour, item.status, item.hours_worked)
+        existing = existing_labour_map.get(item.labour_id)
+
+        if existing:
+            existing.status = item.status
+            existing.task = item.task
+            existing.hours_worked = item.hours_worked
+            existing.work_start_time = item.work_start_time
+            existing.work_end_time = item.work_end_time
+            existing.wage_earned = wage
+            result_ids.append(existing.id)
+        else:
+            att = Attendance(
+                labour_id=item.labour_id,
+                date=payload.date,
+                status=item.status,
+                task=item.task,
+                hours_worked=item.hours_worked,
+                work_start_time=item.work_start_time,
+                work_end_time=item.work_end_time,
+                wage_earned=wage,
+            )
+            db.add(att)
+            await db.flush()
+            result_ids.append(att.id)
+
+    # Process team items
+    for item in team_items:
+        team = teams.get(item.team_id)
+        if team is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Team '{item.team_id}' not found",
+            )
+        wage = _compute_wage_team(team, item.status, item.num_labourers)
+        existing = existing_team_map.get(item.team_id)
+
+        if existing:
+            existing.status = item.status
+            existing.num_labourers = item.num_labourers
+            existing.task = item.task
+            existing.hours_worked = item.hours_worked
+            existing.work_start_time = item.work_start_time
+            existing.work_end_time = item.work_end_time
+            existing.wage_earned = wage
+            result_ids.append(existing.id)
+        else:
+            att = Attendance(
+                team_id=item.team_id,
+                date=payload.date,
+                status=item.status,
+                num_labourers=item.num_labourers,
+                task=item.task,
+                hours_worked=item.hours_worked,
+                work_start_time=item.work_start_time,
+                work_end_time=item.work_end_time,
+                wage_earned=wage,
+            )
+            db.add(att)
+            await db.flush()
+            result_ids.append(att.id)
+
+    await db.flush()
+
+    # Reload all with relationships
+    reloaded_result = await db.execute(
+        select(Attendance)
+        .options(selectinload(Attendance.labour), selectinload(Attendance.team))
+        .where(Attendance.id.in_(result_ids))
+    )
+    return [AttendanceRead.model_validate(a) for a in reloaded_result.scalars().all()]
+
+
+# ---------------------------------------------------------------------------
+# Create / Upsert single attendance
 # ---------------------------------------------------------------------------
 
 @router.post(
@@ -236,39 +393,51 @@ async def upsert_attendance(
     db: AsyncSession = Depends(get_db),
 ) -> AttendanceRead:
     """
-    Mark attendance for a labour on a date.
-    If a record already exists for (labour_id, date), it is updated instead of
-    creating a duplicate.
+    Mark attendance for a labour or team on a date.
     """
-    # Check labour exists
-    labour_result = await db.execute(
-        select(Labour).where(Labour.id == payload.labour_id)
-    )
-    labour = labour_result.scalar_one_or_none()
-    if labour is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Labour '{payload.labour_id}' not found",
+    if payload.labour_id:
+        labour_result = await db.execute(
+            select(Labour).where(Labour.id == payload.labour_id)
         )
+        labour = labour_result.scalar_one_or_none()
+        if labour is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Labour '{payload.labour_id}' not found")
 
-    # Check for existing record
-    existing_result = await db.execute(
-        select(Attendance).where(
-            Attendance.labour_id == payload.labour_id,
-            Attendance.date == payload.date,
+        existing_result = await db.execute(
+            select(Attendance).where(
+                Attendance.labour_id == payload.labour_id,
+                Attendance.date == payload.date,
+            )
         )
-    )
-    existing = existing_result.scalar_one_or_none()
+        existing = existing_result.scalar_one_or_none()
+        wage = _compute_wage_labour(labour, payload.status, payload.hours_worked)
 
-    wage = _compute_wage(labour, payload.status, payload.hours_worked)
+    elif payload.team_id:
+        team_result = await db.execute(
+            select(Team).where(Team.id == payload.team_id)
+        )
+        team = team_result.scalar_one_or_none()
+        if team is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Team '{payload.team_id}' not found")
+
+        existing_result = await db.execute(
+            select(Attendance).where(
+                Attendance.team_id == payload.team_id,
+                Attendance.date == payload.date,
+            )
+        )
+        existing = existing_result.scalar_one_or_none()
+        wage = _compute_wage_team(team, payload.status, payload.num_labourers)
+    else:
+        raise HTTPException(status_code=400, detail="Either labour_id or team_id is required")
 
     if existing:
-        # Update existing record
         existing.status = payload.status
         existing.task = payload.task
         existing.hours_worked = payload.hours_worked
         existing.work_start_time = payload.work_start_time
         existing.work_end_time = payload.work_end_time
+        existing.num_labourers = payload.num_labourers
         existing.wage_earned = wage
         await db.flush()
         await db.refresh(existing)
@@ -276,8 +445,10 @@ async def upsert_attendance(
     else:
         att = Attendance(
             labour_id=payload.labour_id,
+            team_id=payload.team_id,
             date=payload.date,
             status=payload.status,
+            num_labourers=payload.num_labourers,
             task=payload.task,
             hours_worked=payload.hours_worked,
             work_start_time=payload.work_start_time,
@@ -289,10 +460,9 @@ async def upsert_attendance(
         await db.refresh(att)
         result_obj = att
 
-    # Reload with labour relationship
     reloaded = await db.execute(
         select(Attendance)
-        .options(selectinload(Attendance.labour))
+        .options(selectinload(Attendance.labour), selectinload(Attendance.team))
         .where(Attendance.id == result_obj.id)
     )
     return AttendanceRead.model_validate(reloaded.scalar_one())
@@ -335,9 +505,14 @@ async def update_attendance(
     for field, value in update_data.items():
         setattr(att, field, value)
 
-    # Recompute wage if status changed
-    if "status" in update_data:
-        wage = _compute_wage(att.labour, att.status, att.hours_worked)
+    # Recompute wage if status or num_labourers changed
+    if "status" in update_data or "num_labourers" in update_data:
+        if att.labour_id and att.labour:
+            wage = _compute_wage_labour(att.labour, att.status, att.hours_worked)
+        elif att.team_id and att.team:
+            wage = _compute_wage_team(att.team, att.status, att.num_labourers)
+        else:
+            wage = 0.0
         att.wage_earned = wage
 
     await db.flush()
@@ -345,7 +520,7 @@ async def update_attendance(
 
     reloaded = await db.execute(
         select(Attendance)
-        .options(selectinload(Attendance.labour))
+        .options(selectinload(Attendance.labour), selectinload(Attendance.team))
         .where(Attendance.id == att.id)
     )
     return AttendanceRead.model_validate(reloaded.scalar_one())

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
@@ -15,6 +15,25 @@ interface LabourAttendanceStatus {
   task: string | null;
   hours_worked: number | null;
   wage_earned: number | null;
+}
+
+interface TeamAttendanceStatus {
+  team_id: string;
+  team_name: string;
+  daily_wage: number;
+  car_rent: number;
+  manager_fee: number;
+  attendance_id: string | null;
+  status: "present" | "absent" | null;
+  num_labourers: number | null;
+  task: string | null;
+  hours_worked: number | null;
+  wage_earned: number | null;
+}
+
+interface DailyAttendanceView {
+  labours: LabourAttendanceStatus[];
+  teams: TeamAttendanceStatus[];
 }
 
 function todayISO(): string {
@@ -39,7 +58,8 @@ const AVATAR_COLORS = [
 
 export default function DashboardPage() {
   const today = todayISO();
-  const [records, setRecords] = useState<LabourAttendanceStatus[]>([]);
+  const [labourRecords, setLabourRecords] = useState<LabourAttendanceStatus[]>([]);
+  const [teamRecords, setTeamRecords] = useState<TeamAttendanceStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,10 +67,11 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiGet<LabourAttendanceStatus[]>(
+      const data = await apiGet<DailyAttendanceView>(
         `/api/v1/attendance/daily?for_date=${today}`
       );
-      setRecords(data);
+      setLabourRecords(data.labours);
+      setTeamRecords(data.teams);
     } catch {
       setError("Failed to load data.");
     } finally {
@@ -62,11 +83,17 @@ export default function DashboardPage() {
     fetchAttendance();
   }, [fetchAttendance]);
 
-  const presentRecords = records.filter((r) => r.status === "present");
-  const markedCount = records.filter((r) => r.status !== null).length;
-  const totalWage = records.reduce((sum, r) => sum + (r.wage_earned ?? 0), 0);
-  const isComplete = records.length > 0 && markedCount === records.length;
-  const allAbsent = records.length > 0 && presentRecords.length === 0 && isComplete;
+  // Derive stats
+  const presentLabours = labourRecords.filter((r) => r.status === "present");
+  const presentTeams = teamRecords.filter((r) => r.status === "present");
+  const labourMarkedCount = labourRecords.filter((r) => r.status !== null).length;
+  const teamMarkedCount = teamRecords.filter((r) => r.status !== null).length;
+  const totalLabourWage = labourRecords.reduce((sum, r) => sum + (r.wage_earned ?? 0), 0);
+  const totalTeamWage = teamRecords.reduce((sum, r) => sum + (r.wage_earned ?? 0), 0);
+  const totalWage = totalLabourWage + totalTeamWage;
+  const totalEntities = labourRecords.length + teamRecords.length;
+  const totalMarked = labourMarkedCount + teamMarkedCount;
+  const isAttendanceCompleted = totalEntities > 0 && totalMarked === totalEntities;
 
   const dateLabel = new Date()
     .toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
@@ -92,60 +119,6 @@ export default function DashboardPage() {
         </header>
 
         <div className="px-8 pb-12 flex flex-col gap-6">
-
-          {/* Attendance completion banner */}
-          {!loading && !error && (
-            <div
-              className="flex items-center justify-between px-6 py-5 rounded-2xl"
-              style={{
-                backgroundColor: isComplete && !allAbsent
-                  ? "var(--color-primary-fixed)"
-                  : "var(--color-surface-container-low)",
-                border: `1px solid ${
-                  isComplete && !allAbsent
-                    ? "var(--color-primary-fixed-dim)"
-                    : "var(--color-outline-variant)"
-                }`,
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <span
-                  className="material-symbols-outlined mt-0.5"
-                  style={{
-                    color: isComplete && !allAbsent ? "var(--color-primary)" : "var(--color-tertiary)",
-                    fontSize: "22px",
-                  }}
-                >
-                  {isComplete && !allAbsent ? "task_alt" : "warning"}
-                </span>
-                <div>
-                  <p
-                    className="text-body-md font-semibold"
-                    style={{
-                      color: isComplete && !allAbsent ? "var(--color-primary)" : "var(--color-on-surface)",
-                    }}
-                  >
-                    {isComplete && !allAbsent
-                      ? "Today's attendance is complete"
-                      : "Today's attendance: Not completed"}
-                  </p>
-                  {!(isComplete && !allAbsent) && (
-                    <p className="text-body-md mt-0.5" style={{ color: "var(--color-on-surface-variant)" }}>
-                      Ensure accurate daily wage calculations by marking attendance before end of day.
-                    </p>
-                  )}
-                </div>
-              </div>
-              <Link
-                href="/attendance/mark"
-                id="mark-attendance-btn"
-                className="ml-6 flex-shrink-0 h-11 px-6 rounded-xl text-body-md font-semibold flex items-center gap-2 transition-opacity hover:opacity-90"
-                style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
-              >
-                Mark Today&apos;s Attendance
-              </Link>
-            </div>
-          )}
 
           {/* Today's Summary card */}
           <div
@@ -173,71 +146,89 @@ export default function DashboardPage() {
                 ? "Loading summary..."
                 : error
                 ? "Could not load summary."
-                : records.length === 0
-                ? "No active labourers found. Add labourers from the Labours page."
-                : isComplete
-                ? `${presentRecords.length} of ${records.length} labourers present today. Total labour cost: ${formatCurrency(totalWage)}.`
-                : `Attendance pending for ${records.length - markedCount} labourer${
-                    records.length - markedCount !== 1 ? "s" : ""
-                  }. Mark attendance to track costs accurately.`}
+                : totalEntities === 0
+                ? "No active labourers or teams. Add from the sidebar pages."
+                : isAttendanceCompleted
+                ? `${presentLabours.length} labourers & ${presentTeams.length} teams present today. Total cost: ${formatCurrency(totalWage)}.`
+                : `Attendance pending. Mark attendance to track costs accurately.`}
             </p>
           </div>
 
-          {/* Today's Attendance table */}
-          <div>
-            <h2 className="text-headline-md mb-4" style={{ color: "var(--color-on-surface)" }}>
-              Today&apos;s Attendance
-            </h2>
-
-            {loading && (
-              <div className="flex items-center justify-center py-16">
-                <div className="flex flex-col items-center gap-3">
-                  <div
-                    className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
-                    style={{ borderColor: "var(--color-primary)" }}
-                  />
-                  <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>Loading...</p>
-                </div>
-              </div>
-            )}
-
-            {!loading && error && (
+          {/* Attendance Action Card — always visible */}
+          {!loading && !error && totalEntities > 0 && (
+            <div
+              className="rounded-2xl px-8 py-8 flex flex-col items-center gap-4 text-center"
+              style={{
+                backgroundColor: isAttendanceCompleted
+                  ? "var(--color-surface-container-lowest)"
+                  : "var(--color-surface-container-lowest)",
+                border: isAttendanceCompleted
+                  ? "1px solid var(--color-outline-variant)"
+                  : "1.5px dashed var(--color-outline-variant)",
+              }}
+            >
               <div
-                className="py-6 px-5 rounded-xl text-center"
-                style={{ backgroundColor: "var(--color-error-container)", color: "var(--color-on-error-container)" }}
+                className="w-14 h-14 rounded-full flex items-center justify-center"
+                style={{
+                  backgroundColor: isAttendanceCompleted
+                    ? "var(--color-primary-fixed)"
+                    : "var(--color-tertiary-container)",
+                }}
               >
-                <p className="text-body-md font-semibold mb-2">Failed to load attendance</p>
-                <button
-                  onClick={fetchAttendance}
-                  className="px-5 py-2 rounded-lg text-body-md font-semibold"
-                  style={{ backgroundColor: "var(--color-on-error-container)", color: "var(--color-error-container)" }}
+                <span
+                  className="material-symbols-outlined"
+                  style={{
+                    fontSize: "28px",
+                    color: isAttendanceCompleted
+                      ? "var(--color-primary)"
+                      : "var(--color-tertiary)",
+                  }}
                 >
-                  Try Again
-                </button>
-              </div>
-            )}
-
-            {!loading && !error && records.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <span className="material-symbols-outlined" style={{ fontSize: "56px", color: "var(--color-outline)" }}>
-                  groups
+                  {isAttendanceCompleted ? "task_alt" : "pending_actions"}
                 </span>
-                <p className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>No active labourers</p>
-                <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                  Add labourers from the Labours page to start tracking.
-                </p>
-                <Link
-                  href="/labours"
-                  className="mt-2 h-10 px-5 rounded-xl text-body-md font-semibold flex items-center gap-2 transition-opacity hover:opacity-90"
-                  style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>add</span>
-                  Add Labourers
-                </Link>
               </div>
-            )}
+              <div>
+                <p className="text-body-md font-semibold mb-1" style={{ color: "var(--color-on-surface)" }}>
+                  {isAttendanceCompleted
+                    ? "Today's attendance is marked"
+                    : "Please mark today's attendance"}
+                </p>
+                <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
+                  {isAttendanceCompleted
+                    ? `${presentLabours.length + presentTeams.length} present · ${formatCurrency(totalWage)} total cost`
+                    : `${totalEntities - totalMarked} of ${totalEntities} not yet marked.`}
+                </p>
+              </div>
+              <Link
+                href="/attendance/mark"
+                id="mark-attendance-cta-btn"
+                className="mt-1 h-12 px-8 rounded-xl text-body-md font-semibold flex items-center gap-2 transition-opacity hover:opacity-90"
+                style={{
+                  backgroundColor: isAttendanceCompleted
+                    ? "var(--color-surface-container)"
+                    : "var(--color-primary)",
+                  color: isAttendanceCompleted
+                    ? "var(--color-on-surface)"
+                    : "var(--color-on-primary)",
+                  border: isAttendanceCompleted
+                    ? "1px solid var(--color-outline-variant)"
+                    : "none",
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>
+                  {isAttendanceCompleted ? "edit" : "checklist"}
+                </span>
+                {isAttendanceCompleted ? "Edit Attendance" : "Mark Today's Attendance"}
+              </Link>
+            </div>
+          )}
 
-            {!loading && !error && records.length > 0 && (
+          {/* Attendance completed — show table */}
+          {!loading && !error && isAttendanceCompleted && (
+            <>
+              <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>
+                Today&apos;s Attendance
+              </h2>
               <div
                 className="rounded-2xl overflow-hidden"
                 style={{
@@ -261,11 +252,11 @@ export default function DashboardPage() {
                   ))}
                 </div>
 
-                {records.map((record, idx) => {
+                {/* Labour rows */}
+                {labourRecords.map((record, idx) => {
                   const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length];
                   const isPresent = record.status === "present";
                   const isAbsent = record.status === "absent";
-                  const isUnmarked = record.status === null;
 
                   return (
                     <div
@@ -273,7 +264,7 @@ export default function DashboardPage() {
                       className="grid items-center px-5 py-4"
                       style={{
                         gridTemplateColumns: "1fr 1fr 1fr 80px",
-                        borderBottom: idx < records.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
+                        borderBottom: "1px solid var(--color-outline-variant)",
                         opacity: isAbsent ? 0.5 : 1,
                       }}
                     >
@@ -290,10 +281,59 @@ export default function DashboardPage() {
                           </p>
                           {isPresent && <span className="text-label-caps" style={{ color: "#2d7a4f" }}>Present</span>}
                           {isAbsent && <span className="text-label-caps" style={{ color: "var(--color-tertiary)" }}>Absent</span>}
-                          {isUnmarked && <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>Not marked</span>}
                         </div>
                       </div>
-                      <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>Individual</p>
+                      <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
+                        {isPresent ? formatCurrency(record.wage_earned ?? 0) : "—"}
+                      </p>
+                      <p className="text-body-md truncate pr-2" style={{ color: "var(--color-on-surface-variant)" }}>
+                        {record.task ?? "—"}
+                      </p>
+                      <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
+                        {record.hours_worked ? `${record.hours_worked}h` : "—"}
+                      </p>
+                    </div>
+                  );
+                })}
+
+                {/* Team rows */}
+                {teamRecords.map((record) => {
+                  const isPresent = record.status === "present";
+                  const isAbsent = record.status === "absent";
+
+                  return (
+                    <div
+                      key={record.team_id}
+                      className="grid items-center px-5 py-4"
+                      style={{
+                        gridTemplateColumns: "1fr 1fr 1fr 80px",
+                        borderBottom: "1px solid var(--color-outline-variant)",
+                        opacity: isAbsent ? 0.5 : 1,
+                        backgroundColor: isPresent ? "rgba(232,213,247,0.08)" : "transparent",
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: "#e8d5f7", color: "#3d1457" }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>groups</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-body-md font-semibold truncate" style={{ color: "var(--color-on-surface)" }}>
+                            {record.team_name}
+                          </p>
+                          {isPresent && (
+                            <span className="text-label-caps" style={{ color: "#6b21a8" }}>
+                              Team · {record.num_labourers ?? 0} people
+                            </span>
+                          )}
+                          {isAbsent && <span className="text-label-caps" style={{ color: "var(--color-tertiary)" }}>Absent</span>}
+                        </div>
+                      </div>
+                      <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
+                        {isPresent ? formatCurrency(record.wage_earned ?? 0) : "—"}
+                      </p>
                       <p className="text-body-md truncate pr-2" style={{ color: "var(--color-on-surface-variant)" }}>
                         {record.task ?? "—"}
                       </p>
@@ -304,50 +344,69 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-            )}
-          </div>
 
-          {/* Bottom stat cards */}
-          {!loading && !error && records.length > 0 && (
-            <div className="grid grid-cols-2 gap-4">
-              <div
-                className="px-6 py-5 rounded-2xl"
-                style={{
-                  backgroundColor: "var(--color-surface-container-lowest)",
-                  border: "1px solid var(--color-outline-variant)",
-                }}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="material-symbols-outlined" style={{ fontSize: "20px", color: "var(--color-on-surface-variant)" }}>
-                    payments
-                  </span>
-                  <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                    Today&apos;s Labour Cost
+              {/* Bottom stat cards */}
+              <div className="grid grid-cols-2 gap-4">
+                <div
+                  className="px-6 py-5 rounded-2xl"
+                  style={{
+                    backgroundColor: "var(--color-surface-container-lowest)",
+                    border: "1px solid var(--color-outline-variant)",
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="material-symbols-outlined" style={{ fontSize: "20px", color: "var(--color-on-surface-variant)" }}>
+                      payments
+                    </span>
+                    <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
+                      Today&apos;s Total Cost
+                    </p>
+                  </div>
+                  <p className="text-display-currency" style={{ color: "var(--color-on-surface)" }}>
+                    {formatCurrency(totalWage)}
                   </p>
                 </div>
-                <p className="text-display-currency" style={{ color: "var(--color-on-surface)" }}>
-                  {formatCurrency(totalWage)}
-                </p>
-              </div>
-              <div
-                className="px-6 py-5 rounded-2xl"
-                style={{
-                  backgroundColor: "var(--color-surface-container-lowest)",
-                  border: "1px solid var(--color-outline-variant)",
-                }}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="material-symbols-outlined" style={{ fontSize: "20px", color: "var(--color-on-surface-variant)" }}>
-                    groups
-                  </span>
-                  <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                    Workers Today
+                <div
+                  className="px-6 py-5 rounded-2xl"
+                  style={{
+                    backgroundColor: "var(--color-surface-container-lowest)",
+                    border: "1px solid var(--color-outline-variant)",
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="material-symbols-outlined" style={{ fontSize: "20px", color: "var(--color-on-surface-variant)" }}>
+                      groups
+                    </span>
+                    <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
+                      Present Today
+                    </p>
+                  </div>
+                  <p className="text-display-currency" style={{ color: "var(--color-on-surface)" }}>
+                    {presentLabours.length + presentTeams.length}
                   </p>
                 </div>
-                <p className="text-display-currency" style={{ color: "var(--color-on-surface)" }}>
-                  {presentRecords.length}
-                </p>
               </div>
+            </>
+          )}
+
+          {/* No labourers/teams at all */}
+          {!loading && !error && totalEntities === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <span className="material-symbols-outlined" style={{ fontSize: "56px", color: "var(--color-outline)" }}>
+                groups
+              </span>
+              <p className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>No active labourers or teams</p>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
+                Add labourers or teams from the sidebar to start tracking.
+              </p>
+              <Link
+                href="/labours"
+                className="mt-2 h-10 px-5 rounded-xl text-body-md font-semibold flex items-center gap-2 transition-opacity hover:opacity-90"
+                style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>add</span>
+                Add Labourers
+              </Link>
             </div>
           )}
         </div>
