@@ -1,0 +1,15 @@
+# Personal notes & guides
+Prompting Guide.txt
+*Prompting*
+*.guide.txt
+notes.txt
+TODO.txt
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS Files
+.DS_Store
+Thumbs.db
