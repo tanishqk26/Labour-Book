@@ -6,6 +6,7 @@ import { apiGet, apiDelete } from "@/lib/api";
 import { TeamSummary, PaginatedResponse } from "@/types";
 import { getInitials } from "@/lib/utils";
 import TeamModal from "@/components/TeamModal";
+import { formatCurrency } from "@/lib/utils";
 
 const PAGE_TITLE = "Teams | LabourBook";
 const PAGE_SIZE = 20;
@@ -66,9 +67,9 @@ export default function TeamsPage() {
       />
 
       {/* Page Header */}
-      <header className="px-[var(--spacing-container-margin)] py-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <header className="px-4 md:px-[var(--spacing-container-margin)] py-8 md:py-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-headline-lg" style={{ color: "var(--color-primary)" }}>
+          <h1 className="text-headline-lg" style={{ color: "var(--color-primary)", fontSize: "clamp(24px, 5vw, 32px)" }}>
             Teams
           </h1>
           <p className="text-body-lg mt-1" style={{ color: "var(--color-on-surface-variant)" }}>
@@ -90,7 +91,7 @@ export default function TeamsPage() {
       </header>
 
       {/* Content */}
-      <div className="px-[var(--spacing-container-margin)] pb-12 flex-1 flex flex-col">
+      <div className="px-4 md:px-[var(--spacing-container-margin)] pb-12 flex-1 flex flex-col">
         {/* Search toolbar */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <div className="relative flex-1 max-w-md">
@@ -240,22 +241,71 @@ export default function TeamsPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Team Card (inline — small, not worth a separate file)
+// Team Card (inline)
 // ---------------------------------------------------------------------------
 
 function TeamCard({ team, onUpdate }: { team: TeamSummary; onUpdate: () => void }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
+
+  async function handleDeactivate() {
+    setDeactivating(true);
+    try {
+      await apiDelete(`/api/v1/teams/${team.id}`);
+      onUpdate();
+    } catch {
+      setDeactivating(false);
+      setConfirmDelete(false);
+    }
+  }
+
   return (
     <div
-      className="p-6 rounded-xl transition-shadow hover:shadow-md"
+      className="p-5 rounded-xl transition-shadow hover:shadow-md relative"
       style={{
         backgroundColor: "var(--color-surface-container-lowest)",
         border: "1px solid var(--color-outline-variant)",
       }}
     >
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-4">
+      {/* Confirm delete overlay */}
+      {confirmDelete && (
         <div
-          className="w-16 h-16 rounded-full flex items-center justify-center text-headline-md font-bold flex-shrink-0"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl p-5 text-center"
+          style={{ backgroundColor: "var(--color-error-container)" }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: "36px", color: "var(--color-error)" }}>
+            group_off
+          </span>
+          <p className="text-body-md font-semibold" style={{ color: "var(--color-on-error-container)" }}>
+            Deactivate {team.name}?
+          </p>
+          <p className="text-label-caps" style={{ color: "var(--color-on-error-container)", opacity: 0.8 }}>
+            Attendance history will be preserved.
+          </p>
+          <div className="flex gap-2 w-full">
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="flex-1 h-9 rounded-lg text-body-md font-semibold"
+              style={{ border: "1px solid var(--color-on-error-container)", color: "var(--color-on-error-container)" }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeactivate}
+              disabled={deactivating}
+              className="flex-1 h-9 rounded-lg text-body-md font-semibold transition-opacity disabled:opacity-50"
+              style={{ backgroundColor: "var(--color-error)", color: "var(--color-on-error)" }}
+            >
+              {deactivating ? "Deactivating…" : "Deactivate"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-4">
+        <div
+          className="w-14 h-14 rounded-full flex items-center justify-center text-headline-md font-bold flex-shrink-0"
           style={{
             backgroundColor: "var(--color-primary-fixed)",
             color: "var(--color-primary)",
@@ -273,34 +323,38 @@ function TeamCard({ team, onUpdate }: { team: TeamSummary; onUpdate: () => void 
             </p>
           )}
         </div>
-        <span
-          className="inline-flex items-center px-2.5 py-1 rounded-full text-label-caps flex-shrink-0"
+        {/* Deactivate corner button */}
+        <button
+          onClick={() => setConfirmDelete(true)}
+          className="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity flex-shrink-0"
           style={{
-            backgroundColor:
-              team.status === "active"
-                ? "var(--color-primary-fixed)"
-                : "var(--color-surface-variant)",
-            color:
-              team.status === "active"
-                ? "var(--color-on-primary-fixed-variant)"
-                : "var(--color-on-surface-variant)",
+            border: "1px solid var(--color-outline-variant)",
+            color: "var(--color-on-surface-variant)",
           }}
+          title="Deactivate team"
+          aria-label="Deactivate team"
         >
-          {team.status === "active" ? "Active" : "Inactive"}
-        </span>
+          <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>group_off</span>
+        </button>
       </div>
 
       {/* Stats */}
       <div
-        className="py-4"
+        className="py-4 grid grid-cols-2 gap-3"
         style={{ borderTop: "1px solid var(--color-outline-variant)" }}
       >
-        <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>
-          Members
-        </p>
-        <p className="text-body-md font-medium" style={{ color: "var(--color-on-surface)" }}>
-          {team.member_count} {team.member_count === 1 ? "labourer" : "labourers"}
-        </p>
+        <div>
+          <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Members</p>
+          <p className="text-body-md font-medium" style={{ color: "var(--color-on-surface)" }}>
+            {team.member_count} {team.member_count === 1 ? "labourer" : "labourers"}
+          </p>
+        </div>
+        <div>
+          <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Daily Rate</p>
+          <p className="text-body-md font-medium" style={{ color: "var(--color-on-surface)" }}>
+            {formatCurrency(team.daily_wage)}/person
+          </p>
+        </div>
       </div>
 
       {/* Action */}

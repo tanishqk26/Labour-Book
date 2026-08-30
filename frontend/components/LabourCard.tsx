@@ -1,36 +1,85 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { Labour } from "@/types";
 import { formatCurrency, getInitials } from "@/lib/utils";
+import { apiDelete } from "@/lib/api";
 
 interface LabourCardProps {
   labour: Labour;
+  onDeactivated?: () => void;
 }
 
-export default function LabourCard({ labour }: LabourCardProps) {
-  const timing =
-    labour.work_start_time && labour.work_end_time
-      ? `${labour.work_start_time.slice(0, 5).replace(":", "h")}–${labour.work_end_time.slice(0, 5).replace(":", "h")}`
-      : "—";
+export default function LabourCard({ labour, onDeactivated }: LabourCardProps) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
 
   const timingDisplay =
     labour.work_start_time && labour.work_end_time
       ? `${parseInt(labour.work_start_time)}–${parseInt(labour.work_end_time)}`
       : "—";
 
+  async function handleDeactivate() {
+    setDeactivating(true);
+    try {
+      await apiDelete(`/api/v1/labours/${labour.id}`);
+      onDeactivated?.();
+    } catch {
+      setDeactivating(false);
+      setConfirmDelete(false);
+    }
+  }
+
   return (
     <div
-      className="p-6 rounded-xl transition-shadow hover:shadow-md cursor-pointer"
+      className="p-5 rounded-xl card-hover relative"
       style={{
         backgroundColor: "var(--color-surface-container-lowest)",
         border: "1px solid var(--color-outline-variant)",
       }}
     >
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-4">
+      {/* Confirm delete overlay */}
+      {confirmDelete && (
         <div
-          className="w-16 h-16 rounded-full flex items-center justify-center text-headline-md font-bold flex-shrink-0"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl p-5 text-center"
+          style={{
+            backgroundColor: "var(--color-error-container)",
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: "36px", color: "var(--color-error)" }}>
+            person_off
+          </span>
+          <p className="text-body-md font-semibold" style={{ color: "var(--color-on-error-container)" }}>
+            Deactivate {labour.name}?
+          </p>
+          <p className="text-label-caps" style={{ color: "var(--color-on-error-container)", opacity: 0.8 }}>
+            Attendance history will be preserved.
+          </p>
+          <div className="flex gap-2 w-full">
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="flex-1 h-9 rounded-lg text-body-md font-semibold"
+              style={{ border: "1px solid var(--color-on-error-container)", color: "var(--color-on-error-container)" }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDeactivate}
+              disabled={deactivating}
+              className="flex-1 h-9 rounded-lg text-body-md font-semibold transition-opacity disabled:opacity-50"
+              style={{ backgroundColor: "var(--color-error)", color: "var(--color-on-error)" }}
+            >
+              {deactivating ? "Deactivating…" : "Deactivate"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-4">
+        <div
+          className="w-14 h-14 rounded-full flex items-center justify-center text-headline-md font-bold flex-shrink-0 avatar-hover"
           style={{
             backgroundColor: "var(--color-primary-fixed)",
             color: "var(--color-primary)",
@@ -52,21 +101,21 @@ export default function LabourCard({ labour }: LabourCardProps) {
             {labour.hometown || "—"}
           </p>
         </div>
-        <span
-          className="inline-flex items-center px-2.5 py-1 rounded-full text-label-caps flex-shrink-0"
+        {/* Deactivate button in corner */}
+        <button
+          onClick={() => setConfirmDelete(true)}
+          className="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity flex-shrink-0"
           style={{
-            backgroundColor:
-              labour.status === "active"
-                ? "var(--color-primary-fixed)"
-                : "var(--color-surface-variant)",
-            color:
-              labour.status === "active"
-                ? "var(--color-on-primary-fixed-variant)"
-                : "var(--color-on-surface-variant)",
+            border: "1px solid var(--color-outline-variant)",
+            color: "var(--color-on-surface-variant)",
           }}
+          title="Deactivate labour"
+          aria-label="Deactivate labour"
         >
-          {labour.status === "active" ? "Active" : "Inactive"}
-        </span>
+          <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>
+            person_off
+          </span>
+        </button>
       </div>
 
       {/* Stats */}

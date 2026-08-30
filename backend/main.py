@@ -8,6 +8,7 @@ from app.routers.health import router as health_router
 from app.routers.labours import router as labours_router
 from app.routers.attendance import router as attendance_router
 from app.routers.teams import router as teams_router
+from app.routers.contracts import router as contracts_router
 
 
 # ---------------------------------------------------------------------------
@@ -55,6 +56,7 @@ app.include_router(health_router)
 app.include_router(labours_router)
 app.include_router(attendance_router)
 app.include_router(teams_router)
+app.include_router(contracts_router)
 
 
 # ---------------------------------------------------------------------------

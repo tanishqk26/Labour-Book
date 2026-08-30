@@ -179,3 +179,20 @@ async def deactivate_labour(
     labour = await _get_labour_or_404(db, labour_id)
     labour.is_active = False
     await db.flush()
+
+
+@router.delete(
+    "/{labour_id}/hard",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Permanently delete a labour and all their records",
+)
+async def hard_delete_labour(
+    labour_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """
+    Permanently delete a labour. Attendance records are deleted via CASCADE.
+    """
+    labour = await _get_labour_or_404(db, labour_id)
+    await db.delete(labour)
+    await db.flush()

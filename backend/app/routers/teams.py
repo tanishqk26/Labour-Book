@@ -219,6 +219,23 @@ async def deactivate_team(
     await db.flush()
 
 
+@router.delete(
+    "/{team_id}/hard",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Permanently delete a team and all their records",
+)
+async def hard_delete_team(
+    team_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """
+    Permanently delete a team. Attendance records are deleted via CASCADE.
+    """
+    team = await _get_team_or_404(db, team_id)
+    await db.delete(team)
+    await db.flush()
+
+
 @router.post(
     "/{team_id}/members",
     response_model=TeamRead,

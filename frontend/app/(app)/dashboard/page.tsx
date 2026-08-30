@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
@@ -105,11 +105,11 @@ export default function DashboardPage() {
 
       <div className="flex flex-col min-h-screen" style={{ backgroundColor: "var(--color-background)" }}>
         {/* Page Header */}
-        <header className="px-8 pt-10 pb-6">
+        <header className="px-4 md:px-8 pt-8 md:pt-10 pb-6">
           <p className="text-label-caps mb-3" style={{ color: "var(--color-on-surface-variant)" }}>
             {dateLabel}
           </p>
-          <h1 className="text-headline-lg" style={{ color: "var(--color-on-surface)" }}>
+          <h1 className="text-headline-lg" style={{ color: "var(--color-on-surface)", fontSize: "clamp(24px, 5vw, 32px)" }}>
             {getGreeting()},{" "}
             <span style={{ color: "var(--color-primary)" }}>Farm Manager</span>
           </h1>
@@ -118,7 +118,7 @@ export default function DashboardPage() {
           </p>
         </header>
 
-        <div className="px-8 pb-12 flex flex-col gap-6">
+        <div className="px-4 md:px-8 pb-12 flex flex-col gap-6">
 
           {/* Today's Summary card */}
           <div
@@ -171,8 +171,8 @@ export default function DashboardPage() {
                 className="w-14 h-14 rounded-full flex items-center justify-center"
                 style={{
                   backgroundColor: isAttendanceCompleted
-                    ? "var(--color-primary-fixed)"
-                    : "var(--color-tertiary-container)",
+                    ? "#c1ecd4"
+                    : "var(--color-surface-container-high)",
                 }}
               >
                 <span
@@ -180,8 +180,8 @@ export default function DashboardPage() {
                   style={{
                     fontSize: "28px",
                     color: isAttendanceCompleted
-                      ? "var(--color-primary)"
-                      : "var(--color-tertiary)",
+                      ? "#2d7a4f"
+                      : "var(--color-on-surface-variant)",
                   }}
                 >
                   {isAttendanceCompleted ? "task_alt" : "pending_actions"}
@@ -193,11 +193,7 @@ export default function DashboardPage() {
                     ? "Today's attendance is marked"
                     : "Please mark today's attendance"}
                 </p>
-                <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                  {isAttendanceCompleted
-                    ? `${presentLabours.length + presentTeams.length} present · ${formatCurrency(totalWage)} total cost`
-                    : `${totalEntities - totalMarked} of ${totalEntities} not yet marked.`}
-                </p>
+                    
               </div>
               <Link
                 href="/attendance/mark"
@@ -223,8 +219,8 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Attendance completed — show table */}
-          {!loading && !error && isAttendanceCompleted && (
+          {/* Attendance completed — show present table */}
+          {!loading && !error && isAttendanceCompleted && (presentLabours.length + presentTeams.length) > 0 && (
             <>
               <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>
                 Today&apos;s Attendance
@@ -236,41 +232,42 @@ export default function DashboardPage() {
                   backgroundColor: "var(--color-surface-container-lowest)",
                 }}
               >
+                {/* Scrollable table wrapper */}
+                <div style={{ overflowX: "auto" }}>
                 {/* Header row */}
                 <div
                   className="grid px-5 py-3"
                   style={{
-                    gridTemplateColumns: "1fr 1fr 1fr 80px",
+                    gridTemplateColumns: "minmax(120px,1fr) minmax(80px,1fr) minmax(100px,1fr) 70px",
                     borderBottom: "1px solid var(--color-outline-variant)",
                     backgroundColor: "var(--color-surface-container-low)",
+                    minWidth: "380px",
                   }}
                 >
-                  {["Name", "Detail", "Task", "Time"].map((h) => (
+                  {["Name", "Earned", "Task", "Time"].map((h) => (
                     <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
                       {h}
                     </p>
                   ))}
                 </div>
 
-                {/* Labour rows */}
-                {labourRecords.map((record, idx) => {
+                {/* Labour rows — present only */}
+                {presentLabours.map((record, idx) => {
                   const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length];
-                  const isPresent = record.status === "present";
-                  const isAbsent = record.status === "absent";
 
                   return (
                     <div
                       key={record.labour_id}
                       className="grid items-center px-5 py-4"
                       style={{
-                        gridTemplateColumns: "1fr 1fr 1fr 80px",
+                        gridTemplateColumns: "minmax(120px,1fr) minmax(80px,1fr) minmax(100px,1fr) 70px",
                         borderBottom: "1px solid var(--color-outline-variant)",
-                        opacity: isAbsent ? 0.5 : 1,
+                        minWidth: "380px",
                       }}
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-label-caps flex-shrink-0"
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-label-caps flex-shrink-0"
                           style={{ backgroundColor: avatarColor.bg, color: avatarColor.color }}
                         >
                           {getInitials(record.labour_name)}
@@ -279,12 +276,11 @@ export default function DashboardPage() {
                           <p className="text-body-md font-semibold truncate" style={{ color: "var(--color-on-surface)" }}>
                             {record.labour_name}
                           </p>
-                          {isPresent && <span className="text-label-caps" style={{ color: "#2d7a4f" }}>Present</span>}
-                          {isAbsent && <span className="text-label-caps" style={{ color: "var(--color-tertiary)" }}>Absent</span>}
+                          <span className="text-label-caps" style={{ color: "#2d7a4f" }}>Present</span>
                         </div>
                       </div>
                       <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                        {isPresent ? formatCurrency(record.wage_earned ?? 0) : "—"}
+                        {formatCurrency(record.wage_earned ?? 0)}
                       </p>
                       <p className="text-body-md truncate pr-2" style={{ color: "var(--color-on-surface-variant)" }}>
                         {record.task ?? "—"}
@@ -296,53 +292,47 @@ export default function DashboardPage() {
                   );
                 })}
 
-                {/* Team rows */}
-                {teamRecords.map((record) => {
-                  const isPresent = record.status === "present";
-                  const isAbsent = record.status === "absent";
-
-                  return (
-                    <div
-                      key={record.team_id}
-                      className="grid items-center px-5 py-4"
-                      style={{
-                        gridTemplateColumns: "1fr 1fr 1fr 80px",
-                        borderBottom: "1px solid var(--color-outline-variant)",
-                        opacity: isAbsent ? 0.5 : 1,
-                        backgroundColor: isPresent ? "rgba(232,213,247,0.08)" : "transparent",
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: "#e8d5f7", color: "#3d1457" }}
-                        >
-                          <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>groups</span>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-body-md font-semibold truncate" style={{ color: "var(--color-on-surface)" }}>
-                            {record.team_name}
-                          </p>
-                          {isPresent && (
-                            <span className="text-label-caps" style={{ color: "#6b21a8" }}>
-                              Team · {record.num_labourers ?? 0} people
-                            </span>
-                          )}
-                          {isAbsent && <span className="text-label-caps" style={{ color: "var(--color-tertiary)" }}>Absent</span>}
-                        </div>
+                {/* Team rows — present only */}
+                {presentTeams.map((record) => (
+                  <div
+                    key={record.team_id}
+                    className="grid items-center px-5 py-4"
+                    style={{
+                      gridTemplateColumns: "minmax(120px,1fr) minmax(80px,1fr) minmax(100px,1fr) 70px",
+                      borderBottom: "1px solid var(--color-outline-variant)",
+                      backgroundColor: "rgba(232,213,247,0.08)",
+                      minWidth: "380px",
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: "#e8d5f7", color: "#3d1457" }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>groups</span>
                       </div>
-                      <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                        {isPresent ? formatCurrency(record.wage_earned ?? 0) : "—"}
-                      </p>
-                      <p className="text-body-md truncate pr-2" style={{ color: "var(--color-on-surface-variant)" }}>
-                        {record.task ?? "—"}
-                      </p>
-                      <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                        {record.hours_worked ? `${record.hours_worked}h` : "—"}
-                      </p>
+                      <div className="min-w-0">
+                        <p className="text-body-md font-semibold truncate" style={{ color: "var(--color-on-surface)" }}>
+                          {record.team_name}
+                        </p>
+                        <span className="text-label-caps" style={{ color: "#6b21a8" }}>
+                          Team · {record.num_labourers ?? 0} people
+                        </span>
+                      </div>
                     </div>
-                  );
-                })}
+                    <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
+                      {formatCurrency(record.wage_earned ?? 0)}
+                    </p>
+                    <p className="text-body-md truncate pr-2" style={{ color: "var(--color-on-surface-variant)" }}>
+                      {record.task ?? "—"}
+                    </p>
+                    <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
+                      {record.hours_worked ? `${record.hours_worked}h` : "—"}
+                    </p>
+                  </div>
+                ))}
+
+              </div> {/* end scrollable */}
               </div>
 
               {/* Bottom stat cards */}

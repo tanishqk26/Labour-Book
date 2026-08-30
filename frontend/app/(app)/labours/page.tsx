@@ -72,7 +72,7 @@ export default function LaboursPage() {
 
       {/* Page Header */}
       <header
-        className="px-[var(--spacing-container-margin)] py-10 flex flex-col md:flex-row md:items-end justify-between gap-6"
+        className="px-4 md:px-[var(--spacing-container-margin)] py-8 md:py-10 flex flex-col md:flex-row md:items-end justify-between gap-4"
       >
         <div>
           <h1 className="text-headline-lg" style={{ color: "var(--color-primary)" }}>
@@ -97,7 +97,7 @@ export default function LaboursPage() {
       </header>
 
       {/* Content */}
-      <div className="px-[var(--spacing-container-margin)] pb-12 flex-1 flex flex-col">
+      <div className="px-4 md:px-[var(--spacing-container-margin)] pb-12 flex-1 flex flex-col">
         {/* Search & Filter toolbar */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <div className="relative flex-1 max-w-md">
@@ -201,7 +201,7 @@ export default function LaboursPage() {
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {labours.map((labour) => (
-                <LabourCard key={labour.id} labour={labour} />
+                <LabourCard key={labour.id} labour={labour} onDeactivated={fetchLabours} />
               ))}
             </div>
 

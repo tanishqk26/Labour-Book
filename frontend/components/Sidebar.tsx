@@ -13,6 +13,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
   { href: "/labours", label: "Labours", icon: "groups" },
   { href: "/teams", label: "Teams", icon: "group_work" },
+  { href: "/attendance", label: "Attendance", icon: "checklist" },
   { href: "/contracts", label: "Contracts", icon: "description" },
   { href: "/payments", label: "Payments", icon: "payments" },
   { href: "/statements", label: "Statements", icon: "receipt_long" },
@@ -38,7 +39,7 @@ export default function Sidebar() {
       {/* Brand */}
       <div className="flex items-center gap-3 px-4 mb-10">
         <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center"
+          className="w-9 h-9 rounded-xl flex items-center justify-center hover-grow"
           style={{ backgroundColor: "var(--color-primary)" }}
         >
           <span
@@ -72,7 +73,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all"
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl sidebar-item-hover"
               style={{
                 color: isActive
                   ? "var(--color-primary)"
@@ -102,7 +103,7 @@ export default function Sidebar() {
       >
         <Link
           href="/settings"
-          className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors"
+          className="flex items-center gap-3 px-4 py-2.5 rounded-xl sidebar-item-hover"
           style={{ color: "var(--color-on-surface-variant)" }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>
@@ -112,7 +113,7 @@ export default function Sidebar() {
         </Link>
         <Link
           href="/support"
-          className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors"
+          className="flex items-center gap-3 px-4 py-2.5 rounded-xl sidebar-item-hover"
           style={{ color: "var(--color-on-surface-variant)" }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>

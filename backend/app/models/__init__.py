@@ -9,5 +9,6 @@ from app.database import Base  # noqa: F401 — re-exported for Alembic
 from app.models.labour import Labour  # noqa: F401
 from app.models.attendance import Attendance  # noqa: F401
 from app.models.team import Team  # noqa: F401
+from app.models.contract import Contract  # noqa: F401
 
-__all__ = ["Base", "Labour", "Attendance", "Team"]
+__all__ = ["Base", "Labour", "Attendance", "Team", "Contract"]

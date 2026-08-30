@@ -469,6 +469,91 @@ async def upsert_attendance(
 
 
 # ---------------------------------------------------------------------------
+# History endpoints — must be BEFORE /{attendance_id} to avoid UUID clash
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/history",
+    response_model=dict,
+    summary="Paginated attendance history with filters",
+)
+async def get_attendance_history(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(30, ge=1, le=100),
+    entity_type: Optional[str] = Query(None, description="labour | team"),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Returns paginated attendance records, optionally filtered by entity type."""
+    from sqlalchemy import func as sqlfunc
+    query = (
+        select(Attendance)
+        .options(selectinload(Attendance.labour), selectinload(Attendance.team))
+    )
+    if entity_type == "labour":
+        query = query.where(Attendance.labour_id.isnot(None))
+    elif entity_type == "team":
+        query = query.where(Attendance.team_id.isnot(None))
+
+    count_q = select(sqlfunc.count()).select_from(query.subquery())
+    total = (await db.execute(count_q)).scalar_one()
+
+    offset = (page - 1) * page_size
+    query = query.order_by(Attendance.date.desc(), Attendance.created_at.desc()).offset(offset).limit(page_size)
+    result = await db.execute(query)
+    records = [AttendanceRead.model_validate(r) for r in result.scalars().all()]
+
+    return {
+        "items": [r.model_dump() for r in records],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "has_more": (offset + len(records)) < total,
+    }
+
+
+@router.get(
+    "/labour/{labour_id}/history",
+    response_model=list[AttendanceRead],
+    summary="Get attendance history for a specific labour",
+)
+async def get_labour_attendance_history(
+    labour_id: uuid.UUID,
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+) -> list[AttendanceRead]:
+    """Returns all attendance records for a specific labourer, newest first."""
+    result = await db.execute(
+        select(Attendance)
+        .options(selectinload(Attendance.labour), selectinload(Attendance.team))
+        .where(Attendance.labour_id == labour_id)
+        .order_by(Attendance.date.desc())
+        .limit(limit)
+    )
+    return [AttendanceRead.model_validate(r) for r in result.scalars().all()]
+
+
+@router.get(
+    "/team/{team_id}/history",
+    response_model=list[AttendanceRead],
+    summary="Get attendance history for a specific team",
+)
+async def get_team_attendance_history(
+    team_id: uuid.UUID,
+    limit: int = Query(50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+) -> list[AttendanceRead]:
+    """Returns all attendance records for a specific team, newest first."""
+    result = await db.execute(
+        select(Attendance)
+        .options(selectinload(Attendance.labour), selectinload(Attendance.team))
+        .where(Attendance.team_id == team_id)
+        .order_by(Attendance.date.desc())
+        .limit(limit)
+    )
+    return [AttendanceRead.model_validate(r) for r in result.scalars().all()]
+
+
+# ---------------------------------------------------------------------------
 # Get single attendance record
 # ---------------------------------------------------------------------------
 
@@ -524,3 +609,4 @@ async def update_attendance(
         .where(Attendance.id == att.id)
     )
     return AttendanceRead.model_validate(reloaded.scalar_one())
+

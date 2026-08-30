@@ -161,7 +161,7 @@ function QuickCreateLabour({ defaultName, onCreated, onCancel }: QuickCreateLabo
   return (
     <form
       onSubmit={handleCreate}
-      className="mx-4 my-3 p-4 rounded-xl flex flex-col gap-3"
+      className="mx-3 my-3 p-4 rounded-xl flex flex-col gap-3"
       style={{
         backgroundColor: "var(--color-primary-fixed)",
         border: "1px solid var(--color-primary-fixed-dim)",
@@ -173,34 +173,42 @@ function QuickCreateLabour({ defaultName, onCreated, onCancel }: QuickCreateLabo
       {error && (
         <p className="text-label-caps" style={{ color: "var(--color-error)" }}>{error}</p>
       )}
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Name *"
-        autoFocus
-        className="h-10 px-3 rounded-lg text-body-md"
-        style={{
-          border: "1px solid var(--color-outline-variant)",
-          backgroundColor: "var(--color-surface)",
-          color: "var(--color-on-surface)",
-          outline: "none",
-        }}
-      />
-      <input
-        type="number"
-        value={wage}
-        onChange={(e) => setWage(e.target.value)}
-        placeholder="Daily wage (₹) *"
-        min={1}
-        className="h-10 px-3 rounded-lg text-body-md"
-        style={{
-          border: "1px solid var(--color-outline-variant)",
-          backgroundColor: "var(--color-surface)",
-          color: "var(--color-on-surface)",
-          outline: "none",
-        }}
-      />
+      <div className="flex flex-col gap-1">
+        <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Full Name *</label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Ramesh Shinde"
+          autoFocus
+          className="h-10 px-3 rounded-lg text-body-md w-full"
+          style={{
+            border: "1px solid var(--color-outline-variant)",
+            backgroundColor: "var(--color-surface)",
+            color: "var(--color-on-surface)",
+            outline: "none",
+            boxSizing: "border-box",
+          }}
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Daily Wage (₹/day) *</label>
+        <input
+          type="number"
+          value={wage}
+          onChange={(e) => setWage(e.target.value)}
+          placeholder="e.g. 500"
+          min={1}
+          className="h-10 px-3 rounded-lg text-body-md w-full"
+          style={{
+            border: "1px solid var(--color-outline-variant)",
+            backgroundColor: "var(--color-surface)",
+            color: "var(--color-on-surface)",
+            outline: "none",
+            boxSizing: "border-box",
+          }}
+        />
+      </div>
       <div className="flex gap-2">
         <button
           type="button"
@@ -272,7 +280,7 @@ function QuickCreateTeam({ defaultName, onCreated, onCancel }: QuickCreateTeamPr
   return (
     <form
       onSubmit={handleCreate}
-      className="mx-4 my-3 p-4 rounded-xl flex flex-col gap-3"
+      className="mx-3 my-3 p-4 rounded-xl flex flex-col gap-3"
       style={{
         backgroundColor: "#f3e8ff",
         border: "1px solid #d8b4fe",
@@ -284,61 +292,75 @@ function QuickCreateTeam({ defaultName, onCreated, onCancel }: QuickCreateTeamPr
       {error && (
         <p className="text-label-caps" style={{ color: "var(--color-error)" }}>{error}</p>
       )}
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Team name *"
-        autoFocus
-        className="h-10 px-3 rounded-lg text-body-md"
-        style={{
-          border: "1px solid var(--color-outline-variant)",
-          backgroundColor: "var(--color-surface)",
-          color: "var(--color-on-surface)",
-          outline: "none",
-        }}
-      />
-      <input
-        type="number"
-        value={wage}
-        onChange={(e) => setWage(e.target.value)}
-        placeholder="Daily wage per labour (₹) *"
-        min={1}
-        className="h-10 px-3 rounded-lg text-body-md"
-        style={{
-          border: "1px solid var(--color-outline-variant)",
-          backgroundColor: "var(--color-surface)",
-          color: "var(--color-on-surface)",
-          outline: "none",
-        }}
-      />
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-1">
+        <label className="text-label-caps" style={{ color: "#6b21a8" }}>Team Name *</label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Shinde Team"
+          autoFocus
+          className="h-10 px-3 rounded-lg text-body-md w-full"
+          style={{
+            border: "1px solid var(--color-outline-variant)",
+            backgroundColor: "var(--color-surface)",
+            color: "var(--color-on-surface)",
+            outline: "none",
+            boxSizing: "border-box",
+          }}
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-label-caps" style={{ color: "#6b21a8" }}>Wage per Labour (₹/day) *</label>
+        <input
+          type="number"
+          value={wage}
+          onChange={(e) => setWage(e.target.value)}
+          placeholder="e.g. 400"
+          min={1}
+          className="h-10 px-3 rounded-lg text-body-md w-full"
+          style={{
+            border: "1px solid var(--color-outline-variant)",
+            backgroundColor: "var(--color-surface)",
+            color: "var(--color-on-surface)",
+            outline: "none",
+            boxSizing: "border-box",
+          }}
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-label-caps" style={{ color: "#6b21a8" }}>Car Rent (₹/day)</label>
         <input
           type="number"
           value={carRent}
           onChange={(e) => setCarRent(e.target.value)}
-          placeholder="Car rent (₹)"
+          placeholder="0"
           min={0}
-          className="h-10 px-3 rounded-lg text-body-md flex-1"
+          className="h-10 px-3 rounded-lg text-body-md w-full"
           style={{
             border: "1px solid var(--color-outline-variant)",
             backgroundColor: "var(--color-surface)",
             color: "var(--color-on-surface)",
             outline: "none",
+            boxSizing: "border-box",
           }}
         />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-label-caps" style={{ color: "#6b21a8" }}>Manager Fee (₹/day)</label>
         <input
           type="number"
           value={managerFee}
           onChange={(e) => setManagerFee(e.target.value)}
-          placeholder="Manager fee (₹)"
+          placeholder="0"
           min={0}
-          className="h-10 px-3 rounded-lg text-body-md flex-1"
+          className="h-10 px-3 rounded-lg text-body-md w-full"
           style={{
             border: "1px solid var(--color-outline-variant)",
             backgroundColor: "var(--color-surface)",
             color: "var(--color-on-surface)",
             outline: "none",
+            boxSizing: "border-box",
           }}
         />
       </div>
@@ -446,23 +468,25 @@ function AddPanel({
             </button>
           </div>
 
-          {/* Search */}
-          <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--color-outline-variant)" }}>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search labourer or team..."
-              autoFocus
-              className="w-full h-10 px-3 rounded-lg text-body-md"
-              style={{
-                border: "1px solid var(--color-outline-variant)",
-                backgroundColor: "var(--color-surface-container-lowest)",
-                color: "var(--color-on-surface)",
-                outline: "none",
-              }}
-            />
-          </div>
+          {/* Search — hidden when a create form is active */}
+          {!showingCreate && (
+            <div className="px-6 py-4" style={{ borderBottom: "1px solid var(--color-outline-variant)" }}>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search labourer or team..."
+                autoFocus
+                className="w-full h-10 px-3 rounded-lg text-body-md"
+                style={{
+                  border: "1px solid var(--color-outline-variant)",
+                  backgroundColor: "var(--color-surface-container-lowest)",
+                  color: "var(--color-on-surface)",
+                  outline: "none",
+                }}
+              />
+            </div>
+          )}
 
           {/* List */}
           <div className="flex-1 overflow-y-auto">
@@ -859,7 +883,7 @@ export default function MarkAttendancePage() {
       <div className="flex flex-col min-h-screen" style={{ backgroundColor: "var(--color-background)" }}>
         {/* Header */}
         <header
-          className="px-8 py-6 flex items-center gap-4"
+          className="px-4 md:px-8 py-4 md:py-6 flex items-center gap-3"
           style={{ borderBottom: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)" }}
         >
           <button
@@ -871,29 +895,29 @@ export default function MarkAttendancePage() {
             <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>arrow_back</span>
           </button>
           <div className="flex-1 min-w-0">
-            <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
+            <p className="text-label-caps hidden sm:block" style={{ color: "var(--color-on-surface-variant)" }}>
               {dateLabel.toUpperCase()}
             </p>
-            <h1 className="text-headline-md" style={{ color: "var(--color-primary)" }}>
+            <h1 className="text-body-lg md:text-headline-md font-semibold" style={{ color: "var(--color-primary)" }}>
               Mark Today&apos;s Attendance
             </h1>
           </div>
           {/* Summary pill */}
           {!loading && checklist.length > 0 && (
-            <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="flex items-center gap-3 flex-shrink-0">
               <div className="text-center">
                 <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Present</p>
-                <p className="text-headline-md font-bold" style={{ color: "#2d7a4f" }}>{presentLabourCount + presentTeamCount}</p>
+                <p className="text-body-md md:text-headline-md font-bold" style={{ color: "#2d7a4f" }}>{presentLabourCount + presentTeamCount}</p>
               </div>
-              <div className="text-center">
+              <div className="text-center hidden sm:block">
                 <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Cost</p>
-                <p className="text-headline-md font-bold" style={{ color: "var(--color-primary)" }}>{formatCurrency(totalWage)}</p>
+                <p className="text-body-md md:text-headline-md font-bold" style={{ color: "var(--color-primary)" }}>{formatCurrency(totalWage)}</p>
               </div>
             </div>
           )}
         </header>
 
-        <div className="px-8 py-6 flex flex-col gap-4 max-w-2xl">
+        <div className="px-4 md:px-8 py-6 flex flex-col gap-4">
 
           {/* Hint */}
           {!loading && !error && checklist.length > 0 && (
@@ -908,7 +932,7 @@ export default function MarkAttendancePage() {
                 info
               </span>
               <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                Tap a name to mark <strong>present</strong> or <strong>absent</strong>. For teams, enter the number of labourers. Save when done.
+                Tap the <strong>circle</strong> to mark present/absent. Use <span style={{ color: "var(--color-error)" }}>✕ Remove</span> to remove someone from today&apos;s list. For teams, enter number of workers when present.
               </p>
             </div>
           )}
@@ -1047,14 +1071,20 @@ export default function MarkAttendancePage() {
                         </span>
                       </button>
 
-                      {/* Remove */}
+                      {/* Remove — clearly separated from present toggle */}
                       <button
                         onClick={() => removeFromList(item.id)}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center transition-opacity hover:opacity-70 flex-shrink-0"
-                        style={{ color: "var(--color-on-surface-variant)", border: "1px solid var(--color-outline-variant)" }}
+                        className="h-8 px-2 rounded-lg flex items-center gap-1 transition-opacity hover:opacity-80 flex-shrink-0"
+                        style={{
+                          color: "var(--color-error)",
+                          border: "1px solid var(--color-error)",
+                          fontSize: "12px",
+                        }}
                         aria-label="Remove from list"
+                        title="Remove from today's list"
                       >
-                        <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>close</span>
+                        <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>delete</span>
+                        <span className="text-label-caps">Remove</span>
                       </button>
                     </div>
 
@@ -1218,14 +1248,22 @@ export default function MarkAttendancePage() {
                         </span>
                       </button>
 
-                      {/* Remove */}
+                      {/* Remove — clearly distinct from present toggle */}
                       <button
                         onClick={() => removeFromList(item.id)}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center transition-opacity hover:opacity-70 flex-shrink-0"
-                        style={{ color: "var(--color-on-surface-variant)", border: "1px solid var(--color-outline-variant)" }}
+                        className="h-8 px-2 rounded-lg flex items-center gap-1 transition-opacity hover:opacity-80 flex-shrink-0"
+                        style={{
+                          color: "var(--color-error)",
+                          border: "1px solid var(--color-error)",
+                          fontSize: "12px",
+                        }}
+                        aria-label="Remove from list"
+                        title="Remove from today's list"
                       >
-                        <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>close</span>
+                        <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>delete</span>
+                        <span className="text-label-caps">Remove</span>
                       </button>
+
                     </div>
 
                     {/* Expandable details */}
@@ -1327,13 +1365,13 @@ export default function MarkAttendancePage() {
           {/* Footer — summary + save */}
           {!loading && !error && (
             <div
-              className="rounded-2xl px-6 py-4 flex items-center justify-between gap-4"
+              className="rounded-2xl px-4 md:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
               style={{
                 backgroundColor: "var(--color-surface-container-low)",
                 border: "1px solid var(--color-outline-variant)",
               }}
             >
-              <div className="flex gap-6">
+              <div className="flex gap-4 sm:gap-6 flex-wrap">
                 <div>
                   <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>In List</p>
                   <p className="text-headline-md font-bold" style={{ color: "var(--color-on-surface)" }}>{checklist.length}</p>
@@ -1355,7 +1393,7 @@ export default function MarkAttendancePage() {
                 onClick={handleSave}
                 disabled={saving}
                 id="save-attendance-btn"
-                className="h-11 px-6 rounded-xl text-body-md font-semibold flex items-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-50 flex-shrink-0"
+                className="w-full sm:w-auto h-11 px-6 rounded-xl text-body-md font-semibold flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-50 flex-shrink-0"
                 style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
               >
                 {saving ? (
