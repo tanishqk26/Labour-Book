@@ -21,6 +21,7 @@ class TeamCreate(BaseModel):
     """Schema for POST /api/v1/teams"""
     name: str = Field(..., min_length=1, max_length=100, description="Team name")
     description: Optional[str] = Field(None, max_length=255)
+    hometown: Optional[str] = Field(None, max_length=100)
     daily_wage: float = Field(..., ge=0, description="Per-labourer daily wage")
     car_rent: float = Field(0, ge=0, description="Daily car/transport rent")
     manager_fee: float = Field(0, ge=0, description="Daily manager fee")
@@ -42,6 +43,7 @@ class TeamUpdate(BaseModel):
     """Schema for PATCH /api/v1/teams/{id}"""
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=255)
+    hometown: Optional[str] = Field(None, max_length=100)
     daily_wage: Optional[float] = Field(None, ge=0)
     car_rent: Optional[float] = Field(None, ge=0)
     manager_fee: Optional[float] = Field(None, ge=0)
@@ -80,6 +82,7 @@ class TeamRead(BaseModel):
     id: uuid.UUID
     name: str
     description: Optional[str] = None
+    hometown: Optional[str] = None
     daily_wage: float
     car_rent: float
     manager_fee: float
@@ -102,6 +105,7 @@ class TeamSummary(BaseModel):
     id: uuid.UUID
     name: str
     description: Optional[str] = None
+    hometown: Optional[str] = None
     daily_wage: float
     car_rent: float
     manager_fee: float

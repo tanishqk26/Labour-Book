@@ -268,3 +268,39 @@ body {
   box-shadow: 0 0 0 3px var(--color-primary-fixed), 0 4px 12px rgba(1, 45, 29, 0.15);
 }
 
+/* ============================================================
+   Themed date / time inputs — match app design system
+   ============================================================ */
+
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  color-scheme: dark;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  /* Make the whole field a click target for the picker */
+  position: relative;
+}
+
+/* Stretch picker indicator to cover entire field → any click opens it */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Remove inner spin on number inputs when not wanted */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 0.5;
+}
+

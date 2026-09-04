@@ -49,6 +49,7 @@ class Team(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False, index=True)
     description = Column(String(255), nullable=True)
+    hometown = Column(String(100), nullable=True)   # village / origin of the team
 
     # Wage fields (2026-08-28)
     daily_wage = Column(Numeric(10, 2), nullable=False, default=0)

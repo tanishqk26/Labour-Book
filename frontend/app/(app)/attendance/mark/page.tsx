@@ -49,6 +49,8 @@ interface AllLabour {
   name: string;
   hometown: string | null;
   daily_wage: number;
+  work_start_time: string | null;
+  work_end_time: string | null;
 }
 
 interface AllTeam {
@@ -639,8 +641,10 @@ export default function MarkAttendancePage() {
 
       const items: ChecklistItem[] = [];
 
-      // Map labour data
+      // Map labour data (pre-fill times from attendance record, or from labour defaults)
       for (const r of dailyData.labours) {
+        // Find the full labour object to get default times if attendance has none
+        const labourFull = laboursData.items.find((l) => l.id === r.labour_id);
         items.push({
           type: "labour",
           id: r.labour_id,
@@ -649,8 +653,8 @@ export default function MarkAttendancePage() {
           attendance_id: r.attendance_id,
           isPresent: r.status === "present" || r.status === "half_day",
           task: r.task ?? "",
-          startTime: r.work_start_time ?? "",
-          endTime: r.work_end_time ?? "",
+          startTime: r.work_start_time ?? labourFull?.work_start_time ?? "",
+          endTime: r.work_end_time ?? labourFull?.work_end_time ?? "",
           expanded: false,
         });
       }
@@ -730,9 +734,11 @@ export default function MarkAttendancePage() {
         attendance_id: null,
         isPresent: true,
         task: "",
-        startTime: "",
-        endTime: "",
-        expanded: false,
+        // Pre-fill default work hours from the labour's saved profile
+        startTime: labour.work_start_time ?? "",
+        endTime: labour.work_end_time ?? "",
+        // Auto-expand if there are default times so user can see/confirm them
+        expanded: !!(labour.work_start_time || labour.work_end_time),
       },
     ]);
   }
@@ -791,7 +797,7 @@ export default function MarkAttendancePage() {
           labour_id: item.id,
           date: today,
           status: item.isPresent ? "present" : "absent",
-          task: item.task || null,
+          task: item.task?.trim() || (item.isPresent ? "Field Work" : null),
           hours_worked,
           work_start_time: item.startTime || null,
           work_end_time: item.endTime || null,
@@ -802,7 +808,7 @@ export default function MarkAttendancePage() {
           date: today,
           status: item.isPresent ? "present" : "absent",
           num_labourers: item.isPresent ? (Number(item.numLabourers) || 0) : null,
-          task: item.task || null,
+          task: item.task?.trim() || (item.isPresent ? "Field Work" : null),
           hours_worked,
           work_start_time: item.startTime || null,
           work_end_time: item.endTime || null,
@@ -919,22 +925,12 @@ export default function MarkAttendancePage() {
 
         <div className="px-4 md:px-8 py-6 flex flex-col gap-4">
 
-          {/* Hint */}
+          {/* Hint — compact inline, no card */}
           {!loading && !error && checklist.length > 0 && (
-            <div
-              className="px-4 py-3 rounded-xl flex items-start gap-3"
-              style={{
-                backgroundColor: "var(--color-surface-container-low)",
-                border: "1px solid var(--color-outline-variant)",
-              }}
-            >
-              <span className="material-symbols-outlined mt-0.5" style={{ fontSize: "18px", color: "var(--color-on-surface-variant)" }}>
-                info
-              </span>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                Tap the <strong>circle</strong> to mark present/absent. Use <span style={{ color: "var(--color-error)" }}>✕ Remove</span> to remove someone from today&apos;s list. For teams, enter number of workers when present.
-              </p>
-            </div>
+            <p className="text-label-caps flex items-center gap-1.5" style={{ color: "var(--color-outline)" }}>
+              <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>info</span>
+              Tap circle to mark present · tap notes icon for details · Remove to delete from list
+            </p>
           )}
 
           {/* Loading */}

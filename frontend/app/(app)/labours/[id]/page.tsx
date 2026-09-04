@@ -63,10 +63,14 @@ export default function LabourDetailPage({ params }: PageProps) {
   // History
   const [history, setHistory] = useState<AttendanceRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyFrom, setHistoryFrom] = useState("");
+  const [historyTo, setHistoryTo] = useState("");
 
   // Contracts
   const [contracts, setContracts] = useState<ContractRecord[]>([]);
   const [contractsLoading, setContractsLoading] = useState(false);
+  const [contractFrom, setContractFrom] = useState("");
+  const [contractTo, setContractTo] = useState("");
 
   // Delete
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -200,6 +204,18 @@ export default function LabourDetailPage({ params }: PageProps) {
   const totalEarned = history.filter(r => r.status === "present" || r.status === "half_day")
     .reduce((s, r) => s + (r.wage_earned ?? 0), 0);
   const daysPresent = history.filter(r => r.status === "present" || r.status === "half_day").length;
+
+  // Filtered views (for history table and contracts table)
+  const filteredHistory = history.filter(r => {
+    if (historyFrom && r.date < historyFrom) return false;
+    if (historyTo && r.date > historyTo) return false;
+    return true;
+  });
+  const filteredContracts = contracts.filter(c => {
+    if (contractFrom && c.assigned_date < contractFrom) return false;
+    if (contractTo && c.assigned_date > contractTo) return false;
+    return true;
+  });
 
   return (
     <>
@@ -418,9 +434,46 @@ export default function LabourDetailPage({ params }: PageProps) {
 
         {/* Attendance History */}
         <section>
-          <h2 className="text-headline-md mb-4" style={{ color: "var(--color-on-surface)" }}>
-            Attendance History
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>Attendance History</h2>
+            {history.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="date"
+                  value={historyFrom}
+                  onChange={e => setHistoryFrom(e.target.value)}
+                  className="h-8 px-2 rounded-lg text-label-caps"
+                  style={{
+                    border: "1px solid var(--color-outline-variant)",
+                    backgroundColor: "var(--color-surface-container-low)",
+                    color: historyFrom ? "var(--color-on-surface)" : "var(--color-outline)",
+                    outline: "none", colorScheme: "dark",
+                  }}
+                />
+                <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>to</span>
+                <input
+                  type="date"
+                  value={historyTo}
+                  onChange={e => setHistoryTo(e.target.value)}
+                  className="h-8 px-2 rounded-lg text-label-caps"
+                  style={{
+                    border: "1px solid var(--color-outline-variant)",
+                    backgroundColor: "var(--color-surface-container-low)",
+                    color: historyTo ? "var(--color-on-surface)" : "var(--color-outline)",
+                    outline: "none", colorScheme: "dark",
+                  }}
+                />
+                {(historyFrom || historyTo) && (
+                  <button onClick={() => { setHistoryFrom(""); setHistoryTo(""); }}
+                    className="h-8 px-2 rounded-lg text-label-caps flex items-center gap-1"
+                    style={{ color: "var(--color-error)", border: "1px solid var(--color-error)" }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "13px" }}>close</span>
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
           {historyLoading ? (
             <div className="flex justify-center py-10">
@@ -431,9 +484,12 @@ export default function LabourDetailPage({ params }: PageProps) {
             <div className="rounded-xl p-8 flex flex-col items-center gap-3"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
               <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>history</span>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                No attendance records yet.
-              </p>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No attendance records yet.</p>
+            </div>
+          ) : filteredHistory.length === 0 ? (
+            <div className="rounded-xl p-6 text-center"
+              style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No records in selected date range.</p>
             </div>
           ) : (
             <div className="rounded-xl overflow-hidden"
@@ -449,11 +505,11 @@ export default function LabourDetailPage({ params }: PageProps) {
                   <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
                 ))}
               </div>
-              {history.map((rec, idx) => (
+              {filteredHistory.map((rec, idx) => (
                 <div key={rec.id} className="grid items-center px-5 py-3"
                   style={{
                     gridTemplateColumns: "120px 90px 1fr 80px 90px",
-                    borderBottom: idx < history.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
+                    borderBottom: idx < filteredHistory.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
                   }}>
                   <p className="text-body-md" style={{ color: "var(--color-on-surface)" }}>
                     {new Date(rec.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
@@ -479,9 +535,46 @@ export default function LabourDetailPage({ params }: PageProps) {
 
         {/* Contract History */}
         <section>
-          <h2 className="text-headline-md mb-4" style={{ color: "var(--color-on-surface)" }}>
-            Contract History
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>Contract History</h2>
+            {contracts.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="date"
+                  value={contractFrom}
+                  onChange={e => setContractFrom(e.target.value)}
+                  className="h-8 px-2 rounded-lg text-label-caps"
+                  style={{
+                    border: "1px solid var(--color-outline-variant)",
+                    backgroundColor: "var(--color-surface-container-low)",
+                    color: contractFrom ? "var(--color-on-surface)" : "var(--color-outline)",
+                    outline: "none", colorScheme: "dark",
+                  }}
+                />
+                <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>to</span>
+                <input
+                  type="date"
+                  value={contractTo}
+                  onChange={e => setContractTo(e.target.value)}
+                  className="h-8 px-2 rounded-lg text-label-caps"
+                  style={{
+                    border: "1px solid var(--color-outline-variant)",
+                    backgroundColor: "var(--color-surface-container-low)",
+                    color: contractTo ? "var(--color-on-surface)" : "var(--color-outline)",
+                    outline: "none", colorScheme: "dark",
+                  }}
+                />
+                {(contractFrom || contractTo) && (
+                  <button onClick={() => { setContractFrom(""); setContractTo(""); }}
+                    className="h-8 px-2 rounded-lg text-label-caps flex items-center gap-1"
+                    style={{ color: "var(--color-error)", border: "1px solid var(--color-error)" }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "13px" }}>close</span>
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
           {contractsLoading ? (
             <div className="flex justify-center py-10">
@@ -492,9 +585,12 @@ export default function LabourDetailPage({ params }: PageProps) {
             <div className="rounded-xl p-8 flex flex-col items-center gap-3"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
               <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>description</span>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                No contracts assigned yet.
-              </p>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No contracts assigned yet.</p>
+            </div>
+          ) : filteredContracts.length === 0 ? (
+            <div className="rounded-xl p-6 text-center"
+              style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No contracts in selected date range.</p>
             </div>
           ) : (
             <div className="rounded-xl overflow-hidden"
@@ -512,13 +608,13 @@ export default function LabourDetailPage({ params }: PageProps) {
                     <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
                   ))}
                 </div>
-                {contracts.map((c, idx) => {
+                {filteredContracts.map((c, idx) => {
                   const sc = contractStatusColor(c.status);
                   return (
                     <div key={c.id} className="grid items-center px-5 py-3"
                       style={{
                         gridTemplateColumns: "minmax(160px,2fr) 110px minmax(90px,1fr) 80px",
-                        borderBottom: idx < contracts.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
+                        borderBottom: idx < filteredContracts.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
                         minWidth: "400px",
                       }}>
                       <div className="min-w-0 pr-3">

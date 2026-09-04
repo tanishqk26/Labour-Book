@@ -20,6 +20,13 @@ interface TeamSummary {
   daily_wage: number;
 }
 
+interface PlotSummary {
+  id: string;
+  name: string;
+  size_acres: number;
+  crop_name?: string;
+}
+
 interface Contract {
   id: string;
   title: string;
@@ -28,6 +35,9 @@ interface Contract {
   labour_id?: string;
   team_id?: string;
   entity_name?: string;
+  plot_id?: string;
+  plot?: PlotSummary;
+  amount_per_acre?: number;
   amount: number;
   assigned_date: string;
   completed_date?: string;
@@ -45,6 +55,26 @@ interface PaginatedContracts {
 }
 
 type StatusFilter = "all" | "active" | "completed" | "cancelled";
+
+// ---------------------------------------------------------------------------
+// Agricultural year helpers (April → March)
+// ---------------------------------------------------------------------------
+
+/** Returns { label, from, to } for April-to-March agricultural years */
+function getAgriYears(): { label: string; from: string; to: string }[] {
+  const result: { label: string; from: string; to: string }[] = [];
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1; // 1-based
+  const latestStart = currentMonth >= 4 ? currentYear : currentYear - 1;
+  for (let y = 2022; y <= latestStart; y++) {
+    result.push({
+      label: `${y}-${String(y + 1).slice(2)}`,
+      from: `${y}-04-01`,
+      to: `${y + 1}-03-31`,
+    });
+  }
+  return result.reverse(); // newest first
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -75,12 +105,13 @@ function statusLabel(status: string) {
 interface ContractFormProps {
   labours: Labour[];
   teams: TeamSummary[];
+  plots: PlotSummary[];
   contract?: Contract; // if editing
   onSaved: () => void;
   onClose: () => void;
 }
 
-function ContractForm({ labours, teams, contract, onSaved, onClose }: ContractFormProps) {
+function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: ContractFormProps) {
   const isEdit = !!contract;
 
   const [title, setTitle] = useState(contract?.title ?? "");
@@ -90,6 +121,9 @@ function ContractForm({ labours, teams, contract, onSaved, onClose }: ContractFo
   );
   const [labourId, setLabourId] = useState(contract?.labour_id ?? "");
   const [teamId, setTeamId] = useState(contract?.team_id ?? "");
+  // Plot fields (only on create)
+  const [plotId, setPlotId] = useState("");
+  const [amountPerAcre, setAmountPerAcre] = useState("");
   const [amount, setAmount] = useState(contract?.amount ? String(contract.amount) : "");
   const [assignedDate, setAssignedDate] = useState(
     contract?.assigned_date ?? new Date().toISOString().slice(0, 10)
@@ -99,6 +133,19 @@ function ContractForm({ labours, teams, contract, onSaved, onClose }: ContractFo
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-calculate amount when plot + rate per acre changes
+  const selectedPlot = plots.find(p => p.id === plotId);
+  const calculatedAmount = selectedPlot && amountPerAcre && Number(amountPerAcre) > 0
+    ? Number(amountPerAcre) * selectedPlot.size_acres
+    : null;
+
+  // Sync amount field from calculation
+  useEffect(() => {
+    if (calculatedAmount !== null) {
+      setAmount(String(calculatedAmount));
+    }
+  }, [calculatedAmount]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -126,6 +173,8 @@ function ContractForm({ labours, teams, contract, onSaved, onClose }: ContractFo
           entity_type: entityType,
           labour_id: entityType === "individual" ? labourId : undefined,
           team_id: entityType === "team" ? teamId : undefined,
+          plot_id: plotId || undefined,
+          amount_per_acre: plotId && amountPerAcre ? Number(amountPerAcre) : undefined,
           amount: Number(amount),
           assigned_date: assignedDate,
           status,
@@ -223,9 +272,9 @@ function ContractForm({ labours, teams, contract, onSaved, onClose }: ContractFo
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Any additional details..."
-                rows={2}
+                rows={1}
                 className="px-3 py-2 rounded-lg text-body-md resize-none"
-                style={inputStyle}
+                style={{ ...inputStyle, height: "52px" }}
               />
             </div>
 
@@ -294,22 +343,73 @@ function ContractForm({ labours, teams, contract, onSaved, onClose }: ContractFo
               </div>
             )}
 
+            {/* Plot selection — only on create */}
+            {!isEdit && (
+              <div className="flex flex-col gap-1">
+                <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
+                  Plot (optional)
+                </label>
+                <select
+                  value={plotId}
+                  onChange={e => { setPlotId(e.target.value); if (!e.target.value) { setAmountPerAcre(""); } }}
+                  className="h-11 px-3 rounded-lg text-body-md"
+                  style={inputStyle}
+                >
+                  <option value="">No plot selected</option>
+                  {plots.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — {p.size_acres} acres{p.crop_name ? ` (${p.crop_name})` : ""}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Rate per acre — only shows when a plot is selected */}
+                {plotId && (
+                  <div className="flex flex-col gap-1 mt-2">
+                    <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
+                      Rate per Acre (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      value={amountPerAcre}
+                      onChange={e => setAmountPerAcre(e.target.value)}
+                      placeholder="e.g. 5000"
+                      min={1}
+                      className="h-11 px-3 rounded-lg text-body-md"
+                      style={inputStyle}
+                    />
+                    {/* Live calculation preview */}
+                    {calculatedAmount !== null && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg mt-1"
+                        style={{ backgroundColor: "var(--color-primary-fixed)", border: "1px solid var(--color-primary-fixed-dim)" }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: "16px", color: "var(--color-primary)" }}>calculate</span>
+                        <p className="text-label-caps" style={{ color: "var(--color-on-primary-fixed)" }}>
+                          {amountPerAcre} × {selectedPlot?.size_acres} acres = <strong>{formatCurrency(calculatedAmount)}</strong>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Amount */}
             <div className="flex flex-col gap-1">
               <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                Agreed Amount (₹) *
+                {plotId ? "Total Amount (₹) — auto-calculated" : "Agreed Amount (₹) *"}
               </label>
               <input
                 type="number"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={e => setAmount(e.target.value)}
                 placeholder="e.g. 25000"
                 min={1}
+                readOnly={!!calculatedAmount}
                 className="h-11 px-3 rounded-lg text-body-md"
-                style={inputStyle}
+                style={{ ...inputStyle, opacity: calculatedAmount ? 0.75 : 1, cursor: calculatedAmount ? "not-allowed" : "text" }}
               />
               <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)", opacity: 0.7 }}>
-                Fixed amount. Not calculated from wages or attendance.
+                {plotId ? "Calculated from rate × plot size. Edit the rate above to change." : "Fixed amount, independent of daily wages."}
               </p>
             </div>
 
@@ -594,9 +694,17 @@ export default function ContractsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  // New filters (client-side)
+  const [plotFilter, setPlotFilter] = useState("");       // plot id
+  const [dateFilter, setDateFilter] = useState("");       // ISO date
+  const [yearFilter, setYearFilter] = useState("");       // "2024-25" label
+  const [showFilters, setShowFilters] = useState(false);
+
+  const allAgriYears = getAgriYears();
 
   const [labours, setLabours] = useState<Labour[]>([]);
   const [teams, setTeams] = useState<TeamSummary[]>([]);
+  const [plots, setPlots] = useState<PlotSummary[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingContract, setEditingContract] = useState<Contract | undefined>(undefined);
 
@@ -621,14 +729,16 @@ export default function ContractsPage() {
   useEffect(() => { fetchContracts(); }, [fetchContracts]);
   useEffect(() => { setPage(1); }, [statusFilter]);
 
-  // Load labours + teams once for the form
+  // Load labours + teams + plots once for the form
   useEffect(() => {
     Promise.all([
       apiGet<{ items: Labour[] }>("/api/v1/labours?status=active&page_size=100"),
       apiGet<{ items: TeamSummary[] }>("/api/v1/teams?status=active&page_size=100"),
-    ]).then(([l, t]) => {
+      apiGet<{ items: PlotSummary[] }>("/api/v1/plots?status=active&page_size=100"),
+    ]).then(([l, t, p]) => {
       setLabours(l.items);
       setTeams(t.items);
+      setPlots(p.items);
     }).catch(() => {});
   }, []);
 
@@ -653,6 +763,20 @@ export default function ContractsPage() {
     fetchContracts();
   }
 
+  // Client-side filter application
+  const selectedYear = allAgriYears.find(y => y.label === yearFilter);
+  const displayedContracts = contracts.filter((c) => {
+    if (plotFilter && c.plot_id !== plotFilter) return false;
+    if (dateFilter && c.assigned_date !== dateFilter) return false;
+    if (selectedYear) {
+      if (c.assigned_date < selectedYear.from || c.assigned_date > selectedYear.to) return false;
+    }
+    return true;
+  });
+
+  const activeFilterCount =
+    (plotFilter ? 1 : 0) + (dateFilter ? 1 : 0) + (yearFilter ? 1 : 0);
+
   const filterButtons: { key: StatusFilter; label: string }[] = [
     { key: "all", label: "All" },
     { key: "active", label: "Active" },
@@ -660,7 +784,7 @@ export default function ContractsPage() {
     { key: "cancelled", label: "Cancelled" },
   ];
 
-  const totalAmount = contracts.reduce((s, c) => s + c.amount, 0);
+  const totalAmount = displayedContracts.reduce((s, c) => s + c.amount, 0);
 
   return (
     <>
@@ -670,6 +794,7 @@ export default function ContractsPage() {
         <ContractForm
           labours={labours}
           teams={teams}
+          plots={plots}
           contract={editingContract}
           onSaved={handleSaved}
           onClose={() => setShowForm(false)}
@@ -707,7 +832,7 @@ export default function ContractsPage() {
         <div className="px-4 md:px-8 pb-12 flex flex-col gap-6">
 
           {/* Summary strip */}
-          {!loading && contracts.length > 0 && (
+          {!loading && displayedContracts.length > 0 && (
             <div
               className="px-5 py-4 rounded-xl flex items-center gap-6 flex-wrap"
               style={{
@@ -720,17 +845,12 @@ export default function ContractsPage() {
                   {statusFilter === "all" ? "Showing" : statusLabel(statusFilter)} Contracts
                 </p>
                 <p className="text-headline-md font-bold" style={{ color: "var(--color-on-surface)" }}>
-                  {total}
+                  {displayedContracts.length}
                 </p>
               </div>
-              <div
-                className="w-px h-10 self-center"
-                style={{ backgroundColor: "var(--color-outline-variant)" }}
-              />
+              <div className="w-px h-10 self-center" style={{ backgroundColor: "var(--color-outline-variant)" }} />
               <div>
-                <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                  Total Value
-                </p>
+                <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Total Value</p>
                 <p className="text-headline-md font-bold" style={{ color: "var(--color-primary)" }}>
                   {formatCurrency(totalAmount)}
                 </p>
@@ -738,24 +858,138 @@ export default function ContractsPage() {
             </div>
           )}
 
-          {/* Filter chips */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {filterButtons.map((btn) => (
+          {/* ── Filter bar ── */}
+          <div
+            className="rounded-xl flex flex-col gap-3 p-4"
+            style={{
+              backgroundColor: "var(--color-surface-container-lowest)",
+              border: "1px solid var(--color-outline-variant)",
+            }}
+          >
+            {/* Row 1: status chips + expand toggle */}
+            <div className="flex flex-wrap items-center gap-2">
+              {filterButtons.map((btn) => (
+                <button
+                  key={btn.key}
+                  onClick={() => setStatusFilter(btn.key)}
+                  className="h-8 px-3 rounded-full text-body-md font-semibold flex items-center gap-1 transition-all"
+                  style={{
+                    backgroundColor: statusFilter === btn.key ? "var(--color-primary)" : "var(--color-surface-container-low)",
+                    color: statusFilter === btn.key ? "var(--color-on-primary)" : "var(--color-on-surface-variant)",
+                    border: statusFilter === btn.key ? "none" : "1px solid var(--color-outline-variant)",
+                  }}
+                >
+                  {btn.label}
+                </button>
+              ))}
               <button
-                key={btn.key}
-                onClick={() => setStatusFilter(btn.key)}
-                className="h-9 px-4 rounded-full text-body-md font-semibold flex items-center gap-1 transition-all"
+                onClick={() => setShowFilters(f => !f)}
+                className="ml-auto h-8 px-3 rounded-full text-body-md font-semibold flex items-center gap-1.5 transition-all"
                 style={{
-                  backgroundColor:
-                    statusFilter === btn.key ? "var(--color-primary)" : "var(--color-surface-container-low)",
-                  color:
-                    statusFilter === btn.key ? "var(--color-on-primary)" : "var(--color-on-surface-variant)",
-                  border: statusFilter === btn.key ? "none" : "1px solid var(--color-outline-variant)",
+                  backgroundColor: (showFilters || activeFilterCount > 0) ? "var(--color-secondary-container)" : "var(--color-surface-container-low)",
+                  color: (showFilters || activeFilterCount > 0) ? "var(--color-on-secondary-fixed)" : "var(--color-on-surface-variant)",
+                  border: "1px solid var(--color-outline-variant)",
                 }}
               >
-                {btn.label}
+                <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>filter_list</span>
+                Filters
+                {activeFilterCount > 0 && (
+                  <span className="w-5 h-5 rounded-full text-label-caps flex items-center justify-center text-xs font-bold"
+                    style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}>
+                    {activeFilterCount}
+                  </span>
+                )}
               </button>
-            ))}
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={() => { setPlotFilter(""); setDateFilter(""); setYearFilter(""); }}
+                  className="h-8 px-2 rounded-full text-label-caps flex items-center gap-1"
+                  style={{ color: "var(--color-error)", border: "1px solid var(--color-error)" }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>close</span>
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* Row 2: expanded filter options */}
+            {showFilters && (
+              <div className="flex flex-col gap-3 pt-2" style={{ borderTop: "1px solid var(--color-outline-variant)" }}>
+
+                {/* Plot filter */}
+                {plots.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Plot</label>
+                    <select
+                      value={plotFilter}
+                      onChange={e => setPlotFilter(e.target.value)}
+                      className="h-10 px-3 rounded-lg text-body-md"
+                      style={{
+                        backgroundColor: "var(--color-surface-container-low)",
+                        border: "1px solid var(--color-outline-variant)",
+                        color: "var(--color-on-surface)",
+                        outline: "none",
+                      }}
+                    >
+                      <option value="">All plots</option>
+                      {plots.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}{p.crop_name ? ` (${p.crop_name})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Date filter */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Specific Date</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="contract-date-filter"
+                      type="date"
+                      value={dateFilter}
+                      onChange={e => { setDateFilter(e.target.value); setYearFilter(""); }}
+                      className="h-10 px-3 rounded-lg text-body-md flex-1"
+                      style={{
+                        backgroundColor: "var(--color-surface-container-low)",
+                        border: "1px solid var(--color-outline-variant)",
+                        color: dateFilter ? "var(--color-on-surface)" : "var(--color-on-surface-variant)",
+                        outline: "none",
+                        colorScheme: "dark",
+                      }}
+                    />
+                    {dateFilter && (
+                      <button onClick={() => setDateFilter("")} className="h-10 px-3 rounded-lg"
+                        style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>close</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Year filter (April-March) */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Agricultural Year (Apr – Mar)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {allAgriYears.map(yr => (
+                      <button
+                        key={yr.label}
+                        onClick={() => { setYearFilter(v => v === yr.label ? "" : yr.label); setDateFilter(""); }}
+                        className="h-8 px-3 rounded-full text-label-caps font-semibold transition-all"
+                        style={{
+                          backgroundColor: yearFilter === yr.label ? "var(--color-primary)" : "var(--color-surface-container-low)",
+                          color: yearFilter === yr.label ? "var(--color-on-primary)" : "var(--color-on-surface-variant)",
+                          border: yearFilter === yr.label ? "none" : "1px solid var(--color-outline-variant)",
+                        }}
+                      >
+                        {yr.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Error */}
@@ -786,25 +1020,22 @@ export default function ContractsPage() {
           )}
 
           {/* Empty state */}
-          {!loading && !error && contracts.length === 0 && (
+          {!loading && !error && displayedContracts.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: "64px", color: "var(--color-outline)" }}
-              >
-                description
-              </span>
+              <span className="material-symbols-outlined" style={{ fontSize: "64px", color: "var(--color-outline)" }}>description</span>
               <div className="text-center">
                 <p className="text-headline-md mb-1" style={{ color: "var(--color-on-surface)" }}>
-                  {statusFilter !== "all" ? `No ${statusFilter} contracts` : "No contracts yet"}
+                  {activeFilterCount > 0 ? "No contracts match filters" : statusFilter !== "all" ? `No ${statusFilter} contracts` : "No contracts yet"}
                 </p>
                 <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                  {statusFilter !== "all"
+                  {activeFilterCount > 0
+                    ? "Try adjusting or clearing the filters above."
+                    : statusFilter !== "all"
                     ? "Try changing the filter above."
                     : "Create your first contract to track fixed-price work."}
                 </p>
               </div>
-              {statusFilter === "all" && (
+              {statusFilter === "all" && activeFilterCount === 0 && (
                 <button
                   onClick={openCreate}
                   className="mt-2 h-11 px-6 rounded-xl text-body-md font-semibold flex items-center gap-2"
@@ -818,10 +1049,10 @@ export default function ContractsPage() {
           )}
 
           {/* Contract grid */}
-          {!loading && !error && contracts.length > 0 && (
+          {!loading && !error && displayedContracts.length > 0 && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {contracts.map((contract) => (
+                {displayedContracts.map((contract) => (
                   <ContractCard
                     key={contract.id}
                     contract={contract}

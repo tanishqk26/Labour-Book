@@ -8,18 +8,21 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.contract import Contract
 from app.models.labour import Labour
 from app.models.team import Team
+from app.models.plot import Plot
 from app.schemas.contract import (
     ContractCreate,
     ContractRead,
     ContractUpdate,
     PaginatedContracts,
+    PlotInfo,
 )
 
 router = APIRouter(prefix="/api/v1/contracts", tags=["Contracts"])
@@ -47,6 +50,14 @@ async def _resolve_entity_name(
 
 
 def contract_to_read(contract: Contract, entity_name: Optional[str] = None) -> ContractRead:
+    plot_info = None
+    if contract.plot:
+        plot_info = PlotInfo(
+            id=contract.plot.id,
+            name=contract.plot.name,
+            size_acres=float(contract.plot.size_acres),
+            crop_name=contract.plot.crop_name,
+        )
     return ContractRead(
         id=contract.id,
         title=contract.title,
@@ -55,6 +66,9 @@ def contract_to_read(contract: Contract, entity_name: Optional[str] = None) -> C
         labour_id=contract.labour_id,
         team_id=contract.team_id,
         entity_name=entity_name,
+        plot_id=contract.plot_id,
+        plot=plot_info,
+        amount_per_acre=float(contract.amount_per_acre) if contract.amount_per_acre else None,
         amount=float(contract.amount),
         assigned_date=contract.assigned_date,
         completed_date=contract.completed_date,
@@ -65,7 +79,11 @@ def contract_to_read(contract: Contract, entity_name: Optional[str] = None) -> C
 
 
 async def _get_contract_or_404(db: AsyncSession, contract_id: uuid.UUID) -> Contract:
-    result = await db.execute(select(Contract).where(Contract.id == contract_id))
+    result = await db.execute(
+        select(Contract)
+        .options(selectinload(Contract.plot))
+        .where(Contract.id == contract_id)
+    )
     contract = result.scalar_one_or_none()
     if contract is None:
         raise HTTPException(
@@ -89,7 +107,8 @@ async def create_contract(
     payload: ContractCreate,
     db: AsyncSession = Depends(get_db),
 ) -> ContractRead:
-    """Create a new fixed-price contract."""
+    """Create a new fixed-price contract. If plot_id + amount_per_acre are provided,
+    amount = amount_per_acre * plot.size_acres (computed by the client and sent as `amount`)."""
     # Validate entity exists
     if payload.entity_type == "individual" and payload.labour_id:
         result = await db.execute(select(Labour).where(Labour.id == payload.labour_id))
@@ -100,12 +119,20 @@ async def create_contract(
         if result.scalar_one_or_none() is None:
             raise HTTPException(status_code=404, detail="Team not found")
 
+    # Validate plot if provided
+    if payload.plot_id:
+        result = await db.execute(select(Plot).where(Plot.id == payload.plot_id))
+        if result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail="Plot not found")
+
     contract = Contract(
         title=payload.title,
         description=payload.description,
         entity_type=payload.entity_type,
         labour_id=payload.labour_id,
         team_id=payload.team_id,
+        plot_id=payload.plot_id,
+        amount_per_acre=payload.amount_per_acre,
         amount=payload.amount,
         assigned_date=payload.assigned_date,
         status=payload.status,
@@ -113,8 +140,11 @@ async def create_contract(
     db.add(contract)
     await db.flush()
     await db.refresh(contract)
-    entity_name = await _resolve_entity_name(db, contract)
-    return contract_to_read(contract, entity_name)
+
+    # Reload with plot relationship
+    reloaded = await _get_contract_or_404(db, contract.id)
+    entity_name = await _resolve_entity_name(db, reloaded)
+    return contract_to_read(reloaded, entity_name)
 
 
 @router.get(
@@ -132,7 +162,7 @@ async def list_contracts(
     db: AsyncSession = Depends(get_db),
 ) -> PaginatedContracts:
     """Paginated list of contracts with optional filters."""
-    query = select(Contract)
+    query = select(Contract).options(selectinload(Contract.plot))
 
     if entity_type:
         query = query.where(Contract.entity_type == entity_type)
@@ -144,8 +174,7 @@ async def list_contracts(
         query = query.where(Contract.team_id == team_id)
 
     count_q = select(func.count()).select_from(query.subquery())
-    total_result = await db.execute(count_q)
-    total = total_result.scalar_one()
+    total = (await db.execute(count_q)).scalar_one()
 
     offset = (page - 1) * page_size
     query = query.order_by(Contract.assigned_date.desc(), Contract.created_at.desc())
@@ -170,10 +199,7 @@ async def list_contracts(
 
     items = []
     for c in contracts:
-        if c.entity_type == "individual":
-            name = labour_names.get(c.labour_id)
-        else:
-            name = team_names.get(c.team_id)
+        name = labour_names.get(c.labour_id) if c.entity_type == "individual" else team_names.get(c.team_id)
         items.append(contract_to_read(c, name))
 
     return PaginatedContracts(
@@ -209,15 +235,17 @@ async def update_contract(
     payload: ContractUpdate,
     db: AsyncSession = Depends(get_db),
 ) -> ContractRead:
-    """Partially update a contract. Amount and entity cannot be changed after creation."""
+    """Partially update a contract."""
     contract = await _get_contract_or_404(db, contract_id)
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(contract, field, value)
     await db.flush()
-    await db.refresh(contract)
-    entity_name = await _resolve_entity_name(db, contract)
-    return contract_to_read(contract, entity_name)
+
+    # Reload with relationships
+    reloaded = await _get_contract_or_404(db, contract_id)
+    entity_name = await _resolve_entity_name(db, reloaded)
+    return contract_to_read(reloaded, entity_name)
 
 
 @router.delete(

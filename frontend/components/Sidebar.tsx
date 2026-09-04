@@ -13,6 +13,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
   { href: "/labours", label: "Labours", icon: "groups" },
   { href: "/teams", label: "Teams", icon: "group_work" },
+  { href: "/plots", label: "Plots", icon: "landscape" },
   { href: "/attendance", label: "Attendance", icon: "checklist" },
   { href: "/contracts", label: "Contracts", icon: "description" },
   { href: "/payments", label: "Payments", icon: "payments" },

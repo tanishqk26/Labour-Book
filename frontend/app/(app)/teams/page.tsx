@@ -261,7 +261,7 @@ function TeamCard({ team, onUpdate }: { team: TeamSummary; onUpdate: () => void 
 
   return (
     <div
-      className="p-5 rounded-xl transition-shadow hover:shadow-md relative"
+      className="p-5 rounded-xl card-hover relative"
       style={{
         backgroundColor: "var(--color-surface-container-lowest)",
         border: "1px solid var(--color-outline-variant)",
@@ -305,7 +305,7 @@ function TeamCard({ team, onUpdate }: { team: TeamSummary; onUpdate: () => void 
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <div
-          className="w-14 h-14 rounded-full flex items-center justify-center text-headline-md font-bold flex-shrink-0"
+          className="w-14 h-14 rounded-full flex items-center justify-center text-headline-md font-bold flex-shrink-0 avatar-hover"
           style={{
             backgroundColor: "var(--color-primary-fixed)",
             color: "var(--color-primary)",
@@ -344,9 +344,9 @@ function TeamCard({ team, onUpdate }: { team: TeamSummary; onUpdate: () => void 
         style={{ borderTop: "1px solid var(--color-outline-variant)" }}
       >
         <div>
-          <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Members</p>
+          <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Hometown</p>
           <p className="text-body-md font-medium" style={{ color: "var(--color-on-surface)" }}>
-            {team.member_count} {team.member_count === 1 ? "labourer" : "labourers"}
+            {team.hometown || <span style={{ color: "var(--color-outline)", fontStyle: "italic" }}>—</span>}
           </p>
         </div>
         <div>

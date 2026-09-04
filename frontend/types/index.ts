@@ -44,6 +44,7 @@ export interface TeamSummary {
   id: string;
   name: string;
   description?: string;
+  hometown?: string;
   daily_wage: number;
   car_rent: number;
   manager_fee: number;
@@ -63,6 +64,7 @@ export interface Team extends TeamSummary {
 export interface TeamCreate {
   name: string;
   description?: string;
+  hometown?: string;
   daily_wage: number;
   car_rent?: number;
   manager_fee?: number;

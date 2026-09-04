@@ -14,6 +14,7 @@ interface TeamModalProps {
 interface FormState {
   name: string;
   description: string;
+  hometown: string;
   daily_wage: string;
   car_rent: string;
   manager_fee: string;
@@ -22,15 +23,17 @@ interface FormState {
 const EMPTY_FORM: FormState = {
   name: "",
   description: "",
+  hometown: "",
   daily_wage: "",
-  car_rent: "0",
-  manager_fee: "0",
+  car_rent: "",
+  manager_fee: "",
 };
 
 function teamToForm(t: Team): FormState {
   return {
     name: t.name,
     description: t.description ?? "",
+    hometown: (t as unknown as { hometown?: string }).hometown ?? "",
     daily_wage: String(t.daily_wage ?? 0),
     car_rent: String(t.car_rent ?? 0),
     manager_fee: String(t.manager_fee ?? 0),
@@ -89,6 +92,7 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
     const payload = {
       name: form.name.trim(),
       description: form.description.trim() || undefined,
+      hometown: form.hometown.trim() || undefined,
       daily_wage: Number(form.daily_wage) || 0,
       car_rent: Number(form.car_rent) || 0,
       manager_fee: Number(form.manager_fee) || 0,
@@ -224,6 +228,25 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
                 )}
               </div>
 
+              {/* Hometown */}
+              <div className="mb-5">
+                <label
+                  htmlFor="team-hometown"
+                  className="block text-label-caps mb-2"
+                  style={{ color: "var(--color-on-surface-variant)" }}
+                >
+                  Hometown / Village
+                </label>
+                <input
+                  id="team-hometown"
+                  type="text"
+                  value={form.hometown}
+                  onChange={(e) => setField("hometown", e.target.value)}
+                  placeholder="e.g. Nashik, Pune"
+                  className="w-full h-12 px-4 rounded-lg text-body-md transition-colors"
+                  style={inputStyle(false)}
+                />
+              </div>
               {/* Daily Wage */}
               <div className="mb-5">
                 <label
@@ -306,13 +329,14 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
                   value={form.description}
                   onChange={(e) => setField("description", e.target.value)}
                   placeholder="Brief description of the team..."
-                  rows={2}
+                  rows={1}
                   className="w-full px-4 py-3 rounded-lg text-body-md transition-colors resize-none"
                   style={{
                     backgroundColor: "var(--color-surface-container-lowest)",
                     border: "1px solid var(--color-outline-variant)",
                     color: "var(--color-on-surface)",
                     outline: "none",
+                    height: "52px",
                   }}
                 />
               </div>

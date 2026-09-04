@@ -19,7 +19,12 @@ class ContractCreate(BaseModel):
     entity_type: Literal["individual", "team"]
     labour_id: Optional[uuid.UUID] = None
     team_id: Optional[uuid.UUID] = None
-    amount: float = Field(..., gt=0, description="Fixed agreed amount in INR")
+    # Plot association — optional
+    plot_id: Optional[uuid.UUID] = None
+    # If plot is selected, enter rate per acre; backend computes final amount
+    amount_per_acre: Optional[float] = Field(None, gt=0)
+    # Final amount — required; computed by frontend before submit
+    amount: float = Field(..., gt=0, description="Final agreed amount in INR")
     assigned_date: date
     status: Literal["active", "completed", "cancelled"] = "active"
 
@@ -40,6 +45,8 @@ class ContractUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = None
     amount: Optional[float] = Field(None, gt=0)
+    plot_id: Optional[uuid.UUID] = None
+    amount_per_acre: Optional[float] = Field(None, gt=0)
     assigned_date: Optional[date] = None
     completed_date: Optional[date] = None
     status: Optional[Literal["active", "completed", "cancelled"]] = None
@@ -49,6 +56,15 @@ class ContractUpdate(BaseModel):
 # Read (response)
 # ---------------------------------------------------------------------------
 
+class PlotInfo(BaseModel):
+    id: uuid.UUID
+    name: str
+    size_acres: float
+    crop_name: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
 class ContractRead(BaseModel):
     id: uuid.UUID
     title: str
@@ -56,8 +72,10 @@ class ContractRead(BaseModel):
     entity_type: str
     labour_id: Optional[uuid.UUID] = None
     team_id: Optional[uuid.UUID] = None
-    # Denormalized entity name for display
     entity_name: Optional[str] = None
+    plot_id: Optional[uuid.UUID] = None
+    plot: Optional[PlotInfo] = None
+    amount_per_acre: Optional[float] = None
     amount: float
     assigned_date: date
     completed_date: Optional[date] = None
