@@ -3,10 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import type { Metadata } from "next";
 import { apiGet } from "@/lib/api";
-import { Labour, PaginatedResponse } from "@/types";
+import { Labour, PaginatedResponse, EntityPaymentSummary } from "@/types";
 import LabourCard from "@/components/LabourCard";
 import LabourModal from "@/components/LabourModal";
-import { getInitials } from "@/lib/utils";
 
 // Note: metadata is static — dynamic metadata requires a separate server component
 // The page title is set statically here
@@ -21,6 +20,7 @@ export default function LaboursPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [paymentMap, setPaymentMap] = useState<Record<string, EntityPaymentSummary>>({});
 
   const PAGE_SIZE = 20;
 
@@ -41,9 +41,18 @@ export default function LaboursPage() {
       };
       if (debouncedSearch) params.search = debouncedSearch;
 
-      const data = await apiGet<PaginatedResponse<Labour>>("/api/v1/labours", params);
+      const [data, entities] = await Promise.all([
+        apiGet<PaginatedResponse<Labour>>("/api/v1/labours", params),
+        apiGet<EntityPaymentSummary[]>("/api/v1/payments/entities").catch(() => [] as EntityPaymentSummary[]),
+      ]);
       setLabours(data.items);
       setTotal(data.total);
+      // Build a map: entity_id -> summary (only individual type)
+      const map: Record<string, EntityPaymentSummary> = {};
+      for (const e of entities) {
+        if (e.entity_type === "individual") map[e.entity_id] = e;
+      }
+      setPaymentMap(map);
     } catch {
       setError("Failed to load labours. Please try again.");
     } finally {
@@ -201,7 +210,13 @@ export default function LaboursPage() {
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {labours.map((labour) => (
-                <LabourCard key={labour.id} labour={labour} onDeactivated={fetchLabours} />
+                <LabourCard
+                  key={labour.id}
+                  labour={labour}
+                  paymentSummary={paymentMap[labour.id]}
+                  onDeactivated={fetchLabours}
+                  onSettled={fetchLabours}
+                />
               ))}
             </div>
 

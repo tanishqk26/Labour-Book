@@ -125,6 +125,49 @@ export interface Payment {
   notes?: string;
 }
 
+/** Payment as returned from the API (PaymentRead schema) */
+export interface PaymentRead {
+  id: string;
+  labour_id?: string | null;
+  team_id?: string | null;
+  entity_name?: string | null;
+  entity_type: string; // "individual" | "team"
+  date: string;
+  amount: number;
+  method: string; // "cash" | "upi" | "bank_transfer" | "other"
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Financial summary for a single labour or team */
+export interface EntityPaymentSummary {
+  entity_id: string;
+  entity_type: string; // "individual" | "team"
+  entity_name: string;
+  total_earned: number;
+  total_paid: number;
+  pending: number;
+  payment_status: string; // "paid" | "partially_paid" | "pending"
+}
+
+/** Overall payments summary across all entities */
+export interface PaymentsSummary {
+  total_earned: number;
+  total_paid: number;
+  total_pending: number;
+  paid_this_month: number;
+}
+
+/** Paginated payments list */
+export interface PaginatedPayments {
+  items: PaymentRead[];
+  total: number;
+  page: number;
+  page_size: number;
+  has_more: boolean;
+}
+
 /** Financial summary for a labour or team */
 export interface FinancialSummary {
   entity_type: EntityType;

@@ -10,6 +10,7 @@ from app.routers.attendance import router as attendance_router
 from app.routers.teams import router as teams_router
 from app.routers.contracts import router as contracts_router
 from app.routers.plots import router as plots_router
+from app.routers.payments import router as payments_router
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +60,7 @@ app.include_router(attendance_router)
 app.include_router(teams_router)
 app.include_router(contracts_router)
 app.include_router(plots_router)
+app.include_router(payments_router)
 
 
 # ---------------------------------------------------------------------------

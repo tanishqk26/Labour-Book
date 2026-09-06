@@ -3,10 +3,11 @@
 import { use, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiGet, apiFetch } from "@/lib/api";
-import { Labour } from "@/types";
-import { formatCurrency, getInitials } from "@/lib/utils";
+import { apiGet, apiPost, apiFetch } from "@/lib/api";
+import { Labour, EntityPaymentSummary, PaymentRead, PaginatedPayments } from "@/types";
+import { formatCurrency, formatMediumDate, getInitials } from "@/lib/utils";
 import LabourDrawer from "@/components/LabourDrawer";
+import PaymentModal from "@/components/PaymentModal";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -72,6 +73,17 @@ export default function LabourDetailPage({ params }: PageProps) {
   const [contractFrom, setContractFrom] = useState("");
   const [contractTo, setContractTo] = useState("");
 
+  // Payments
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentSummary, setPaymentSummary] = useState<EntityPaymentSummary | null>(null);
+  const [payments, setPayments] = useState<PaymentRead[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+
+  // Settle
+  const [confirmSettle, setConfirmSettle] = useState(false);
+  const [settling, setSettling] = useState(false);
+  const [settleError, setSettleError] = useState<string | null>(null);
+
   // Delete
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -124,10 +136,27 @@ export default function LabourDetailPage({ params }: PageProps) {
     }
   }, [id]);
 
+  const fetchPayments = useCallback(async () => {
+    setPaymentsLoading(true);
+    try {
+      const [summaryData, listData] = await Promise.all([
+        apiGet<EntityPaymentSummary>(`/api/v1/payments/entity/individual/${id}/summary`),
+        apiGet<PaginatedPayments>(`/api/v1/payments`, { labour_id: id, page_size: 50 }),
+      ]);
+      setPaymentSummary(summaryData);
+      setPayments(listData.items);
+    } catch {
+      // silently fail
+    } finally {
+      setPaymentsLoading(false);
+    }
+  }, [id]);
+
   useEffect(() => {
     fetchLabour();
     fetchHistory();
     fetchContracts();
+    fetchPayments();
   }, [id]);
 
   async function handleDelete() {
@@ -140,6 +169,27 @@ export default function LabourDetailPage({ params }: PageProps) {
       setDeleteError("Failed to delete. Please try again.");
       setDeleting(false);
       setConfirmDelete(false);
+    }
+  }
+
+  async function handleSettle() {
+    if (!paymentSummary || paymentSummary.pending <= 0) return;
+    setSettling(true);
+    setSettleError(null);
+    try {
+      await apiPost("/api/v1/payments", {
+        labour_id: id,
+        amount: paymentSummary.pending,
+        method: "cash",
+        date: new Date().toISOString().slice(0, 10),
+        notes: "Settlement — full balance cleared",
+      });
+      setConfirmSettle(false);
+      fetchPayments();
+    } catch {
+      setSettleError("Settlement failed. Please try again.");
+    } finally {
+      setSettling(false);
     }
   }
 
@@ -226,6 +276,85 @@ export default function LabourDetailPage({ params }: PageProps) {
         labour={labour}
       />
 
+      <PaymentModal
+        open={paymentModalOpen}
+        onClose={() => setPaymentModalOpen(false)}
+        onSuccess={fetchPayments}
+        preselectedEntityType="individual"
+        preselectedEntityId={id}
+      />
+
+      {/* Settle Confirmation Modal */}
+      {confirmSettle && paymentSummary && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            style={{ backgroundColor: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}
+            onClick={() => { setConfirmSettle(false); setSettleError(null); }}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div
+              className="w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl"
+              style={{ backgroundColor: "var(--color-surface)", border: "1px solid var(--color-outline-variant)" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-5" style={{ borderBottom: "1px solid var(--color-outline-variant)" }}>
+                <h2 className="text-headline-md font-bold" style={{ color: "var(--color-on-surface)" }}>Settle Balance</h2>
+                <p className="text-body-md mt-1" style={{ color: "var(--color-on-surface-variant)" }}>for {labour?.name}</p>
+              </div>
+              <div className="px-6 py-5 flex flex-col gap-4">
+                <div
+                  className="rounded-xl px-5 py-4 flex flex-col gap-3"
+                  style={{ backgroundColor: "var(--color-surface-container-low)", border: "1px solid var(--color-outline-variant)" }}
+                >
+                  <div className="flex justify-between">
+                    <span className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>Total Earned</span>
+                    <span className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>{formatCurrency(paymentSummary.total_earned)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>Total Paid</span>
+                    <span className="text-body-md font-semibold" style={{ color: "#2d7a4f" }}>{formatCurrency(paymentSummary.total_paid)}</span>
+                  </div>
+                  <div className="flex justify-between pt-3" style={{ borderTop: "1px solid var(--color-outline-variant)" }}>
+                    <span className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>Outstanding</span>
+                    <span className="text-body-md font-bold" style={{ color: "var(--color-error)" }}>{formatCurrency(paymentSummary.pending)}</span>
+                  </div>
+                </div>
+                <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
+                  This will record a cash payment of{" "}
+                  <strong style={{ color: "var(--color-on-surface)" }}>{formatCurrency(paymentSummary.pending)}</strong>{" "}
+                  to clear the full outstanding balance.
+                </p>
+                {settleError && (
+                  <p className="text-body-md px-3 py-2 rounded-lg"
+                    style={{ backgroundColor: "var(--color-error-container)", color: "var(--color-on-error-container)" }}>
+                    {settleError}
+                  </p>
+                )}
+              </div>
+              <div className="px-6 pb-6 flex gap-3">
+                <button
+                  onClick={() => { setConfirmSettle(false); setSettleError(null); }}
+                  className="flex-1 h-11 rounded-xl text-body-md font-semibold"
+                  style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  id="settle-confirm-btn"
+                  onClick={handleSettle}
+                  disabled={settling}
+                  className="flex-1 h-11 rounded-xl text-body-md font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+                  style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
+                >
+                  {settling ? "Settling…" : `Settle ${formatCurrency(paymentSummary.pending)}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Delete Confirmation Modal */}
       {confirmDelete && (
         <>
@@ -304,6 +433,26 @@ export default function LabourDetailPage({ params }: PageProps) {
           Labour Directory
         </Link>
         <div className="flex items-center gap-3">
+          <button
+            id="note-payment-btn"
+            onClick={() => setPaymentModalOpen(true)}
+            className="h-10 px-5 rounded-lg text-body-md font-semibold flex items-center gap-2 transition-opacity hover:opacity-80"
+            style={{ backgroundColor: "var(--color-primary-fixed)", color: "var(--color-primary)", border: "1px solid var(--color-primary)" }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>payments</span>
+            Note Payment
+          </button>
+          {paymentSummary && paymentSummary.pending > 0 && (
+            <button
+              id="settle-btn"
+              onClick={() => setConfirmSettle(true)}
+              className="h-10 px-5 rounded-lg text-body-md font-semibold flex items-center gap-2 transition-opacity hover:opacity-80"
+              style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>check_circle</span>
+              Settle {formatCurrency(paymentSummary.pending)}
+            </button>
+          )}
           <button
             id="edit-labour-btn"
             onClick={() => setEditOpen(true)}
@@ -637,6 +786,123 @@ export default function LabourDetailPage({ params }: PageProps) {
                   );
                 })}
               </div>
+            </div>
+          )}
+        </section>
+
+        {/* Payment History */}
+        <section>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>Payment History</h2>
+            <div className="flex gap-2">
+              {paymentSummary && paymentSummary.pending > 0 && (
+                <button
+                  onClick={() => setConfirmSettle(true)}
+                  className="h-9 px-4 rounded-lg text-body-md font-semibold flex items-center gap-1.5 transition-opacity hover:opacity-80"
+                  style={{ border: "1px solid var(--color-primary)", color: "var(--color-primary)" }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>check_circle</span>
+                  Settle {formatCurrency(paymentSummary.pending)}
+                </button>
+              )}
+              <button
+                onClick={() => setPaymentModalOpen(true)}
+                className="h-9 px-4 rounded-lg text-body-md font-semibold flex items-center gap-1.5 transition-opacity hover:opacity-80"
+                style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>add</span>
+                Note Payment
+              </button>
+            </div>
+          </div>
+
+          {/* Payment KPI strip */}
+          {paymentSummary && (
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              <div
+                className="rounded-xl px-4 py-3"
+                style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}
+              >
+                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Total Earned</p>
+                <p className="text-body-lg font-bold" style={{ color: "var(--color-on-surface)" }}>
+                  {formatCurrency(paymentSummary.total_earned)}
+                </p>
+              </div>
+              <div
+                className="rounded-xl px-4 py-3"
+                style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}
+              >
+                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Total Paid</p>
+                <p className="text-body-lg font-bold" style={{ color: "#2d7a4f" }}>
+                  {formatCurrency(paymentSummary.total_paid)}
+                </p>
+              </div>
+              <div
+                className="rounded-xl px-4 py-3"
+                style={{
+                  backgroundColor: paymentSummary.pending > 0 ? "rgba(255,218,211,0.3)" : "rgba(193,236,212,0.3)",
+                  border: `1px solid ${paymentSummary.pending > 0 ? "rgba(220,53,69,0.2)" : "rgba(45,122,79,0.2)"}`,
+                }}
+              >
+                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Outstanding</p>
+                <p className="text-body-lg font-bold" style={{ color: paymentSummary.pending > 0 ? "var(--color-error)" : "#2d7a4f" }}>
+                  {formatCurrency(Math.max(0, paymentSummary.pending))}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {paymentsLoading ? (
+            <div className="flex justify-center py-10">
+              <div className="w-7 h-7 rounded-full border-2 border-t-transparent animate-spin"
+                style={{ borderColor: "var(--color-primary)" }} />
+            </div>
+          ) : payments.length === 0 ? (
+            <div className="rounded-xl p-8 flex flex-col items-center gap-3"
+              style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
+              <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>receipt_long</span>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No payments recorded yet.</p>
+              <button
+                onClick={() => setPaymentModalOpen(true)}
+                className="h-9 px-4 rounded-lg text-body-md font-semibold"
+                style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
+              >
+                Record First Payment
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-xl overflow-hidden"
+              style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface-container-lowest)" }}>
+              <div className="grid px-5 py-3"
+                style={{
+                  gridTemplateColumns: "110px 1fr 90px 100px",
+                  borderBottom: "1px solid var(--color-outline-variant)",
+                  backgroundColor: "var(--color-surface-container-low)",
+                }}>
+                {["Date", "Method / Notes", "Mode", "Amount"].map(h => (
+                  <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
+                ))}
+              </div>
+              {payments.map((p, idx) => (
+                <div key={p.id} className="grid items-center px-5 py-3"
+                  style={{
+                    gridTemplateColumns: "110px 1fr 90px 100px",
+                    borderBottom: idx < payments.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
+                  }}>
+                  <p className="text-body-md" style={{ color: "var(--color-on-surface)" }}>
+                    {formatMediumDate(p.date)}
+                  </p>
+                  <p className="text-body-md truncate pr-3" style={{ color: "var(--color-on-surface-variant)" }}>
+                    {p.notes || "—"}
+                  </p>
+                  <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
+                    {p.method === "bank_transfer" ? "Bank" : p.method.charAt(0).toUpperCase() + p.method.slice(1)}
+                  </p>
+                  <p className="text-body-md font-semibold" style={{ color: "#2d7a4f" }}>
+                    {formatCurrency(p.amount)}
+                  </p>
+                </div>
+              ))}
             </div>
           )}
         </section>
