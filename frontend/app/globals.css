@@ -304,3 +304,46 @@ input[type="number"]::-webkit-outer-spin-button {
   opacity: 0.5;
 }
 
+/* ============================================================
+   Print / PDF — Statement isolation
+   ============================================================ */
+
+@page {
+  margin: 1.2cm;
+  size: A4;
+}
+
+@media print {
+  /* Hide all page chrome */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Make the statement area and all its children visible */
+  #statement-print-area,
+  #statement-print-area * {
+    visibility: visible;
+  }
+
+  /* Position it at the top of the page */
+  #statement-print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 24px;
+    background: white;
+  }
+
+  /* Force colour printing */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Explicitly hide no-print helpers that may be inside the area */
+  .no-print {
+    display: none !important;
+    visibility: hidden !important;
+  }
+}
