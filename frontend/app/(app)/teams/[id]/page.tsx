@@ -8,6 +8,8 @@ import { Team, EntityPaymentSummary, PaymentRead, PaginatedPayments } from "@/ty
 import { formatCurrency, formatMediumDate, getInitials } from "@/lib/utils";
 import TeamModal from "@/components/TeamModal";
 import PaymentModal from "@/components/PaymentModal";
+import DatePicker from "@/components/ui/DatePicker";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -44,6 +46,7 @@ function contractStatusColor(status: string) {
 export default function TeamDetailPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [team, setTeam] = useState<Team | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,7 +94,7 @@ export default function TeamDetailPage({ params }: PageProps) {
       if (apiErr?.status === 404) {
         setNotFound(true);
       } else {
-        setError("Failed to load team.");
+        setError(t("teams.somethingWentWrong"));
       }
     } finally {
       setLoading(false);
@@ -156,7 +159,7 @@ export default function TeamDetailPage({ params }: PageProps) {
       await apiFetch(`/api/v1/teams/${id}/hard`, { method: "DELETE" });
       router.push("/teams");
     } catch {
-      setDeleteError("Failed to delete. Please try again.");
+      setDeleteError(t("teams.genericError"));
       setDeleting(false);
       setConfirmDelete(false);
     }
@@ -177,7 +180,7 @@ export default function TeamDetailPage({ params }: PageProps) {
       setConfirmSettle(false);
       fetchPayments();
     } catch {
-      setSettleError("Settlement failed. Please try again.");
+      setSettleError(t("teams.genericError"));
     } finally {
       setSettling(false);
     }
@@ -190,7 +193,7 @@ export default function TeamDetailPage({ params }: PageProps) {
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin"
             style={{ borderColor: "var(--color-primary)" }} />
-          <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>Loading team…</p>
+          <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("teams.loadingTeam")}</p>
         </div>
       </div>
     );
@@ -200,13 +203,13 @@ export default function TeamDetailPage({ params }: PageProps) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center py-24 gap-4">
         <span className="material-symbols-outlined" style={{ fontSize: "64px", color: "var(--color-outline)" }}>group_off</span>
-        <p className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>Team not found</p>
+        <p className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("teams.teamNotFound")}</p>
         <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-          The team you are looking for does not exist.
+          {t("teams.teamNotFoundMessage")}
         </p>
         <Link href="/teams" className="mt-2 h-11 px-6 rounded-lg text-body-md font-semibold"
           style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}>
-          Back to Teams
+          {t("teams.backToTeams")}
         </Link>
       </div>
     );
@@ -216,11 +219,11 @@ export default function TeamDetailPage({ params }: PageProps) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center py-24 gap-4">
         <span className="material-symbols-outlined" style={{ fontSize: "64px", color: "var(--color-error)" }}>error_outline</span>
-        <p className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>Something went wrong</p>
+        <p className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("teams.somethingWentWrong")}</p>
         <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{error}</p>
         <button onClick={fetchTeam} className="mt-2 h-11 px-6 rounded-lg text-body-md font-semibold"
           style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}>
-          Try Again
+          {t("common.retry")}
         </button>
       </div>
     );
@@ -267,8 +270,8 @@ export default function TeamDetailPage({ params }: PageProps) {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-6 py-5" style={{ borderBottom: "1px solid var(--color-outline-variant)" }}>
-                <h2 className="text-headline-md font-bold" style={{ color: "var(--color-on-surface)" }}>Settle Balance</h2>
-                <p className="text-body-md mt-1" style={{ color: "var(--color-on-surface-variant)" }}>for {team?.name}</p>
+                <h2 className="text-headline-md font-bold" style={{ color: "var(--color-on-surface)" }}>{t("teams.settleBalance")}</h2>
+                <p className="text-body-md mt-1" style={{ color: "var(--color-on-surface-variant)" }}>{t("teams.forLabel")} {team?.name}</p>
               </div>
               <div className="px-6 py-5 flex flex-col gap-4">
                 <div
@@ -276,22 +279,22 @@ export default function TeamDetailPage({ params }: PageProps) {
                   style={{ backgroundColor: "var(--color-surface-container-low)", border: "1px solid var(--color-outline-variant)" }}
                 >
                   <div className="flex justify-between">
-                    <span className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>Total Earned</span>
+                    <span className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("teams.totalEarned")}</span>
                     <span className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>{formatCurrency(paymentSummary.total_earned)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>Total Paid</span>
+                    <span className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("teams.totalPaid")}</span>
                     <span className="text-body-md font-semibold" style={{ color: "#2d7a4f" }}>{formatCurrency(paymentSummary.total_paid)}</span>
                   </div>
                   <div className="flex justify-between pt-3" style={{ borderTop: "1px solid var(--color-outline-variant)" }}>
-                    <span className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>Outstanding</span>
+                    <span className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>{t("teams.outstanding")}</span>
                     <span className="text-body-md font-bold" style={{ color: "var(--color-error)" }}>{formatCurrency(paymentSummary.pending)}</span>
                   </div>
                 </div>
                 <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                  This will record a cash payment of{" "}
+                  {t("teams.settleConfirmPrefix")}{" "}
                   <strong style={{ color: "var(--color-on-surface)" }}>{formatCurrency(paymentSummary.pending)}</strong>{" "}
-                  to clear the full outstanding balance.
+                  {t("teams.settleConfirmSuffix")}
                 </p>
                 {settleError && (
                   <p className="text-body-md px-3 py-2 rounded-lg"
@@ -306,7 +309,7 @@ export default function TeamDetailPage({ params }: PageProps) {
                   className="flex-1 h-11 rounded-xl text-body-md font-semibold"
                   style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button
                   id="settle-confirm-btn"
@@ -315,7 +318,7 @@ export default function TeamDetailPage({ params }: PageProps) {
                   className="flex-1 h-11 rounded-xl text-body-md font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
                   style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
                 >
-                  {settling ? "Settling…" : `Settle ${formatCurrency(paymentSummary.pending)}`}
+                  {settling ? t("teams.settling") : `${t("teams.settle")} ${formatCurrency(paymentSummary.pending)}`}
                 </button>
               </div>
             </div>
@@ -341,10 +344,10 @@ export default function TeamDetailPage({ params }: PageProps) {
                 </div>
                 <div>
                   <p className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>
-                    Delete {team.name}?
+                    {t("teams.deleteQuestion")} {team.name}?
                   </p>
                   <p className="text-body-md mt-1" style={{ color: "var(--color-on-surface-variant)" }}>
-                    This will permanently delete this team and all their attendance records. This action cannot be undone.
+                    {t("teams.deletePermanentlyWarning")}
                   </p>
                 </div>
               </div>
@@ -358,12 +361,12 @@ export default function TeamDetailPage({ params }: PageProps) {
                 <button onClick={() => setConfirmDelete(false)}
                   className="h-10 px-5 rounded-lg text-body-md font-semibold"
                   style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}>
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button onClick={handleDelete} disabled={deleting}
                   className="h-10 px-5 rounded-lg text-body-md font-semibold flex items-center gap-2 disabled:opacity-60"
                   style={{ backgroundColor: "var(--color-error)", color: "#fff" }}>
-                  {deleting ? "Deleting…" : "Delete Permanently"}
+                  {deleting ? t("teams.deleting") : t("teams.deletePermanently")}
                 </button>
               </div>
             </div>
@@ -377,7 +380,7 @@ export default function TeamDetailPage({ params }: PageProps) {
         <Link href="/teams" className="flex items-center gap-2 text-label-caps transition-colors"
           style={{ color: "var(--color-on-surface-variant)" }}>
           <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>arrow_back</span>
-          Teams
+          {t("teams.teamsLink")}
         </Link>
         <div className="flex items-center gap-3">
           <button
@@ -387,7 +390,7 @@ export default function TeamDetailPage({ params }: PageProps) {
             style={{ backgroundColor: "var(--color-primary-fixed)", color: "var(--color-primary)", border: "1px solid var(--color-primary)" }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>payments</span>
-            Note Payment
+            {t("teams.notePayment")}
           </button>
           {paymentSummary && paymentSummary.pending > 0 && (
             <button
@@ -397,14 +400,14 @@ export default function TeamDetailPage({ params }: PageProps) {
               style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>check_circle</span>
-              Settle {formatCurrency(paymentSummary.pending)}
+              {t("teams.settle")} {formatCurrency(paymentSummary.pending)}
             </button>
           )}
           <button id="edit-team-btn" onClick={() => setEditOpen(true)}
             className="h-10 px-5 rounded-lg text-body-md font-semibold flex items-center gap-2 transition-opacity hover:opacity-80"
             style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}>
             <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>edit</span>
-            Edit Team
+            {t("teams.editTeam")}
           </button>
           <button id="delete-team-btn" onClick={() => setConfirmDelete(true)}
             className="h-10 px-4 rounded-lg text-body-md font-semibold flex items-center gap-2 transition-opacity hover:opacity-80"
@@ -436,7 +439,7 @@ export default function TeamDetailPage({ params }: PageProps) {
                   style={{ backgroundColor: team.status === "active" ? "#2d7a4f" : "var(--color-outline)" }} />
                 <span className="text-body-md font-medium"
                   style={{ color: team.status === "active" ? "#2d7a4f" : "var(--color-on-surface-variant)" }}>
-                  {team.status === "active" ? "Active" : "Inactive"}
+                  {team.status === "active" ? t("common.active") : t("common.inactive")}
                 </span>
               </div>
             </div>
@@ -448,28 +451,28 @@ export default function TeamDetailPage({ params }: PageProps) {
             <div>
               <p className="text-label-caps mb-1 flex items-center gap-1" style={{ color: "var(--color-on-surface-variant)" }}>
                 <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>payments</span>
-                Daily Wage / Person
+                {t("teams.dailyWagePerPerson")}
               </p>
               <p className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>
-                {formatCurrency(team.daily_wage)}/person
+                {formatCurrency(team.daily_wage)}{t("teams.perPerson")}
               </p>
             </div>
             <div>
               <p className="text-label-caps mb-1 flex items-center gap-1" style={{ color: "var(--color-on-surface-variant)" }}>
                 <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>directions_car</span>
-                Car Rent
+                {t("teams.carRent")}
               </p>
               <p className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>
-                {formatCurrency(team.car_rent)}/day
+                {formatCurrency(team.car_rent)}{t("teams.perDay")}
               </p>
             </div>
             <div>
               <p className="text-label-caps mb-1 flex items-center gap-1" style={{ color: "var(--color-on-surface-variant)" }}>
                 <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>manage_accounts</span>
-                Manager Fee
+                {t("teams.managerFee")}
               </p>
               <p className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>
-                {formatCurrency(team.manager_fee)}/day
+                {formatCurrency(team.manager_fee)}{t("teams.perDay")}
               </p>
             </div>
           </div>
@@ -480,12 +483,12 @@ export default function TeamDetailPage({ params }: PageProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-xl p-5"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-              <p className="text-label-caps mb-2" style={{ color: "var(--color-on-surface-variant)" }}>Times Present</p>
+              <p className="text-label-caps mb-2" style={{ color: "var(--color-on-surface-variant)" }}>{t("teams.timesPresent")}</p>
               <p className="text-display-currency" style={{ color: "var(--color-on-surface)" }}>{presentRecords.length}</p>
             </div>
             <div className="rounded-xl p-5"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-              <p className="text-label-caps mb-2" style={{ color: "var(--color-on-surface-variant)" }}>Total Paid</p>
+              <p className="text-label-caps mb-2" style={{ color: "var(--color-on-surface-variant)" }}>{t("teams.totalPaid")}</p>
               <p className="text-display-currency" style={{ color: "var(--color-on-surface)" }}>{formatCurrency(totalEarned)}</p>
             </div>
           </div>
@@ -494,23 +497,17 @@ export default function TeamDetailPage({ params }: PageProps) {
         {/* Attendance History */}
         <section>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>Attendance History</h2>
+            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("teams.attendanceHistory")}</h2>
             {history.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
-                <input type="date" value={historyFrom} onChange={e => setHistoryFrom(e.target.value)}
-                  className="h-8 px-2 rounded-lg text-label-caps"
-                  style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface-container-low)",
-                    color: historyFrom ? "var(--color-on-surface)" : "var(--color-outline)", outline: "none", colorScheme: "dark" }} />
-                <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>to</span>
-                <input type="date" value={historyTo} onChange={e => setHistoryTo(e.target.value)}
-                  className="h-8 px-2 rounded-lg text-label-caps"
-                  style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface-container-low)",
-                    color: historyTo ? "var(--color-on-surface)" : "var(--color-outline)", outline: "none", colorScheme: "dark" }} />
+                <DatePicker value={historyFrom} onChange={setHistoryFrom} />
+                <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>{t("common.to")}</span>
+                <DatePicker value={historyTo} onChange={setHistoryTo} />
                 {(historyFrom || historyTo) && (
                   <button onClick={() => { setHistoryFrom(""); setHistoryTo(""); }}
                     className="h-8 px-2 rounded-lg text-label-caps flex items-center gap-1"
                     style={{ color: "var(--color-error)", border: "1px solid var(--color-error)" }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: "13px" }}>close</span>Clear
+                    <span className="material-symbols-outlined" style={{ fontSize: "13px" }}>close</span>{t("common.clear")}
                   </button>
                 )}
               </div>
@@ -526,12 +523,12 @@ export default function TeamDetailPage({ params }: PageProps) {
             <div className="rounded-xl p-8 flex flex-col items-center gap-3"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
               <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>history</span>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No attendance records yet.</p>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("teams.noAttendanceRecords")}</p>
             </div>
           ) : filteredHistory.length === 0 ? (
             <div className="rounded-xl p-6 text-center"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No records in selected date range.</p>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("teams.noRecordsInRange")}</p>
             </div>
           ) : (
             <div className="rounded-xl overflow-hidden"
@@ -544,7 +541,7 @@ export default function TeamDetailPage({ params }: PageProps) {
                     backgroundColor: "var(--color-surface-container-low)",
                     minWidth: "500px",
                   }}>
-                  {["Date", "Status", "Workers", "Task", "Time", "Amount"].map(h => (
+                  {[t("common.date"), t("common.status"), t("teams.colWorkers"), t("teams.colTask"), t("teams.colTime"), t("common.amount")].map(h => (
                     <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
                   ))}
                 </div>
@@ -560,7 +557,7 @@ export default function TeamDetailPage({ params }: PageProps) {
                     </p>
                     <span className="text-label-caps font-semibold"
                       style={{ color: rec.status === "present" ? "#2d7a4f" : "var(--color-tertiary)" }}>
-                      {rec.status === "present" ? "Present" : "Absent"}
+                      {rec.status === "present" ? t("teams.present") : t("teams.absent")}
                     </span>
                     <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
                       {rec.num_labourers ?? "—"}
@@ -584,23 +581,17 @@ export default function TeamDetailPage({ params }: PageProps) {
         {/* Contract History */}
         <section>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>Contract History</h2>
+            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("teams.contractHistory")}</h2>
             {contracts.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
-                <input type="date" value={contractFrom} onChange={e => setContractFrom(e.target.value)}
-                  className="h-8 px-2 rounded-lg text-label-caps"
-                  style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface-container-low)",
-                    color: contractFrom ? "var(--color-on-surface)" : "var(--color-outline)", outline: "none", colorScheme: "dark" }} />
-                <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>to</span>
-                <input type="date" value={contractTo} onChange={e => setContractTo(e.target.value)}
-                  className="h-8 px-2 rounded-lg text-label-caps"
-                  style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface-container-low)",
-                    color: contractTo ? "var(--color-on-surface)" : "var(--color-outline)", outline: "none", colorScheme: "dark" }} />
+                <DatePicker value={contractFrom} onChange={setContractFrom} />
+                <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>{t("common.to")}</span>
+                <DatePicker value={contractTo} onChange={setContractTo} />
                 {(contractFrom || contractTo) && (
                   <button onClick={() => { setContractFrom(""); setContractTo(""); }}
                     className="h-8 px-2 rounded-lg text-label-caps flex items-center gap-1"
                     style={{ color: "var(--color-error)", border: "1px solid var(--color-error)" }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: "13px" }}>close</span>Clear
+                    <span className="material-symbols-outlined" style={{ fontSize: "13px" }}>close</span>{t("common.clear")}
                   </button>
                 )}
               </div>
@@ -616,12 +607,12 @@ export default function TeamDetailPage({ params }: PageProps) {
             <div className="rounded-xl p-8 flex flex-col items-center gap-3"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
               <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>description</span>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No contracts assigned yet.</p>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("teams.noContractsYet")}</p>
             </div>
           ) : filteredContracts.length === 0 ? (
             <div className="rounded-xl p-6 text-center"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No contracts in selected date range.</p>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("teams.noContractsInRange")}</p>
             </div>
           ) : (
             <div className="rounded-xl overflow-hidden"
@@ -634,7 +625,7 @@ export default function TeamDetailPage({ params }: PageProps) {
                     backgroundColor: "var(--color-surface-container-low)",
                     minWidth: "400px",
                   }}>
-                  {["Work / Title", "Assigned", "Amount", "Status"].map(h => (
+                  {[t("teams.colWorkTitle"), t("teams.colAssigned"), t("common.amount"), t("common.status")].map(h => (
                     <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
                   ))}
                 </div>
@@ -674,7 +665,7 @@ export default function TeamDetailPage({ params }: PageProps) {
         {/* Payment History */}
         <section>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>Payment History</h2>
+            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("teams.paymentHistory")}</h2>
             <div className="flex gap-2">
               {paymentSummary && paymentSummary.pending > 0 && (
                 <button
@@ -683,7 +674,7 @@ export default function TeamDetailPage({ params }: PageProps) {
                   style={{ border: "1px solid var(--color-primary)", color: "var(--color-primary)" }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>check_circle</span>
-                  Settle {formatCurrency(paymentSummary.pending)}
+                  {t("teams.settle")} {formatCurrency(paymentSummary.pending)}
                 </button>
               )}
               <button
@@ -692,7 +683,7 @@ export default function TeamDetailPage({ params }: PageProps) {
                 style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>add</span>
-                Note Payment
+                {t("teams.notePayment")}
               </button>
             </div>
           </div>
@@ -701,14 +692,14 @@ export default function TeamDetailPage({ params }: PageProps) {
             <div className="grid grid-cols-3 gap-3 mb-5">
               <div className="rounded-xl px-4 py-3"
                 style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Total Earned</p>
+                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("teams.totalEarned")}</p>
                 <p className="text-body-lg font-bold" style={{ color: "var(--color-on-surface)" }}>
                   {formatCurrency(paymentSummary.total_earned)}
                 </p>
               </div>
               <div className="rounded-xl px-4 py-3"
                 style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Total Paid</p>
+                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("teams.totalPaid")}</p>
                 <p className="text-body-lg font-bold" style={{ color: "#2d7a4f" }}>
                   {formatCurrency(paymentSummary.total_paid)}
                 </p>
@@ -718,7 +709,7 @@ export default function TeamDetailPage({ params }: PageProps) {
                   backgroundColor: paymentSummary.pending > 0 ? "rgba(255,218,211,0.3)" : "rgba(193,236,212,0.3)",
                   border: `1px solid ${paymentSummary.pending > 0 ? "rgba(220,53,69,0.2)" : "rgba(45,122,79,0.2)"}`,
                 }}>
-                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Outstanding</p>
+                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("teams.outstanding")}</p>
                 <p className="text-body-lg font-bold" style={{ color: paymentSummary.pending > 0 ? "var(--color-error)" : "#2d7a4f" }}>
                   {formatCurrency(Math.max(0, paymentSummary.pending))}
                 </p>
@@ -735,13 +726,13 @@ export default function TeamDetailPage({ params }: PageProps) {
             <div className="rounded-xl p-8 flex flex-col items-center gap-3"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
               <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>receipt_long</span>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No payments recorded yet.</p>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("teams.noPaymentsYet")}</p>
               <button
                 onClick={() => setPaymentModalOpen(true)}
                 className="h-9 px-4 rounded-lg text-body-md font-semibold"
                 style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
               >
-                Record First Payment
+                {t("teams.recordFirstPayment")}
               </button>
             </div>
           ) : (
@@ -753,7 +744,7 @@ export default function TeamDetailPage({ params }: PageProps) {
                   borderBottom: "1px solid var(--color-outline-variant)",
                   backgroundColor: "var(--color-surface-container-low)",
                 }}>
-                {["Date", "Notes", "Mode", "Amount"].map(h => (
+                {[t("common.date"), t("teams.colNotes"), t("teams.colMode"), t("common.amount")].map(h => (
                   <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
                 ))}
               </div>
@@ -770,7 +761,7 @@ export default function TeamDetailPage({ params }: PageProps) {
                     {p.notes || "\u2014"}
                   </p>
                   <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                    {p.method === "bank_transfer" ? "Bank" : p.method.charAt(0).toUpperCase() + p.method.slice(1)}
+                    {p.method === "bank_transfer" ? t("teams.bankMethod") : p.method.charAt(0).toUpperCase() + p.method.slice(1)}
                   </p>
                   <p className="text-body-md font-semibold" style={{ color: "#2d7a4f" }}>
                     {formatCurrency(p.amount)}

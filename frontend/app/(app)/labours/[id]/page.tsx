@@ -8,6 +8,8 @@ import { Labour, EntityPaymentSummary, PaymentRead, PaginatedPayments } from "@/
 import { formatCurrency, formatMediumDate, getInitials } from "@/lib/utils";
 import LabourDrawer from "@/components/LabourDrawer";
 import PaymentModal from "@/components/PaymentModal";
+import DatePicker from "@/components/ui/DatePicker";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -40,11 +42,6 @@ function contractStatusColor(status: string) {
   return { bg: "#ffdad3", text: "#510900" };
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  present: "Present",
-  absent: "Absent",
-  half_day: "Half Day",
-};
 const STATUS_COLORS: Record<string, string> = {
   present: "#2d7a4f",
   absent: "var(--color-tertiary)",
@@ -54,6 +51,24 @@ const STATUS_COLORS: Record<string, string> = {
 export default function LabourDetailPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const { t } = useLanguage();
+
+  const STATUS_LABELS: Record<string, string> = {
+    present: t("labours.statusPresent"),
+    absent: t("labours.statusAbsent"),
+    half_day: t("labours.statusHalfDay"),
+  };
+  const CONTRACT_STATUS_LABELS: Record<string, string> = {
+    active: t("labours.statusActive"),
+    completed: t("labours.statusCompleted"),
+    cancelled: t("labours.statusCancelled"),
+  };
+  const METHOD_LABELS: Record<string, string> = {
+    cash: t("labours.methodCash"),
+    upi: t("labours.methodUpi"),
+    bank_transfer: t("labours.methodBank"),
+    other: t("labours.methodOther"),
+  };
 
   const [labour, setLabour] = useState<Labour | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,7 +116,7 @@ export default function LabourDetailPage({ params }: PageProps) {
       if (apiErr?.status === 404) {
         setNotFound(true);
       } else {
-        setError("Failed to load labour profile.");
+        setError(t("labours.loadProfileFailedMessage"));
       }
     } finally {
       setLoading(false);
@@ -166,7 +181,7 @@ export default function LabourDetailPage({ params }: PageProps) {
       await apiFetch(`/api/v1/labours/${id}/hard`, { method: "DELETE" });
       router.push("/labours");
     } catch {
-      setDeleteError("Failed to delete. Please try again.");
+      setDeleteError(t("labours.deleteFailedMessage"));
       setDeleting(false);
       setConfirmDelete(false);
     }
@@ -187,7 +202,7 @@ export default function LabourDetailPage({ params }: PageProps) {
       setConfirmSettle(false);
       fetchPayments();
     } catch {
-      setSettleError("Settlement failed. Please try again.");
+      setSettleError(t("labours.settlementFailedMessage"));
     } finally {
       setSettling(false);
     }
@@ -203,7 +218,7 @@ export default function LabourDetailPage({ params }: PageProps) {
             style={{ borderColor: "var(--color-primary)" }}
           />
           <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-            Loading profile…
+            {t("labours.loadingProfile")}
           </p>
         </div>
       </div>
@@ -217,13 +232,13 @@ export default function LabourDetailPage({ params }: PageProps) {
         <span className="material-symbols-outlined" style={{ fontSize: "64px", color: "var(--color-outline)" }}>
           person_off
         </span>
-        <p className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>Labour not found</p>
+        <p className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("labours.labourNotFound")}</p>
         <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-          The profile you are looking for does not exist.
+          {t("labours.labourNotFoundDesc")}
         </p>
         <Link href="/labours" className="mt-2 h-11 px-6 rounded-lg text-body-md font-semibold"
           style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}>
-          Back to Labours
+          {t("labours.backToLabours")}
         </Link>
       </div>
     );
@@ -236,11 +251,11 @@ export default function LabourDetailPage({ params }: PageProps) {
         <span className="material-symbols-outlined" style={{ fontSize: "64px", color: "var(--color-error)" }}>
           error_outline
         </span>
-        <p className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>Something went wrong</p>
+        <p className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("common.error")}</p>
         <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{error}</p>
         <button onClick={fetchLabour} className="mt-2 h-11 px-6 rounded-lg text-body-md font-semibold"
           style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}>
-          Try Again
+          {t("labours.tryAgain")}
         </button>
       </div>
     );
@@ -299,8 +314,8 @@ export default function LabourDetailPage({ params }: PageProps) {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-6 py-5" style={{ borderBottom: "1px solid var(--color-outline-variant)" }}>
-                <h2 className="text-headline-md font-bold" style={{ color: "var(--color-on-surface)" }}>Settle Balance</h2>
-                <p className="text-body-md mt-1" style={{ color: "var(--color-on-surface-variant)" }}>for {labour?.name}</p>
+                <h2 className="text-headline-md font-bold" style={{ color: "var(--color-on-surface)" }}>{t("labours.settleBalanceTitle")}</h2>
+                <p className="text-body-md mt-1" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.forLabel")} {labour?.name}</p>
               </div>
               <div className="px-6 py-5 flex flex-col gap-4">
                 <div
@@ -308,22 +323,22 @@ export default function LabourDetailPage({ params }: PageProps) {
                   style={{ backgroundColor: "var(--color-surface-container-low)", border: "1px solid var(--color-outline-variant)" }}
                 >
                   <div className="flex justify-between">
-                    <span className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>Total Earned</span>
+                    <span className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.totalEarned")}</span>
                     <span className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>{formatCurrency(paymentSummary.total_earned)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>Total Paid</span>
+                    <span className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.totalPaid")}</span>
                     <span className="text-body-md font-semibold" style={{ color: "#2d7a4f" }}>{formatCurrency(paymentSummary.total_paid)}</span>
                   </div>
                   <div className="flex justify-between pt-3" style={{ borderTop: "1px solid var(--color-outline-variant)" }}>
-                    <span className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>Outstanding</span>
+                    <span className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>{t("labours.outstanding")}</span>
                     <span className="text-body-md font-bold" style={{ color: "var(--color-error)" }}>{formatCurrency(paymentSummary.pending)}</span>
                   </div>
                 </div>
                 <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                  This will record a cash payment of{" "}
+                  {t("labours.settleConfirmPrefix")}{" "}
                   <strong style={{ color: "var(--color-on-surface)" }}>{formatCurrency(paymentSummary.pending)}</strong>{" "}
-                  to clear the full outstanding balance.
+                  {t("labours.settleConfirmSuffix")}
                 </p>
                 {settleError && (
                   <p className="text-body-md px-3 py-2 rounded-lg"
@@ -338,7 +353,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                   className="flex-1 h-11 rounded-xl text-body-md font-semibold"
                   style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button
                   id="settle-confirm-btn"
@@ -347,7 +362,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                   className="flex-1 h-11 rounded-xl text-body-md font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
                   style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
                 >
-                  {settling ? "Settling…" : `Settle ${formatCurrency(paymentSummary.pending)}`}
+                  {settling ? t("labours.settling") : `${t("labours.settle")} ${formatCurrency(paymentSummary.pending)}`}
                 </button>
               </div>
             </div>
@@ -384,10 +399,10 @@ export default function LabourDetailPage({ params }: PageProps) {
                 </div>
                 <div>
                   <p className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>
-                    Delete {labour.name}?
+                    {t("labours.deleteQuestion")} {labour.name}?
                   </p>
                   <p className="text-body-md mt-1" style={{ color: "var(--color-on-surface-variant)" }}>
-                    This will permanently delete this labourer and all their attendance records. This action cannot be undone.
+                    {t("labours.deleteWarning")}
                   </p>
                 </div>
               </div>
@@ -403,7 +418,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                   className="h-10 px-5 rounded-lg text-body-md font-semibold"
                   style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button
                   onClick={handleDelete}
@@ -411,7 +426,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                   className="h-10 px-5 rounded-lg text-body-md font-semibold flex items-center gap-2 disabled:opacity-60"
                   style={{ backgroundColor: "var(--color-error)", color: "#fff" }}
                 >
-                  {deleting ? "Deleting…" : "Delete Permanently"}
+                  {deleting ? t("labours.deleting") : t("labours.deletePermanently")}
                 </button>
               </div>
             </div>
@@ -430,7 +445,7 @@ export default function LabourDetailPage({ params }: PageProps) {
           style={{ color: "var(--color-on-surface-variant)" }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>arrow_back</span>
-          Labour Directory
+          {t("labours.labourDirectory")}
         </Link>
         <div className="flex items-center gap-3">
           <button
@@ -440,7 +455,7 @@ export default function LabourDetailPage({ params }: PageProps) {
             style={{ backgroundColor: "var(--color-primary-fixed)", color: "var(--color-primary)", border: "1px solid var(--color-primary)" }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>payments</span>
-            Note Payment
+            {t("labours.notePayment")}
           </button>
           {paymentSummary && paymentSummary.pending > 0 && (
             <button
@@ -450,7 +465,7 @@ export default function LabourDetailPage({ params }: PageProps) {
               style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>check_circle</span>
-              Settle {formatCurrency(paymentSummary.pending)}
+              {t("labours.settle")} {formatCurrency(paymentSummary.pending)}
             </button>
           )}
           <button
@@ -460,7 +475,7 @@ export default function LabourDetailPage({ params }: PageProps) {
             style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>edit</span>
-            Edit Profile
+            {t("labours.editProfile")}
           </button>
           <button
             id="delete-labour-btn"
@@ -505,7 +520,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                   className="text-body-md font-medium"
                   style={{ color: labour.status === "active" ? "#2d7a4f" : "var(--color-on-surface-variant)" }}
                 >
-                  {labour.status === "active" ? "Active" : "Inactive"}
+                  {labour.status === "active" ? t("common.active") : t("common.inactive")}
                 </span>
               </div>
             </div>
@@ -517,7 +532,7 @@ export default function LabourDetailPage({ params }: PageProps) {
               <div>
                 <p className="text-label-caps mb-1 flex items-center gap-1" style={{ color: "var(--color-on-surface-variant)" }}>
                   <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>location_on</span>
-                  Hometown
+                  {t("labours.hometown")}
                 </p>
                 <p className="text-body-md font-medium" style={{ color: "var(--color-on-surface)" }}>{labour.hometown}</p>
               </div>
@@ -525,16 +540,16 @@ export default function LabourDetailPage({ params }: PageProps) {
             <div>
               <p className="text-label-caps mb-1 flex items-center gap-1" style={{ color: "var(--color-on-surface-variant)" }}>
                 <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>payments</span>
-                Daily Wage
+                {t("labours.dailyWage")}
               </p>
               <p className="text-body-md font-medium" style={{ color: "var(--color-on-surface)" }}>
-                {formatCurrency(labour.daily_wage)}/day
+                {formatCurrency(labour.daily_wage)}{t("labours.perDay")}
               </p>
             </div>
             <div>
               <p className="text-label-caps mb-1 flex items-center gap-1" style={{ color: "var(--color-on-surface-variant)" }}>
                 <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>schedule</span>
-                Working Time
+                {t("labours.workingTime")}
               </p>
               <p className="text-body-md font-medium" style={{ color: "var(--color-on-surface)" }}>{workingTime}</p>
             </div>
@@ -545,7 +560,7 @@ export default function LabourDetailPage({ params }: PageProps) {
               style={{ borderTop: "1px solid var(--color-outline-variant)" }}>
               {labour.phone && (
                 <div>
-                  <p className="text-label-caps mb-1" style={{ color: "var(--color-on-surface-variant)" }}>Phone Number</p>
+                  <p className="text-label-caps mb-1" style={{ color: "var(--color-on-surface-variant)" }}>{t("common.phone")}</p>
                   <p className="text-body-md font-medium flex items-center gap-2" style={{ color: "var(--color-on-surface)" }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>call</span>
                     {labour.phone}
@@ -554,7 +569,7 @@ export default function LabourDetailPage({ params }: PageProps) {
               )}
               {labour.aadhaar && (
                 <div>
-                  <p className="text-label-caps mb-1" style={{ color: "var(--color-on-surface-variant)" }}>Aadhaar Number</p>
+                  <p className="text-label-caps mb-1" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.aadhaarNumber")}</p>
                   <p className="text-body-md font-medium flex items-center gap-2" style={{ color: "var(--color-on-surface)" }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>fingerprint</span>
                     {labour.aadhaar}
@@ -570,12 +585,12 @@ export default function LabourDetailPage({ params }: PageProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-xl p-5"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-              <p className="text-label-caps mb-2" style={{ color: "var(--color-on-surface-variant)" }}>Days Worked</p>
+              <p className="text-label-caps mb-2" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.daysWorked")}</p>
               <p className="text-display-currency" style={{ color: "var(--color-on-surface)" }}>{daysPresent}</p>
             </div>
             <div className="rounded-xl p-5"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-              <p className="text-label-caps mb-2" style={{ color: "var(--color-on-surface-variant)" }}>Total Earned</p>
+              <p className="text-label-caps mb-2" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.totalEarned")}</p>
               <p className="text-display-currency" style={{ color: "var(--color-on-surface)" }}>{formatCurrency(totalEarned)}</p>
             </div>
           </div>
@@ -584,40 +599,24 @@ export default function LabourDetailPage({ params }: PageProps) {
         {/* Attendance History */}
         <section>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>Attendance History</h2>
+            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("labours.attendanceHistory")}</h2>
             {history.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
-                <input
-                  type="date"
+                <DatePicker
                   value={historyFrom}
-                  onChange={e => setHistoryFrom(e.target.value)}
-                  className="h-8 px-2 rounded-lg text-label-caps"
-                  style={{
-                    border: "1px solid var(--color-outline-variant)",
-                    backgroundColor: "var(--color-surface-container-low)",
-                    color: historyFrom ? "var(--color-on-surface)" : "var(--color-outline)",
-                    outline: "none", colorScheme: "dark",
-                  }}
+                  onChange={setHistoryFrom}
                 />
-                <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>to</span>
-                <input
-                  type="date"
+                <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>{t("common.to")}</span>
+                <DatePicker
                   value={historyTo}
-                  onChange={e => setHistoryTo(e.target.value)}
-                  className="h-8 px-2 rounded-lg text-label-caps"
-                  style={{
-                    border: "1px solid var(--color-outline-variant)",
-                    backgroundColor: "var(--color-surface-container-low)",
-                    color: historyTo ? "var(--color-on-surface)" : "var(--color-outline)",
-                    outline: "none", colorScheme: "dark",
-                  }}
+                  onChange={setHistoryTo}
                 />
                 {(historyFrom || historyTo) && (
                   <button onClick={() => { setHistoryFrom(""); setHistoryTo(""); }}
                     className="h-8 px-2 rounded-lg text-label-caps flex items-center gap-1"
                     style={{ color: "var(--color-error)", border: "1px solid var(--color-error)" }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "13px" }}>close</span>
-                    Clear
+                    {t("common.clear")}
                   </button>
                 )}
               </div>
@@ -633,12 +632,12 @@ export default function LabourDetailPage({ params }: PageProps) {
             <div className="rounded-xl p-8 flex flex-col items-center gap-3"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
               <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>history</span>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No attendance records yet.</p>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noAttendanceRecords")}</p>
             </div>
           ) : filteredHistory.length === 0 ? (
             <div className="rounded-xl p-6 text-center"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No records in selected date range.</p>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noRecordsInRange")}</p>
             </div>
           ) : (
             <div className="rounded-xl overflow-hidden"
@@ -650,7 +649,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                   borderBottom: "1px solid var(--color-outline-variant)",
                   backgroundColor: "var(--color-surface-container-low)",
                 }}>
-                {["Date", "Status", "Task", "Time", "Wage"].map(h => (
+                {[t("common.date"), t("common.status"), t("labours.taskLabel"), t("labours.timeLabel"), t("labours.wageLabel")].map(h => (
                   <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
                 ))}
               </div>
@@ -685,40 +684,24 @@ export default function LabourDetailPage({ params }: PageProps) {
         {/* Contract History */}
         <section>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>Contract History</h2>
+            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("labours.contractHistory")}</h2>
             {contracts.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
-                <input
-                  type="date"
+                <DatePicker
                   value={contractFrom}
-                  onChange={e => setContractFrom(e.target.value)}
-                  className="h-8 px-2 rounded-lg text-label-caps"
-                  style={{
-                    border: "1px solid var(--color-outline-variant)",
-                    backgroundColor: "var(--color-surface-container-low)",
-                    color: contractFrom ? "var(--color-on-surface)" : "var(--color-outline)",
-                    outline: "none", colorScheme: "dark",
-                  }}
+                  onChange={setContractFrom}
                 />
-                <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>to</span>
-                <input
-                  type="date"
+                <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>{t("common.to")}</span>
+                <DatePicker
                   value={contractTo}
-                  onChange={e => setContractTo(e.target.value)}
-                  className="h-8 px-2 rounded-lg text-label-caps"
-                  style={{
-                    border: "1px solid var(--color-outline-variant)",
-                    backgroundColor: "var(--color-surface-container-low)",
-                    color: contractTo ? "var(--color-on-surface)" : "var(--color-outline)",
-                    outline: "none", colorScheme: "dark",
-                  }}
+                  onChange={setContractTo}
                 />
                 {(contractFrom || contractTo) && (
                   <button onClick={() => { setContractFrom(""); setContractTo(""); }}
                     className="h-8 px-2 rounded-lg text-label-caps flex items-center gap-1"
                     style={{ color: "var(--color-error)", border: "1px solid var(--color-error)" }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "13px" }}>close</span>
-                    Clear
+                    {t("common.clear")}
                   </button>
                 )}
               </div>
@@ -734,12 +717,12 @@ export default function LabourDetailPage({ params }: PageProps) {
             <div className="rounded-xl p-8 flex flex-col items-center gap-3"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
               <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>description</span>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No contracts assigned yet.</p>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noContractsAssigned")}</p>
             </div>
           ) : filteredContracts.length === 0 ? (
             <div className="rounded-xl p-6 text-center"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No contracts in selected date range.</p>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noContractsInRange")}</p>
             </div>
           ) : (
             <div className="rounded-xl overflow-hidden"
@@ -753,7 +736,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                     backgroundColor: "var(--color-surface-container-low)",
                     minWidth: "400px",
                   }}>
-                  {["Work / Title", "Assigned", "Amount", "Status"].map(h => (
+                  {[t("labours.workTitle"), t("labours.assigned"), t("common.amount"), t("common.status")].map(h => (
                     <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
                   ))}
                 </div>
@@ -780,7 +763,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                       </p>
                       <span className="text-label-caps px-2 py-1 rounded-full inline-block"
                         style={{ backgroundColor: sc.bg, color: sc.text }}>
-                        {c.status.charAt(0).toUpperCase() + c.status.slice(1)}
+                        {CONTRACT_STATUS_LABELS[c.status] ?? c.status}
                       </span>
                     </div>
                   );
@@ -793,7 +776,7 @@ export default function LabourDetailPage({ params }: PageProps) {
         {/* Payment History */}
         <section>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>Payment History</h2>
+            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("labours.paymentHistory")}</h2>
             <div className="flex gap-2">
               {paymentSummary && paymentSummary.pending > 0 && (
                 <button
@@ -802,7 +785,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                   style={{ border: "1px solid var(--color-primary)", color: "var(--color-primary)" }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>check_circle</span>
-                  Settle {formatCurrency(paymentSummary.pending)}
+                  {t("labours.settle")} {formatCurrency(paymentSummary.pending)}
                 </button>
               )}
               <button
@@ -811,7 +794,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                 style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>add</span>
-                Note Payment
+                {t("labours.notePayment")}
               </button>
             </div>
           </div>
@@ -823,7 +806,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                 className="rounded-xl px-4 py-3"
                 style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}
               >
-                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Total Earned</p>
+                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("labours.totalEarned")}</p>
                 <p className="text-body-lg font-bold" style={{ color: "var(--color-on-surface)" }}>
                   {formatCurrency(paymentSummary.total_earned)}
                 </p>
@@ -832,7 +815,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                 className="rounded-xl px-4 py-3"
                 style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}
               >
-                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Total Paid</p>
+                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("labours.totalPaid")}</p>
                 <p className="text-body-lg font-bold" style={{ color: "#2d7a4f" }}>
                   {formatCurrency(paymentSummary.total_paid)}
                 </p>
@@ -844,7 +827,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                   border: `1px solid ${paymentSummary.pending > 0 ? "rgba(220,53,69,0.2)" : "rgba(45,122,79,0.2)"}`,
                 }}
               >
-                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Outstanding</p>
+                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("labours.outstanding")}</p>
                 <p className="text-body-lg font-bold" style={{ color: paymentSummary.pending > 0 ? "var(--color-error)" : "#2d7a4f" }}>
                   {formatCurrency(Math.max(0, paymentSummary.pending))}
                 </p>
@@ -861,13 +844,13 @@ export default function LabourDetailPage({ params }: PageProps) {
             <div className="rounded-xl p-8 flex flex-col items-center gap-3"
               style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
               <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>receipt_long</span>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>No payments recorded yet.</p>
+              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noPaymentsRecorded")}</p>
               <button
                 onClick={() => setPaymentModalOpen(true)}
                 className="h-9 px-4 rounded-lg text-body-md font-semibold"
                 style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
               >
-                Record First Payment
+                {t("labours.recordFirstPayment")}
               </button>
             </div>
           ) : (
@@ -879,7 +862,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                   borderBottom: "1px solid var(--color-outline-variant)",
                   backgroundColor: "var(--color-surface-container-low)",
                 }}>
-                {["Date", "Method / Notes", "Mode", "Amount"].map(h => (
+                {[t("common.date"), t("labours.methodNotesLabel"), t("labours.modeLabel"), t("common.amount")].map(h => (
                   <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
                 ))}
               </div>
@@ -896,7 +879,7 @@ export default function LabourDetailPage({ params }: PageProps) {
                     {p.notes || "—"}
                   </p>
                   <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                    {p.method === "bank_transfer" ? "Bank" : p.method.charAt(0).toUpperCase() + p.method.slice(1)}
+                    {METHOD_LABELS[p.method] ?? p.method}
                   </p>
                   <p className="text-body-md font-semibold" style={{ color: "#2d7a4f" }}>
                     {formatCurrency(p.amount)}

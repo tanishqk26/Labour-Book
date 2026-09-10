@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ApiError, apiPost, apiPatch } from "@/lib/api";
 import { Team } from "@/types";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface TeamModalProps {
   open: boolean;
@@ -41,6 +42,7 @@ function teamToForm(t: Team): FormState {
 }
 
 export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalProps) {
+  const { t } = useLanguage();
   const isEdit = !!team;
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -76,8 +78,8 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
 
   function validate(): boolean {
     const errs: Record<string, string> = {};
-    if (!form.name.trim()) errs.name = "Team name is required";
-    if (!form.daily_wage || Number(form.daily_wage) <= 0) errs.daily_wage = "Daily wage is required";
+    if (!form.name.trim()) errs.name = t("teams.teamNameRequired");
+    if (!form.daily_wage || Number(form.daily_wage) <= 0) errs.daily_wage = t("teams.dailyWageRequired");
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -120,11 +122,11 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
           setServerError(
             typeof data?.detail === "string"
               ? data.detail
-              : "Something went wrong. Please try again."
+              : t("teams.genericError")
           );
         }
       } else {
-        setServerError("Network error. Check your connection.");
+        setServerError(t("teams.networkError"));
       }
     } finally {
       setSubmitting(false);
@@ -167,7 +169,7 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
           }}
           role="dialog"
           aria-modal="true"
-          aria-label={isEdit ? "Edit Team" : "Create Team"}
+          aria-label={isEdit ? t("teams.editTeam") : t("teams.createTeam")}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -176,13 +178,13 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
             style={{ borderBottom: "1px solid var(--color-outline-variant)" }}
           >
             <h2 className="text-headline-md" style={{ color: "var(--color-primary)" }}>
-              {isEdit ? "Edit Team" : "Create Team"}
+              {isEdit ? t("teams.editTeam") : t("teams.createTeam")}
             </h2>
             <button
               onClick={onClose}
               className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors hover:opacity-70"
               style={{ color: "var(--color-on-surface-variant)" }}
-              aria-label="Close modal"
+              aria-label={t("teams.closeModal")}
             >
               <span className="material-symbols-outlined">close</span>
             </button>
@@ -210,14 +212,14 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
                   className="block text-label-caps mb-2"
                   style={{ color: "var(--color-on-surface-variant)" }}
                 >
-                  Team Name <span style={{ color: "var(--color-error)" }}>*</span>
+                  {t("teams.teamNameLabel")} <span style={{ color: "var(--color-error)" }}>*</span>
                 </label>
                 <input
                   id="team-name"
                   type="text"
                   value={form.name}
                   onChange={(e) => setField("name", e.target.value)}
-                  placeholder="e.g. Shinde Group"
+                  placeholder={t("teams.teamNamePlaceholder")}
                   className="w-full h-12 px-4 rounded-lg text-body-md transition-colors"
                   style={inputStyle(!!errors.name)}
                 />
@@ -235,14 +237,14 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
                   className="block text-label-caps mb-2"
                   style={{ color: "var(--color-on-surface-variant)" }}
                 >
-                  Hometown / Village
+                  {t("teams.hometownVillageLabel")}
                 </label>
                 <input
                   id="team-hometown"
                   type="text"
                   value={form.hometown}
                   onChange={(e) => setField("hometown", e.target.value)}
-                  placeholder="e.g. Nashik, Pune"
+                  placeholder={t("teams.hometownPlaceholder")}
                   className="w-full h-12 px-4 rounded-lg text-body-md transition-colors"
                   style={inputStyle(false)}
                 />
@@ -254,14 +256,14 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
                   className="block text-label-caps mb-2"
                   style={{ color: "var(--color-on-surface-variant)" }}
                 >
-                  Daily Wage per Labour (₹) <span style={{ color: "var(--color-error)" }}>*</span>
+                  {t("teams.dailyWageLabel")} <span style={{ color: "var(--color-error)" }}>*</span>
                 </label>
                 <input
                   id="team-daily-wage"
                   type="number"
                   value={form.daily_wage}
                   onChange={(e) => setField("daily_wage", e.target.value)}
-                  placeholder="e.g. 350"
+                  placeholder={t("teams.dailyWagePlaceholder")}
                   min={0}
                   className="w-full h-12 px-4 rounded-lg text-body-md transition-colors"
                   style={inputStyle(!!errors.daily_wage)}
@@ -281,7 +283,7 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
                     className="block text-label-caps mb-2"
                     style={{ color: "var(--color-on-surface-variant)" }}
                   >
-                    Car Rent (₹)
+                    {t("teams.carRentFieldLabel")}
                   </label>
                   <input
                     id="team-car-rent"
@@ -300,7 +302,7 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
                     className="block text-label-caps mb-2"
                     style={{ color: "var(--color-on-surface-variant)" }}
                   >
-                    Manager Fee (₹)
+                    {t("teams.managerFeeFieldLabel")}
                   </label>
                   <input
                     id="team-manager-fee"
@@ -322,13 +324,13 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
                   className="block text-label-caps mb-2"
                   style={{ color: "var(--color-on-surface-variant)" }}
                 >
-                  Description (optional)
+                  {t("teams.descriptionLabel")}
                 </label>
                 <textarea
                   id="team-description"
                   value={form.description}
                   onChange={(e) => setField("description", e.target.value)}
-                  placeholder="Brief description of the team..."
+                  placeholder={t("teams.descriptionPlaceholder")}
                   rows={1}
                   className="w-full px-4 py-3 rounded-lg text-body-md transition-colors resize-none"
                   style={{
@@ -353,7 +355,7 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
                   info
                 </span>
                 <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)", textTransform: "none", fontWeight: 400 }}>
-                  Total = No. of labours × Daily wage + Car rent + Manager fee
+                  {t("teams.wageFormulaHint")}
                 </p>
               </div>
             </form>
@@ -374,7 +376,7 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
               }}
               disabled={submitting}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               form="team-form"
@@ -392,12 +394,12 @@ export default function TeamModal({ open, onClose, onSuccess, team }: TeamModalP
                     className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin"
                     style={{ borderColor: "var(--color-on-primary)" }}
                   />
-                  Saving…
+                  {t("teams.saving")}
                 </>
               ) : isEdit ? (
-                "Save Changes"
+                t("common.saveChanges")
               ) : (
-                "Create Team"
+                t("teams.createTeam")
               )}
             </button>
           </div>

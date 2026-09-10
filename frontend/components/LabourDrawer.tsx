@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { ApiError, apiPost, apiPatch } from "@/lib/api";
 import { Labour } from "@/types";
+import TimePicker from "@/components/ui/TimePicker";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface LabourDrawerProps {
   open: boolean;
@@ -49,6 +51,7 @@ export default function LabourDrawer({
   onSuccess,
   labour,
 }: LabourDrawerProps) {
+  const { t } = useLanguage();
   const isEdit = !!labour;
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -84,15 +87,15 @@ export default function LabourDrawer({
 
   function validate(): boolean {
     const errs: Record<string, string> = {};
-    if (!form.name.trim()) errs.name = "Name is required";
+    if (!form.name.trim()) errs.name = t("labours.nameRequired");
     if (!form.daily_wage || isNaN(Number(form.daily_wage)) || Number(form.daily_wage) <= 0) {
-      errs.daily_wage = "Enter a valid daily wage";
+      errs.daily_wage = t("labours.dailyWageInvalid");
     }
     if (form.work_start_time && !/^\d{2}:\d{2}$/.test(form.work_start_time)) {
-      errs.work_start_time = "Use HH:MM format";
+      errs.work_start_time = t("labours.hhmmFormat");
     }
     if (form.work_end_time && !/^\d{2}:\d{2}$/.test(form.work_end_time)) {
-      errs.work_end_time = "Use HH:MM format";
+      errs.work_end_time = t("labours.hhmmFormat");
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -137,11 +140,11 @@ export default function LabourDrawer({
           setServerError(
             typeof data?.detail === "string"
               ? data.detail
-              : "Something went wrong. Please try again."
+              : t("labours.genericErrorRetry")
           );
         }
       } else {
-        setServerError("Network error. Check your connection.");
+        setServerError(t("labours.networkError"));
       }
     } finally {
       setSubmitting(false);
@@ -170,7 +173,7 @@ export default function LabourDrawer({
         }}
         role="dialog"
         aria-modal="true"
-        aria-label={isEdit ? "Edit Labour" : "Add Labour"}
+        aria-label={isEdit ? t("labours.editLabour") : t("labours.addLabour")}
       >
         {/* Header */}
         <div
@@ -178,13 +181,13 @@ export default function LabourDrawer({
           style={{ borderBottom: "1px solid var(--color-outline-variant)" }}
         >
           <h2 className="text-headline-md" style={{ color: "var(--color-primary)" }}>
-            {isEdit ? "Edit Labour" : "Add Labour"}
+            {isEdit ? t("labours.editLabour") : t("labours.addLabour")}
           </h2>
           <button
             onClick={onClose}
             className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
             style={{ color: "var(--color-on-surface-variant)" }}
-            aria-label="Close drawer"
+            aria-label={t("labours.closeDrawerAria")}
           >
             <span className="material-symbols-outlined">close</span>
           </button>
@@ -207,14 +210,14 @@ export default function LabourDrawer({
           {/* Name */}
           <div className="flex flex-col gap-1.5">
             <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-              Name <span style={{ color: "var(--color-error)" }}>*</span>
+              {t("common.name")} <span style={{ color: "var(--color-error)" }}>*</span>
             </label>
             <input
               id="labour-name"
               type="text"
               value={form.name}
               onChange={(e) => setField("name", e.target.value)}
-              placeholder="e.g. Deepak"
+              placeholder={t("labours.namePlaceholder")}
               className="h-11 px-3 rounded-lg text-body-md transition-colors"
               style={{
                 border: errors.name
@@ -235,14 +238,14 @@ export default function LabourDrawer({
           {/* Hometown */}
           <div className="flex flex-col gap-1.5">
             <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-              Hometown
+              {t("labours.hometown")}
             </label>
             <input
               id="labour-hometown"
               type="text"
               value={form.hometown}
               onChange={(e) => setField("hometown", e.target.value)}
-              placeholder="e.g. Junnar"
+              placeholder={t("labours.hometownPlaceholder")}
               className="h-11 px-3 rounded-lg text-body-md transition-colors"
               style={{
                 border: "1px solid var(--color-outline-variant)",
@@ -256,7 +259,7 @@ export default function LabourDrawer({
           {/* Daily Wage */}
           <div className="flex flex-col gap-1.5">
             <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-              Daily Wage (₹) <span style={{ color: "var(--color-error)" }}>*</span>
+              {t("labours.dailyWageWithCurrency")} <span style={{ color: "var(--color-error)" }}>*</span>
             </label>
             <input
               id="labour-daily-wage"
@@ -265,7 +268,7 @@ export default function LabourDrawer({
               step={1}
               value={form.daily_wage}
               onChange={(e) => setField("daily_wage", e.target.value)}
-              placeholder="e.g. 400"
+              placeholder={t("labours.dailyWagePlaceholder")}
               className="h-11 px-3 rounded-lg text-body-md transition-colors"
               style={{
                 border: errors.daily_wage
@@ -287,22 +290,13 @@ export default function LabourDrawer({
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                Start Time
+                {t("labours.startTime")}
               </label>
-              <input
+              <TimePicker
                 id="labour-start-time"
-                type="time"
                 value={form.work_start_time}
-                onChange={(e) => setField("work_start_time", e.target.value)}
-                className="h-11 px-3 rounded-lg text-body-md transition-colors"
-                style={{
-                  border: errors.work_start_time
-                    ? "1px solid var(--color-error)"
-                    : "1px solid var(--color-outline-variant)",
-                  backgroundColor: "var(--color-surface-container-lowest)",
-                  color: "var(--color-on-surface)",
-                  outline: "none",
-                }}
+                onChange={(value) => setField("work_start_time", value)}
+                hasError={!!errors.work_start_time}
               />
               {errors.work_start_time && (
                 <p className="text-label-caps" style={{ color: "var(--color-error)" }}>
@@ -312,22 +306,13 @@ export default function LabourDrawer({
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                End Time
+                {t("labours.endTime")}
               </label>
-              <input
+              <TimePicker
                 id="labour-end-time"
-                type="time"
                 value={form.work_end_time}
-                onChange={(e) => setField("work_end_time", e.target.value)}
-                className="h-11 px-3 rounded-lg text-body-md transition-colors"
-                style={{
-                  border: errors.work_end_time
-                    ? "1px solid var(--color-error)"
-                    : "1px solid var(--color-outline-variant)",
-                  backgroundColor: "var(--color-surface-container-lowest)",
-                  color: "var(--color-on-surface)",
-                  outline: "none",
-                }}
+                onChange={(value) => setField("work_end_time", value)}
+                hasError={!!errors.work_end_time}
               />
             </div>
           </div>
@@ -335,14 +320,14 @@ export default function LabourDrawer({
           {/* Phone */}
           <div className="flex flex-col gap-1.5">
             <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-              Phone Number
+              {t("common.phone")}
             </label>
             <input
               id="labour-phone"
               type="tel"
               value={form.phone}
               onChange={(e) => setField("phone", e.target.value)}
-              placeholder="e.g. 98765 43210"
+              placeholder={t("labours.phonePlaceholder")}
               className="h-11 px-3 rounded-lg text-body-md transition-colors"
               style={{
                 border: "1px solid var(--color-outline-variant)",
@@ -356,14 +341,14 @@ export default function LabourDrawer({
           {/* Aadhaar */}
           <div className="flex flex-col gap-1.5">
             <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-              Aadhaar Number
+              {t("labours.aadhaarNumber")}
             </label>
             <input
               id="labour-aadhaar"
               type="text"
               value={form.aadhaar}
               onChange={(e) => setField("aadhaar", e.target.value)}
-              placeholder="e.g. 1234 5678 9012"
+              placeholder={t("labours.aadhaarPlaceholder")}
               className="h-11 px-3 rounded-lg text-body-md transition-colors"
               style={{
                 border: "1px solid var(--color-outline-variant)",
@@ -391,7 +376,7 @@ export default function LabourDrawer({
               backgroundColor: "transparent",
             }}
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             type="submit"
@@ -405,7 +390,7 @@ export default function LabourDrawer({
               opacity: submitting ? 0.6 : 1,
             }}
           >
-            {submitting ? "Saving…" : isEdit ? "Save Changes" : "Add Labour"}
+            {submitting ? t("labours.saving") : isEdit ? t("common.saveChanges") : t("labours.addLabour")}
           </button>
         </div>
       </aside>

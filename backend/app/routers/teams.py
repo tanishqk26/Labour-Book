@@ -12,9 +12,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.labour import Labour
 from app.models.team import Team
+from app.models.user import User
 from app.schemas.labour import LabourRead
 from app.schemas.team import (
     PaginatedTeams,
@@ -83,11 +85,11 @@ def team_to_summary(team: Team) -> TeamSummary:
     )
 
 
-async def _get_team_or_404(db: AsyncSession, team_id: uuid.UUID) -> Team:
+async def _get_team_or_404(db: AsyncSession, team_id: uuid.UUID, owner_id: uuid.UUID) -> Team:
     result = await db.execute(
         select(Team)
         .options(selectinload(Team.members))
-        .where(Team.id == team_id)
+        .where(Team.id == team_id, Team.owner_id == owner_id)
     )
     team = result.scalar_one_or_none()
     if team is None:
@@ -111,6 +113,7 @@ async def _get_team_or_404(db: AsyncSession, team_id: uuid.UUID) -> Team:
 async def create_team(
     payload: TeamCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> TeamRead:
     """Create a new labour team."""
     team = Team(
@@ -119,6 +122,7 @@ async def create_team(
         daily_wage=payload.daily_wage,
         car_rent=payload.car_rent,
         manager_fee=payload.manager_fee,
+        owner_id=current_user.id,
     )
     db.add(team)
     await db.flush()
@@ -137,9 +141,10 @@ async def list_teams(
     search: Optional[str] = Query(None, description="Search by name"),
     status_filter: Optional[str] = Query(None, alias="status", description="active | inactive"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> PaginatedTeams:
     """Returns a paginated list of teams."""
-    query = select(Team).options(selectinload(Team.members))
+    query = select(Team).options(selectinload(Team.members)).where(Team.owner_id == current_user.id)
 
     if status_filter == "active":
         query = query.where(Team.is_active.is_(True))
@@ -176,9 +181,10 @@ async def list_teams(
 async def get_team(
     team_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> TeamRead:
     """Retrieve a single team by UUID, including its members."""
-    team = await _get_team_or_404(db, team_id)
+    team = await _get_team_or_404(db, team_id, current_user.id)
     return team_to_read(team)
 
 
@@ -191,9 +197,10 @@ async def update_team(
     team_id: uuid.UUID,
     payload: TeamUpdate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> TeamRead:
     """Partially update a team's details."""
-    team = await _get_team_or_404(db, team_id)
+    team = await _get_team_or_404(db, team_id, current_user.id)
 
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -212,9 +219,10 @@ async def update_team(
 async def deactivate_team(
     team_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> None:
     """Soft-delete a team by setting is_active=False."""
-    team = await _get_team_or_404(db, team_id)
+    team = await _get_team_or_404(db, team_id, current_user.id)
     team.is_active = False
     await db.flush()
 
@@ -227,11 +235,12 @@ async def deactivate_team(
 async def hard_delete_team(
     team_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> None:
     """
     Permanently delete a team. Attendance records are deleted via CASCADE.
     """
-    team = await _get_team_or_404(db, team_id)
+    team = await _get_team_or_404(db, team_id, current_user.id)
     await db.delete(team)
     await db.flush()
 
@@ -245,13 +254,17 @@ async def add_members(
     team_id: uuid.UUID,
     payload: TeamAddMembers,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> TeamRead:
     """Add existing labours to a team. Duplicate assignments are silently ignored."""
-    team = await _get_team_or_404(db, team_id)
+    team = await _get_team_or_404(db, team_id, current_user.id)
 
-    # Fetch all requested labours
+    # Fetch all requested labours — only ones this user owns
     result = await db.execute(
-        select(Labour).where(Labour.id.in_(payload.labour_ids))
+        select(Labour).where(
+            Labour.id.in_(payload.labour_ids),
+            Labour.owner_id == current_user.id,
+        )
     )
     labours = result.scalars().all()
 
@@ -283,9 +296,10 @@ async def remove_members(
     team_id: uuid.UUID,
     payload: TeamRemoveMembers,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> TeamRead:
     """Remove labours from a team. IDs not in the team are silently ignored."""
-    team = await _get_team_or_404(db, team_id)
+    team = await _get_team_or_404(db, team_id, current_user.id)
 
     remove_ids = set(payload.labour_ids)
     team.members = [m for m in team.members if m.id not in remove_ids]

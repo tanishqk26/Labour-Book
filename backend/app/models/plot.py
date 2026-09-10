@@ -8,7 +8,7 @@ plot so the total contract price can be derived as (rate × plot_size_acres).
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Numeric, String, Text, func
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -19,6 +19,12 @@ class Plot(Base):
     __tablename__ = "plots"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
     # Basic info
     name = Column(String(100), nullable=False, index=True)

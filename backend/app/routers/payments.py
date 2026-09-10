@@ -18,12 +18,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.attendance import Attendance
 from app.models.contract import Contract
 from app.models.labour import Labour
 from app.models.payment import Payment
 from app.models.team import Team
+from app.models.user import User
 from app.schemas.payment import (
     EntityPaymentSummary,
     PaginatedPayments,
@@ -56,8 +58,10 @@ def _payment_to_read(p: Payment, entity_name: Optional[str] = None) -> PaymentRe
     )
 
 
-async def _get_payment_or_404(db: AsyncSession, payment_id: uuid.UUID) -> Payment:
-    result = await db.execute(select(Payment).where(Payment.id == payment_id))
+async def _get_payment_or_404(db: AsyncSession, payment_id: uuid.UUID, owner_id: uuid.UUID) -> Payment:
+    result = await db.execute(
+        select(Payment).where(Payment.id == payment_id, Payment.owner_id == owner_id)
+    )
     p = result.scalar_one_or_none()
     if p is None:
         raise HTTPException(
@@ -72,6 +76,7 @@ async def _compute_entity_summary(
     entity_id: uuid.UUID,
     entity_type: str,  # "individual" | "team"
     entity_name: str,
+    owner_id: uuid.UUID,
 ) -> EntityPaymentSummary:
     """Compute total earned, paid, and pending for a single entity."""
 
@@ -81,6 +86,7 @@ async def _compute_entity_summary(
             select(func.coalesce(func.sum(Attendance.wage_earned), 0)).where(
                 Attendance.labour_id == entity_id,
                 Attendance.status.in_(["present", "half_day"]),
+                Attendance.owner_id == owner_id,
             )
         )
         att_earned = float(att_result.scalar_one())
@@ -90,6 +96,7 @@ async def _compute_entity_summary(
             select(func.coalesce(func.sum(Contract.amount), 0)).where(
                 Contract.labour_id == entity_id,
                 Contract.status.in_(["active", "completed"]),
+                Contract.owner_id == owner_id,
             )
         )
         contract_earned = float(contract_result.scalar_one())
@@ -97,7 +104,8 @@ async def _compute_entity_summary(
         # Total paid
         paid_result = await db.execute(
             select(func.coalesce(func.sum(Payment.amount), 0)).where(
-                Payment.labour_id == entity_id
+                Payment.labour_id == entity_id,
+                Payment.owner_id == owner_id,
             )
         )
         total_paid = float(paid_result.scalar_one())
@@ -107,6 +115,7 @@ async def _compute_entity_summary(
             select(func.coalesce(func.sum(Attendance.wage_earned), 0)).where(
                 Attendance.team_id == entity_id,
                 Attendance.status.in_(["present", "half_day"]),
+                Attendance.owner_id == owner_id,
             )
         )
         att_earned = float(att_result.scalar_one())
@@ -115,13 +124,15 @@ async def _compute_entity_summary(
             select(func.coalesce(func.sum(Contract.amount), 0)).where(
                 Contract.team_id == entity_id,
                 Contract.status.in_(["active", "completed"]),
+                Contract.owner_id == owner_id,
             )
         )
         contract_earned = float(contract_result.scalar_one())
 
         paid_result = await db.execute(
             select(func.coalesce(func.sum(Payment.amount), 0)).where(
-                Payment.team_id == entity_id
+                Payment.team_id == entity_id,
+                Payment.owner_id == owner_id,
             )
         )
         total_paid = float(paid_result.scalar_one())
@@ -161,6 +172,7 @@ async def _compute_entity_summary(
 )
 async def get_payments_summary(
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> PaymentsSummary:
     """Total earned, paid, pending across all labourers and teams."""
     from datetime import date as date_cls
@@ -170,7 +182,8 @@ async def get_payments_summary(
     # Total attendance earnings
     att_result = await db.execute(
         select(func.coalesce(func.sum(Attendance.wage_earned), 0)).where(
-            Attendance.status.in_(["present", "half_day"])
+            Attendance.status.in_(["present", "half_day"]),
+            Attendance.owner_id == current_user.id,
         )
     )
     att_earned = float(att_result.scalar_one())
@@ -178,7 +191,8 @@ async def get_payments_summary(
     # Total contract earnings
     contract_result = await db.execute(
         select(func.coalesce(func.sum(Contract.amount), 0)).where(
-            Contract.status.in_(["active", "completed"])
+            Contract.status.in_(["active", "completed"]),
+            Contract.owner_id == current_user.id,
         )
     )
     contract_earned = float(contract_result.scalar_one())
@@ -187,14 +201,17 @@ async def get_payments_summary(
 
     # Total paid
     paid_result = await db.execute(
-        select(func.coalesce(func.sum(Payment.amount), 0))
+        select(func.coalesce(func.sum(Payment.amount), 0)).where(
+            Payment.owner_id == current_user.id
+        )
     )
     total_paid = round(float(paid_result.scalar_one()), 2)
 
     # Paid this month
     paid_month_result = await db.execute(
         select(func.coalesce(func.sum(Payment.amount), 0)).where(
-            Payment.date >= month_start
+            Payment.date >= month_start,
+            Payment.owner_id == current_user.id,
         )
     )
     paid_this_month = round(float(paid_month_result.scalar_one()), 2)
@@ -216,6 +233,7 @@ async def list_entity_summaries(
     sort_by: Optional[str] = Query(None, description="pending | name | earned"),
     entity_type: Optional[str] = Query(None, description="individual | team"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> list[EntityPaymentSummary]:
     """Returns financial summary for every active labourer and team."""
     summaries: list[EntityPaymentSummary] = []
@@ -223,21 +241,25 @@ async def list_entity_summaries(
     # Labourers
     if entity_type in (None, "individual"):
         labour_result = await db.execute(
-            select(Labour).where(Labour.is_active.is_(True)).order_by(Labour.name)
+            select(Labour)
+            .where(Labour.is_active.is_(True), Labour.owner_id == current_user.id)
+            .order_by(Labour.name)
         )
         labours = labour_result.scalars().all()
         for labour in labours:
-            s = await _compute_entity_summary(db, labour.id, "individual", labour.name)
+            s = await _compute_entity_summary(db, labour.id, "individual", labour.name, current_user.id)
             summaries.append(s)
 
     # Teams
     if entity_type in (None, "team"):
         team_result = await db.execute(
-            select(Team).where(Team.is_active.is_(True)).order_by(Team.name)
+            select(Team)
+            .where(Team.is_active.is_(True), Team.owner_id == current_user.id)
+            .order_by(Team.name)
         )
         teams = team_result.scalars().all()
         for team in teams:
-            s = await _compute_entity_summary(db, team.id, "team", team.name)
+            s = await _compute_entity_summary(db, team.id, "team", team.name, current_user.id)
             summaries.append(s)
 
     # Sorting
@@ -260,15 +282,20 @@ async def get_entity_summary(
     entity_type: str,
     entity_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> EntityPaymentSummary:
     if entity_type == "individual":
-        result = await db.execute(select(Labour).where(Labour.id == entity_id))
+        result = await db.execute(
+            select(Labour).where(Labour.id == entity_id, Labour.owner_id == current_user.id)
+        )
         entity = result.scalar_one_or_none()
         if entity is None:
             raise HTTPException(status_code=404, detail="Labour not found")
         name = entity.name
     elif entity_type == "team":
-        result = await db.execute(select(Team).where(Team.id == entity_id))
+        result = await db.execute(
+            select(Team).where(Team.id == entity_id, Team.owner_id == current_user.id)
+        )
         entity = result.scalar_one_or_none()
         if entity is None:
             raise HTTPException(status_code=404, detail="Team not found")
@@ -276,7 +303,7 @@ async def get_entity_summary(
     else:
         raise HTTPException(status_code=400, detail="entity_type must be 'individual' or 'team'")
 
-    return await _compute_entity_summary(db, entity_id, entity_type, name)
+    return await _compute_entity_summary(db, entity_id, entity_type, name, current_user.id)
 
 
 # ---------------------------------------------------------------------------
@@ -292,18 +319,23 @@ async def get_entity_summary(
 async def create_payment(
     payload: PaymentCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> PaymentRead:
     """Record a payment made to a labourer or team."""
     entity_name: Optional[str] = None
 
     if payload.labour_id:
-        result = await db.execute(select(Labour).where(Labour.id == payload.labour_id))
+        result = await db.execute(
+            select(Labour).where(Labour.id == payload.labour_id, Labour.owner_id == current_user.id)
+        )
         labour = result.scalar_one_or_none()
         if labour is None:
             raise HTTPException(status_code=404, detail="Labour not found")
         entity_name = labour.name
     else:
-        result = await db.execute(select(Team).where(Team.id == payload.team_id))
+        result = await db.execute(
+            select(Team).where(Team.id == payload.team_id, Team.owner_id == current_user.id)
+        )
         team = result.scalar_one_or_none()
         if team is None:
             raise HTTPException(status_code=404, detail="Team not found")
@@ -316,6 +348,7 @@ async def create_payment(
         amount=payload.amount,
         method=payload.method,
         notes=payload.notes,
+        owner_id=current_user.id,
     )
     db.add(payment)
     await db.flush()
@@ -338,9 +371,10 @@ async def list_payments(
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> PaginatedPayments:
     """Paginated list of payments with optional filters."""
-    query = select(Payment)
+    query = select(Payment).where(Payment.owner_id == current_user.id)
 
     if labour_id:
         query = query.where(Payment.labour_id == labour_id)
@@ -395,8 +429,9 @@ async def list_payments(
 async def get_payment(
     payment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> PaymentRead:
-    p = await _get_payment_or_404(db, payment_id)
+    p = await _get_payment_or_404(db, payment_id, current_user.id)
     name: Optional[str] = None
     if p.labour_id:
         r = await db.execute(select(Labour.name).where(Labour.id == p.labour_id))
@@ -416,8 +451,9 @@ async def update_payment(
     payment_id: uuid.UUID,
     payload: PaymentUpdate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> PaymentRead:
-    p = await _get_payment_or_404(db, payment_id)
+    p = await _get_payment_or_404(db, payment_id, current_user.id)
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(p, field, value)
@@ -442,7 +478,8 @@ async def update_payment(
 async def delete_payment(
     payment_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> None:
-    p = await _get_payment_or_404(db, payment_id)
+    p = await _get_payment_or_404(db, payment_id, current_user.id)
     await db.delete(p)
     await db.flush()

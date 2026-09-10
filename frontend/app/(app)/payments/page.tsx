@@ -5,21 +5,13 @@ import { apiGet } from "@/lib/api";
 import { PaymentRead, PaginatedPayments } from "@/types";
 import { formatCurrency, formatMediumDate, getInitials } from "@/lib/utils";
 import PaymentModal from "@/components/PaymentModal";
-
-const PAGE_TITLE = "Payments | LabourBook";
+import { useLanguage } from "@/context/LanguageContext";
 
 const METHOD_ICONS: Record<string, string> = {
   cash: "payments",
   upi: "qr_code_scanner",
   bank_transfer: "account_balance",
   other: "receipt",
-};
-
-const METHOD_LABELS: Record<string, string> = {
-  cash: "Cash",
-  upi: "UPI",
-  bank_transfer: "Bank Transfer",
-  other: "Other",
 };
 
 const AVATAR_COLORS = [
@@ -35,6 +27,14 @@ function todayISO() {
 }
 
 export default function PaymentsPage() {
+  const { t } = useLanguage();
+  const METHOD_LABELS: Record<string, string> = {
+    cash: t("payments.methodCash"),
+    upi: t("payments.methodUpi"),
+    bank_transfer: t("payments.methodBankTransfer"),
+    other: t("payments.methodOther"),
+  };
+
   const [todayPayments, setTodayPayments] = useState<PaymentRead[]>([]);
   const [recentPayments, setRecentPayments] = useState<PaymentRead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,11 +58,11 @@ export default function PaymentsPage() {
       setTodayPayments(todayData.items);
       setRecentPayments(recentData.items);
     } catch {
-      setError("Failed to load payments.");
+      setError(t("payments.loadErrorMessage"));
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [today, t]);
 
   useEffect(() => {
     fetchPayments();
@@ -75,7 +75,7 @@ export default function PaymentsPage() {
 
   return (
     <>
-      <title>{PAGE_TITLE}</title>
+      <title>{`${t("payments.pageTitle")} | LabourBook`}</title>
 
       <PaymentModal
         open={modalOpen}
@@ -90,10 +90,10 @@ export default function PaymentsPage() {
             className="text-headline-lg"
             style={{ color: "var(--color-primary)", fontSize: "clamp(24px, 5vw, 32px)" }}
           >
-            Payments
+            {t("payments.pageTitle")}
           </h1>
           <p className="text-body-lg mt-1" style={{ color: "var(--color-on-surface-variant)" }}>
-            Record and track payments to labours and teams.
+            {t("payments.pageSubtitle")}
           </p>
         </div>
         <button
@@ -106,7 +106,7 @@ export default function PaymentsPage() {
           }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>add</span>
-          Note Payment
+          {t("payments.notePayment")}
         </button>
       </header>
 
@@ -121,7 +121,7 @@ export default function PaymentsPage() {
                 style={{ borderColor: "var(--color-primary)" }}
               />
               <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                Loading payments…
+                {t("payments.loadingPayments")}
               </p>
             </div>
           </div>
@@ -134,14 +134,14 @@ export default function PaymentsPage() {
             style={{ backgroundColor: "var(--color-error-container)", color: "var(--color-on-error-container)" }}
           >
             <span className="material-symbols-outlined text-4xl mb-2 block">error_outline</span>
-            <p className="text-body-lg font-semibold mb-2">Failed to load payments</p>
+            <p className="text-body-lg font-semibold mb-2">{t("payments.loadErrorHeading")}</p>
             <p className="text-body-md mb-4">{error}</p>
             <button
               onClick={fetchPayments}
               className="px-6 py-2 rounded-lg text-body-md font-semibold"
               style={{ backgroundColor: "var(--color-on-error-container)", color: "var(--color-error-container)" }}
             >
-              Try Again
+              {t("payments.tryAgain")}
             </button>
           </div>
         )}
@@ -170,8 +170,8 @@ export default function PaymentsPage() {
                 </p>
                 <p className="text-body-md font-semibold mt-0.5" style={{ color: "var(--color-on-surface)" }}>
                   {todayPayments.length === 0
-                    ? "No payments recorded today"
-                    : `${todayPayments.length} payment${todayPayments.length > 1 ? "s" : ""} recorded today · ${formatCurrency(todayTotal)} total`}
+                    ? t("payments.noPaymentsToday")
+                    : `${todayPayments.length} ${t("payments.paymentsRecordedTodaySuffix")} · ${formatCurrency(todayTotal)} ${t("common.total")}`}
                 </p>
               </div>
               <button
@@ -180,7 +180,7 @@ export default function PaymentsPage() {
                 style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>add</span>
-                Note Payment
+                {t("payments.notePayment")}
               </button>
             </div>
 
@@ -188,7 +188,7 @@ export default function PaymentsPage() {
             {todayPayments.length > 0 && (
               <div>
                 <h2 className="text-body-lg font-semibold mb-4" style={{ color: "var(--color-on-surface)" }}>
-                  Today&apos;s Payments
+                  {t("payments.todaysPayments")}
                 </h2>
                 <div
                   className="rounded-2xl overflow-hidden"
@@ -215,11 +215,11 @@ export default function PaymentsPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-body-md font-semibold truncate" style={{ color: "var(--color-on-surface)" }}>
-                            {p.entity_name ?? "Unknown"}
+                            {p.entity_name ?? t("payments.unknown")}
                           </p>
                           <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
                             {METHOD_LABELS[p.method] ?? p.method}
-                            {p.entity_type === "team" && " · Team"}
+                            {p.entity_type === "team" && ` · ${t("payments.team")}`}
                             {p.notes && ` · ${p.notes}`}
                           </p>
                         </div>
@@ -249,7 +249,7 @@ export default function PaymentsPage() {
                     }}
                   >
                     <p className="text-body-md font-semibold" style={{ color: "var(--color-on-surface-variant)" }}>
-                      Today&apos;s Total
+                      {t("payments.todaysTotal")}
                     </p>
                     <p className="text-body-md font-bold" style={{ color: "var(--color-on-surface)" }}>
                       {formatCurrency(todayTotal)}
@@ -262,7 +262,7 @@ export default function PaymentsPage() {
             {/* Recent Payments */}
             <div>
               <h2 className="text-body-lg font-semibold mb-4" style={{ color: "var(--color-on-surface)" }}>
-                Recent Payments
+                {t("payments.recentPayments")}
               </h2>
 
               {recentPayments.length === 0 ? (
@@ -281,10 +281,10 @@ export default function PaymentsPage() {
                   </span>
                   <div className="text-center">
                     <p className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>
-                      No payments recorded yet
+                      {t("payments.noPaymentsYet")}
                     </p>
                     <p className="text-body-md mt-1" style={{ color: "var(--color-on-surface-variant)" }}>
-                      Use &ldquo;Note Payment&rdquo; to record a payment. Full history is available on each labour or team profile.
+                      {t("payments.noPaymentsYetHint")}
                     </p>
                   </div>
                   <button
@@ -292,7 +292,7 @@ export default function PaymentsPage() {
                     className="h-10 px-6 rounded-xl text-body-md font-semibold"
                     style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
                   >
-                    Note First Payment
+                    {t("payments.noteFirstPayment")}
                   </button>
                 </div>
               ) : (
@@ -313,7 +313,7 @@ export default function PaymentsPage() {
                       minWidth: "460px",
                     }}
                   >
-                    {["Name", "Date", "Method", "Amount"].map((h) => (
+                    {[t("common.name"), t("common.date"), t("payments.method"), t("common.amount")].map((h) => (
                       <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
                         {h}
                       </p>
@@ -342,10 +342,10 @@ export default function PaymentsPage() {
                             </div>
                             <div className="min-w-0">
                               <p className="text-body-md font-semibold truncate" style={{ color: "var(--color-on-surface)" }}>
-                                {p.entity_name ?? "Unknown"}
+                                {p.entity_name ?? t("payments.unknown")}
                               </p>
                               <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>
-                                {p.entity_type === "team" ? "Team" : "Labour"}
+                                {p.entity_type === "team" ? t("payments.team") : t("payments.labour")}
                               </span>
                             </div>
                           </div>
@@ -374,9 +374,11 @@ export default function PaymentsPage() {
               )}
 
               <p className="text-body-md mt-4" style={{ color: "var(--color-on-surface-variant)" }}>
-                💡 Full payment history for each person is available in their{" "}
-                <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>labour</span> or{" "}
-                <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>team profile</span>.
+                💡 {t("payments.tipPrefix")}{" "}
+                <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>{t("payments.tipLabourWord")}</span>{" "}
+                {t("payments.tipOr")}{" "}
+                <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>{t("payments.tipTeamWord")}</span>{" "}
+                {t("payments.tipSuffix")}
               </p>
             </div>
           </>

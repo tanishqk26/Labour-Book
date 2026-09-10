@@ -7,11 +7,13 @@ import { TeamSummary, PaginatedResponse } from "@/types";
 import { getInitials } from "@/lib/utils";
 import TeamModal from "@/components/TeamModal";
 import { formatCurrency } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 
 const PAGE_TITLE = "Teams | LabourBook";
 const PAGE_SIZE = 20;
 
 export default function TeamsPage() {
+  const { t } = useLanguage();
   const [teams, setTeams] = useState<TeamSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -42,11 +44,11 @@ export default function TeamsPage() {
       setTeams(data.items);
       setTotal(data.total);
     } catch {
-      setError("Failed to load teams. Please try again.");
+      setError(t("teams.failedToLoadTeamsMessage"));
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch]);
+  }, [page, debouncedSearch, t]);
 
   useEffect(() => {
     fetchTeams();
@@ -70,10 +72,10 @@ export default function TeamsPage() {
       <header className="px-4 md:px-[var(--spacing-container-margin)] py-8 md:py-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-headline-lg" style={{ color: "var(--color-primary)", fontSize: "clamp(24px, 5vw, 32px)" }}>
-            Teams
+            {t("teams.pageTitle")}
           </h1>
           <p className="text-body-lg mt-1" style={{ color: "var(--color-on-surface-variant)" }}>
-            Manage labour groups and their members.
+            {t("teams.pageSubtitle")}
           </p>
         </div>
         <button
@@ -86,7 +88,7 @@ export default function TeamsPage() {
           }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>add</span>
-          Create Team
+          {t("teams.createTeam")}
         </button>
       </header>
 
@@ -106,7 +108,7 @@ export default function TeamsPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search teams..."
+              placeholder={t("teams.searchPlaceholder")}
               className="w-full h-12 pl-12 pr-4 rounded-lg text-body-md transition-colors"
               style={{
                 backgroundColor: "var(--color-surface-container-lowest)",
@@ -127,7 +129,7 @@ export default function TeamsPage() {
                 style={{ borderColor: "var(--color-primary)" }}
               />
               <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                Loading teams…
+                {t("teams.loadingTeams")}
               </p>
             </div>
           </div>
@@ -143,7 +145,7 @@ export default function TeamsPage() {
             }}
           >
             <span className="material-symbols-outlined text-4xl mb-2 block">error_outline</span>
-            <p className="text-body-lg font-semibold mb-2">Failed to load teams</p>
+            <p className="text-body-lg font-semibold mb-2">{t("teams.failedToLoadTeamsTitle")}</p>
             <p className="text-body-md mb-4">{error}</p>
             <button
               onClick={fetchTeams}
@@ -153,7 +155,7 @@ export default function TeamsPage() {
                 color: "var(--color-error-container)",
               }}
             >
-              Try Again
+              {t("common.retry")}
             </button>
           </div>
         )}
@@ -169,12 +171,12 @@ export default function TeamsPage() {
             </span>
             <div className="text-center">
               <p className="text-headline-md mb-1" style={{ color: "var(--color-on-surface)" }}>
-                {debouncedSearch ? "No results found" : "No teams yet"}
+                {debouncedSearch ? t("teams.noResultsFound") : t("teams.noTeamsYet")}
               </p>
               <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
                 {debouncedSearch
-                  ? `No teams match "${debouncedSearch}"`
-                  : "Create your first team to group labourers together."}
+                  ? `${t("teams.noTeamsMatchPrefix")} "${debouncedSearch}"`
+                  : t("teams.createFirstTeamPrompt")}
               </p>
             </div>
             {!debouncedSearch && (
@@ -186,7 +188,7 @@ export default function TeamsPage() {
                   color: "var(--color-on-primary)",
                 }}
               >
-                Create Team
+                {t("teams.createTeam")}
               </button>
             )}
           </div>
@@ -205,7 +207,7 @@ export default function TeamsPage() {
             {total > PAGE_SIZE && (
               <div className="flex items-center justify-between mt-8">
                 <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                  Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+                  {t("teams.showing")} {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} {t("teams.of")} {total}
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -217,7 +219,7 @@ export default function TeamsPage() {
                       color: "var(--color-on-surface-variant)",
                     }}
                   >
-                    Previous
+                    {t("teams.previous")}
                   </button>
                   <button
                     onClick={() => setPage((p) => p + 1)}
@@ -228,7 +230,7 @@ export default function TeamsPage() {
                       color: "var(--color-on-surface-variant)",
                     }}
                   >
-                    Next
+                    {t("common.next")}
                   </button>
                 </div>
               </div>
@@ -245,6 +247,7 @@ export default function TeamsPage() {
 // ---------------------------------------------------------------------------
 
 function TeamCard({ team, onUpdate }: { team: TeamSummary; onUpdate: () => void }) {
+  const { t } = useLanguage();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
 
@@ -277,10 +280,10 @@ function TeamCard({ team, onUpdate }: { team: TeamSummary; onUpdate: () => void 
             group_off
           </span>
           <p className="text-body-md font-semibold" style={{ color: "var(--color-on-error-container)" }}>
-            Deactivate {team.name}?
+            {t("teams.deactivateQuestion")} {team.name}?
           </p>
           <p className="text-label-caps" style={{ color: "var(--color-on-error-container)", opacity: 0.8 }}>
-            Attendance history will be preserved.
+            {t("teams.attendanceHistoryPreserved")}
           </p>
           <div className="flex gap-2 w-full">
             <button
@@ -288,7 +291,7 @@ function TeamCard({ team, onUpdate }: { team: TeamSummary; onUpdate: () => void 
               className="flex-1 h-9 rounded-lg text-body-md font-semibold"
               style={{ border: "1px solid var(--color-on-error-container)", color: "var(--color-on-error-container)" }}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               onClick={handleDeactivate}
@@ -296,7 +299,7 @@ function TeamCard({ team, onUpdate }: { team: TeamSummary; onUpdate: () => void 
               className="flex-1 h-9 rounded-lg text-body-md font-semibold transition-opacity disabled:opacity-50"
               style={{ backgroundColor: "var(--color-error)", color: "var(--color-on-error)" }}
             >
-              {deactivating ? "Deactivating…" : "Deactivate"}
+              {deactivating ? t("teams.deactivating") : t("teams.deactivate")}
             </button>
           </div>
         </div>
@@ -331,8 +334,8 @@ function TeamCard({ team, onUpdate }: { team: TeamSummary; onUpdate: () => void 
             border: "1px solid var(--color-outline-variant)",
             color: "var(--color-on-surface-variant)",
           }}
-          title="Deactivate team"
-          aria-label="Deactivate team"
+          title={t("teams.deactivateTeamAria")}
+          aria-label={t("teams.deactivateTeamAria")}
         >
           <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>group_off</span>
         </button>
@@ -344,15 +347,15 @@ function TeamCard({ team, onUpdate }: { team: TeamSummary; onUpdate: () => void 
         style={{ borderTop: "1px solid var(--color-outline-variant)" }}
       >
         <div>
-          <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Hometown</p>
+          <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("teams.hometown")}</p>
           <p className="text-body-md font-medium" style={{ color: "var(--color-on-surface)" }}>
             {team.hometown || <span style={{ color: "var(--color-outline)", fontStyle: "italic" }}>—</span>}
           </p>
         </div>
         <div>
-          <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Daily Rate</p>
+          <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("teams.dailyRate")}</p>
           <p className="text-body-md font-medium" style={{ color: "var(--color-on-surface)" }}>
-            {formatCurrency(team.daily_wage)}/person
+            {formatCurrency(team.daily_wage)}{t("teams.perPerson")}
           </p>
         </div>
       </div>
@@ -374,7 +377,7 @@ function TeamCard({ team, onUpdate }: { team: TeamSummary; onUpdate: () => void 
           (e.currentTarget as HTMLElement).style.color = "var(--color-primary)";
         }}
       >
-        View Team
+        {t("teams.viewTeam")}
       </Link>
     </div>
   );

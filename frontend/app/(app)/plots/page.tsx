@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete, ApiError } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,6 +40,7 @@ interface PlotFormProps {
 }
 
 function PlotForm({ plot, onSaved, onClose }: PlotFormProps) {
+  const { t } = useLanguage();
   const isEdit = !!plot;
   const [name, setName] = useState(plot?.name ?? "");
   const [sizeAcres, setSizeAcres] = useState(plot?.size_acres ? String(plot.size_acres) : "");
@@ -49,8 +51,8 @@ function PlotForm({ plot, onSaved, onClose }: PlotFormProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) { setError("Plot name is required."); return; }
-    if (!sizeAcres || Number(sizeAcres) <= 0) { setError("Size must be greater than 0."); return; }
+    if (!name.trim()) { setError(t("plots.nameRequiredError")); return; }
+    if (!sizeAcres || Number(sizeAcres) <= 0) { setError(t("plots.sizeRequiredError")); return; }
     setSubmitting(true);
     setError(null);
     try {
@@ -69,9 +71,9 @@ function PlotForm({ plot, onSaved, onClose }: PlotFormProps) {
     } catch (err) {
       if (err instanceof ApiError) {
         const data = err.data as { detail?: string } | null;
-        setError(typeof data?.detail === "string" ? data.detail : "Failed to save plot.");
+        setError(typeof data?.detail === "string" ? data.detail : t("plots.saveFailedError"));
       } else {
-        setError("Network error. Try again.");
+        setError(t("plots.networkError"));
       }
       setSubmitting(false);
     }
@@ -96,7 +98,7 @@ function PlotForm({ plot, onSaved, onClose }: PlotFormProps) {
               <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: "var(--color-primary-fixed)" }}>
                 <span className="material-symbols-outlined" style={{ fontSize: "20px", color: "var(--color-primary)" }}>landscape</span>
               </div>
-              <h2 className="text-headline-md" style={{ color: "var(--color-primary)" }}>{isEdit ? "Edit Plot" : "Add Plot"}</h2>
+              <h2 className="text-headline-md" style={{ color: "var(--color-primary)" }}>{isEdit ? t("plots.editPlot") : t("plots.addPlot")}</h2>
             </div>
             <button onClick={onClose} className="w-9 h-9 rounded-xl flex items-center justify-center hover:opacity-70" style={{ color: "var(--color-on-surface-variant)" }}>
               <span className="material-symbols-outlined">close</span>
@@ -108,32 +110,32 @@ function PlotForm({ plot, onSaved, onClose }: PlotFormProps) {
             {error && <p className="px-4 py-2 rounded-lg text-label-caps" style={{ backgroundColor: "var(--color-error-container)", color: "var(--color-error)" }}>{error}</p>}
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Plot Name *</label>
-              <input className={inputCls} style={inputStyle} type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. North Field, Plot A" autoFocus />
+              <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("plots.plotName")}</label>
+              <input className={inputCls} style={inputStyle} type="text" value={name} onChange={e => setName(e.target.value)} placeholder={t("plots.plotNamePlaceholder")} autoFocus />
             </div>
 
             <div className="flex gap-3">
               <div className="flex flex-col gap-1 flex-1">
-                <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Size (acres) *</label>
-                <input className={inputCls} style={inputStyle} type="number" value={sizeAcres} onChange={e => setSizeAcres(e.target.value)} placeholder="e.g. 2.5" min={0.01} step={0.01} />
+                <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("plots.sizeAcres")}</label>
+                <input className={inputCls} style={inputStyle} type="number" value={sizeAcres} onChange={e => setSizeAcres(e.target.value)} placeholder={t("plots.sizeAcresPlaceholder")} min={0.01} step={0.01} />
               </div>
               <div className="flex flex-col gap-1 flex-1">
-                <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Crop Name</label>
-                <input className={inputCls} style={inputStyle} type="text" value={cropName} onChange={e => setCropName(e.target.value)} placeholder="e.g. Grapes, Wheat" />
+                <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("plots.cropName")}</label>
+                <input className={inputCls} style={inputStyle} type="text" value={cropName} onChange={e => setCropName(e.target.value)} placeholder={t("plots.cropNamePlaceholder")} />
               </div>
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Notes (optional)</label>
-              <textarea className="w-full px-3 py-2 rounded-lg text-body-md resize-none" style={{ ...inputStyle, height: "52px" }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Location, soil type, or any other details..." />
+              <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("plots.notes")}</label>
+              <textarea className="w-full px-3 py-2 rounded-lg text-body-md resize-none" style={{ ...inputStyle, height: "52px" }} value={notes} onChange={e => setNotes(e.target.value)} placeholder={t("plots.notesPlaceholder")} />
             </div>
           </form>
 
           {/* Footer */}
           <div className="px-6 py-4 flex gap-3 flex-shrink-0" style={{ borderTop: "1px solid var(--color-outline-variant)" }}>
-            <button type="button" onClick={onClose} className="flex-1 h-11 rounded-xl text-body-md font-semibold" style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}>Cancel</button>
+            <button type="button" onClick={onClose} className="flex-1 h-11 rounded-xl text-body-md font-semibold" style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}>{t("common.cancel")}</button>
             <button onClick={handleSubmit as unknown as React.MouseEventHandler} disabled={submitting} className="flex-1 h-11 rounded-xl text-body-md font-semibold flex items-center justify-center gap-2 disabled:opacity-50" style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}>
-              {submitting ? <><span className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "white" }} />Saving…</> : <><span className="material-symbols-outlined" style={{ fontSize: "18px" }}>save</span>{isEdit ? "Save Changes" : "Add Plot"}</>}
+              {submitting ? <><span className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "white" }} />{t("plots.saving")}</> : <><span className="material-symbols-outlined" style={{ fontSize: "18px" }}>save</span>{isEdit ? t("common.saveChanges") : t("plots.addPlot")}</>}
             </button>
           </div>
         </div>
@@ -147,6 +149,7 @@ function PlotForm({ plot, onSaved, onClose }: PlotFormProps) {
 // ---------------------------------------------------------------------------
 
 function PlotCard({ plot, onEdit, onDeleted }: { plot: Plot; onEdit: () => void; onDeleted: () => void }) {
+  const { t } = useLanguage();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -166,10 +169,10 @@ function PlotCard({ plot, onEdit, onDeleted }: { plot: Plot; onEdit: () => void;
       {confirmDelete && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl p-5 text-center" style={{ backgroundColor: "var(--color-error-container)" }}>
           <span className="material-symbols-outlined" style={{ fontSize: "32px", color: "var(--color-error)" }}>delete_forever</span>
-          <p className="text-body-md font-semibold" style={{ color: "var(--color-on-error-container)" }}>Deactivate this plot?</p>
+          <p className="text-body-md font-semibold" style={{ color: "var(--color-on-error-container)" }}>{t("plots.deactivateConfirm")}</p>
           <div className="flex gap-2 w-full">
-            <button onClick={() => setConfirmDelete(false)} className="flex-1 h-9 rounded-lg text-body-md font-semibold" style={{ border: "1px solid var(--color-on-error-container)", color: "var(--color-on-error-container)" }}>Cancel</button>
-            <button onClick={handleDelete} disabled={deleting} className="flex-1 h-9 rounded-lg text-body-md font-semibold disabled:opacity-50" style={{ backgroundColor: "var(--color-error)", color: "var(--color-on-error)" }}>{deleting ? "…" : "Deactivate"}</button>
+            <button onClick={() => setConfirmDelete(false)} className="flex-1 h-9 rounded-lg text-body-md font-semibold" style={{ border: "1px solid var(--color-on-error-container)", color: "var(--color-on-error-container)" }}>{t("common.cancel")}</button>
+            <button onClick={handleDelete} disabled={deleting} className="flex-1 h-9 rounded-lg text-body-md font-semibold disabled:opacity-50" style={{ backgroundColor: "var(--color-error)", color: "var(--color-on-error)" }}>{deleting ? "…" : t("plots.deactivate")}</button>
           </div>
         </div>
       )}
@@ -186,10 +189,10 @@ function PlotCard({ plot, onEdit, onDeleted }: { plot: Plot; onEdit: () => void;
           </div>
         </div>
         <div className="flex gap-1 flex-shrink-0">
-          <button onClick={onEdit} className="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80" style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }} aria-label="Edit">
+          <button onClick={onEdit} className="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80" style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }} aria-label={t("plots.editAria")}>
             <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>edit</span>
           </button>
-          <button onClick={() => setConfirmDelete(true)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80" style={{ border: "1px solid var(--color-error)", color: "var(--color-error)" }} aria-label="Delete">
+          <button onClick={() => setConfirmDelete(true)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80" style={{ border: "1px solid var(--color-error)", color: "var(--color-error)" }} aria-label={t("plots.deleteAria")}>
             <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>delete</span>
           </button>
         </div>
@@ -198,8 +201,8 @@ function PlotCard({ plot, onEdit, onDeleted }: { plot: Plot; onEdit: () => void;
       {/* Size */}
       <div className="flex items-center gap-4 pt-3" style={{ borderTop: "1px solid var(--color-outline-variant)" }}>
         <div>
-          <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Size</p>
-          <p className="text-headline-md font-bold" style={{ color: "var(--color-primary)" }}>{plot.size_acres} <span className="text-body-md font-normal">acres</span></p>
+          <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("plots.size")}</p>
+          <p className="text-headline-md font-bold" style={{ color: "var(--color-primary)" }}>{plot.size_acres} <span className="text-body-md font-normal">{t("plots.acres")}</span></p>
         </div>
         {plot.notes && (
           <p className="text-body-md flex-1 min-w-0 truncate" style={{ color: "var(--color-on-surface-variant)" }}>{plot.notes}</p>
@@ -214,6 +217,7 @@ function PlotCard({ plot, onEdit, onDeleted }: { plot: Plot; onEdit: () => void;
 // ---------------------------------------------------------------------------
 
 export default function PlotsPage() {
+  const { t } = useLanguage();
   const [plots, setPlots] = useState<Plot[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -229,11 +233,11 @@ export default function PlotsPage() {
       setPlots(data.items);
       setTotal(data.total);
     } catch {
-      setError("Failed to load plots.");
+      setError(t("plots.loadError"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { fetchPlots(); }, [fetchPlots]);
 
@@ -245,7 +249,7 @@ export default function PlotsPage() {
 
   return (
     <>
-      <title>Plots | LabourBook</title>
+      <title>{`${t("plots.pageTitle")} | LabourBook`}</title>
 
       {showForm && <PlotForm plot={editingPlot} onSaved={handleSaved} onClose={() => setShowForm(false)} />}
 
@@ -253,13 +257,13 @@ export default function PlotsPage() {
         {/* Header */}
         <header className="px-4 md:px-8 pt-8 md:pt-10 pb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <p className="text-label-caps mb-2" style={{ color: "var(--color-on-surface-variant)" }}>FARM</p>
-            <h1 className="text-headline-lg" style={{ color: "var(--color-on-surface)", fontSize: "clamp(24px,5vw,32px)" }}>Plots</h1>
-            <p className="text-body-md mt-1" style={{ color: "var(--color-on-surface-variant)" }}>Manage your farm plots and fields.</p>
+            <p className="text-label-caps mb-2" style={{ color: "var(--color-on-surface-variant)" }}>{t("plots.eyebrow")}</p>
+            <h1 className="text-headline-lg" style={{ color: "var(--color-on-surface)", fontSize: "clamp(24px,5vw,32px)" }}>{t("plots.pageTitle")}</h1>
+            <p className="text-body-md mt-1" style={{ color: "var(--color-on-surface-variant)" }}>{t("plots.subtitle")}</p>
           </div>
           <button id="add-plot-btn" onClick={openCreate} className="h-12 px-6 rounded-xl text-body-md font-semibold flex items-center gap-2 hover:opacity-90 whitespace-nowrap self-start sm:self-auto" style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}>
             <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>add</span>
-            Add Plot
+            {t("plots.addPlot")}
           </button>
         </header>
 
@@ -268,13 +272,13 @@ export default function PlotsPage() {
           {!loading && plots.length > 0 && (
             <div className="px-5 py-4 rounded-xl flex items-center gap-6 flex-wrap" style={{ backgroundColor: "var(--color-surface-container-low)", border: "1px solid var(--color-outline-variant)" }}>
               <div>
-                <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Total Plots</p>
+                <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("plots.totalPlots")}</p>
                 <p className="text-headline-md font-bold" style={{ color: "var(--color-on-surface)" }}>{total}</p>
               </div>
               <div className="w-px h-10 self-center" style={{ backgroundColor: "var(--color-outline-variant)" }} />
               <div>
-                <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Total Area</p>
-                <p className="text-headline-md font-bold" style={{ color: "var(--color-primary)" }}>{totalAcres.toFixed(2)} <span className="text-body-md font-normal">acres</span></p>
+                <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("plots.totalArea")}</p>
+                <p className="text-headline-md font-bold" style={{ color: "var(--color-primary)" }}>{totalAcres.toFixed(2)} <span className="text-body-md font-normal">{t("plots.acres")}</span></p>
               </div>
             </div>
           )}
@@ -283,7 +287,7 @@ export default function PlotsPage() {
           {error && (
             <div className="py-6 px-5 rounded-xl text-center" style={{ backgroundColor: "var(--color-error-container)", color: "var(--color-on-error-container)" }}>
               <p className="text-body-md font-semibold mb-2">{error}</p>
-              <button onClick={fetchPlots} className="px-5 py-2 rounded-lg text-body-md font-semibold" style={{ backgroundColor: "var(--color-on-error-container)", color: "var(--color-error-container)" }}>Try Again</button>
+              <button onClick={fetchPlots} className="px-5 py-2 rounded-lg text-body-md font-semibold" style={{ backgroundColor: "var(--color-on-error-container)", color: "var(--color-error-container)" }}>{t("plots.tryAgain")}</button>
             </div>
           )}
 
@@ -299,11 +303,11 @@ export default function PlotsPage() {
             <div className="flex flex-col items-center justify-center py-24 gap-4">
               <span className="material-symbols-outlined" style={{ fontSize: "64px", color: "var(--color-outline)" }}>landscape</span>
               <div className="text-center">
-                <p className="text-headline-md mb-1" style={{ color: "var(--color-on-surface)" }}>No plots yet</p>
-                <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>Add your first farm plot to get started.</p>
+                <p className="text-headline-md mb-1" style={{ color: "var(--color-on-surface)" }}>{t("plots.noPlotsYet")}</p>
+                <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("plots.noPlotsDesc")}</p>
               </div>
               <button onClick={openCreate} className="h-11 px-6 rounded-xl text-body-md font-semibold flex items-center gap-2" style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}>
-                <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>add</span>Add Plot
+                <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>add</span>{t("plots.addPlot")}
               </button>
             </div>
           )}

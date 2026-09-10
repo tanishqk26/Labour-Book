@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     # --- CORS ---
     cors_origins: List[str] = ["http://localhost:3000"]
 
+    # --- Auth (Google Sign-In) ---
+    google_client_id: str = ""
+    access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
+
     @property
     def is_dev(self) -> bool:
         return self.app_env == "development"

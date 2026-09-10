@@ -11,8 +11,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.labour import Labour
+from app.models.user import User
 from app.schemas.labour import LabourCreate, LabourRead, LabourUpdate, PaginatedLabours
 
 router = APIRouter(prefix="/api/v1/labours", tags=["Labours"])
@@ -39,8 +41,10 @@ def labour_to_read(labour: Labour) -> LabourRead:
     )
 
 
-async def _get_labour_or_404(db: AsyncSession, labour_id: uuid.UUID) -> Labour:
-    result = await db.execute(select(Labour).where(Labour.id == labour_id))
+async def _get_labour_or_404(db: AsyncSession, labour_id: uuid.UUID, owner_id: uuid.UUID) -> Labour:
+    result = await db.execute(
+        select(Labour).where(Labour.id == labour_id, Labour.owner_id == owner_id)
+    )
     labour = result.scalar_one_or_none()
     if labour is None:
         raise HTTPException(
@@ -63,9 +67,10 @@ async def _get_labour_or_404(db: AsyncSession, labour_id: uuid.UUID) -> Labour:
 async def create_labour(
     payload: LabourCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> LabourRead:
     """Create a new individual labourer."""
-    labour = Labour(**payload.model_dump())
+    labour = Labour(**payload.model_dump(), owner_id=current_user.id)
     db.add(labour)
     await db.flush()
     await db.refresh(labour)
@@ -83,13 +88,14 @@ async def list_labours(
     search: Optional[str] = Query(None, description="Search by name or hometown"),
     status_filter: Optional[str] = Query(None, alias="status", description="active | inactive"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> PaginatedLabours:
     """
     Returns a paginated list of labours.
     - Filter by status (active/inactive)
     - Search by name or hometown
     """
-    query = select(Labour)
+    query = select(Labour).where(Labour.owner_id == current_user.id)
 
     # Status filter
     if status_filter == "active":
@@ -135,9 +141,10 @@ async def list_labours(
 async def get_labour(
     labour_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> LabourRead:
     """Retrieve a single labourer by their UUID."""
-    labour = await _get_labour_or_404(db, labour_id)
+    labour = await _get_labour_or_404(db, labour_id, current_user.id)
     return labour_to_read(labour)
 
 
@@ -150,9 +157,10 @@ async def update_labour(
     labour_id: uuid.UUID,
     payload: LabourUpdate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> LabourRead:
     """Partially update a labourer's profile."""
-    labour = await _get_labour_or_404(db, labour_id)
+    labour = await _get_labour_or_404(db, labour_id, current_user.id)
 
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -171,12 +179,13 @@ async def update_labour(
 async def deactivate_labour(
     labour_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> None:
     """
     Soft-delete a labour by setting is_active=False.
     Preserves all attendance/payment history.
     """
-    labour = await _get_labour_or_404(db, labour_id)
+    labour = await _get_labour_or_404(db, labour_id, current_user.id)
     labour.is_active = False
     await db.flush()
 
@@ -189,10 +198,11 @@ async def deactivate_labour(
 async def hard_delete_labour(
     labour_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> None:
     """
     Permanently delete a labour. Attendance records are deleted via CASCADE.
     """
-    labour = await _get_labour_or_404(db, labour_id)
+    labour = await _get_labour_or_404(db, labour_id, current_user.id)
     await db.delete(labour)
     await db.flush()

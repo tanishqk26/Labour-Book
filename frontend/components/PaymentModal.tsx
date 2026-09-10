@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { ApiError, apiGet, apiPost } from "@/lib/api";
 import { Labour, TeamSummary, PaginatedResponse, EntityPaymentSummary } from "@/types";
 import { formatCurrency } from "@/lib/utils";
+import Select from "@/components/ui/Select";
+import DatePicker from "@/components/ui/DatePicker";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface PaymentModalProps {
   open: boolean;
@@ -15,13 +18,6 @@ interface PaymentModalProps {
 }
 
 type PaymentMethod = "cash" | "upi" | "bank_transfer" | "other";
-
-const METHOD_LABELS: Record<PaymentMethod, string> = {
-  cash: "Cash",
-  upi: "UPI",
-  bank_transfer: "Bank Transfer",
-  other: "Other",
-};
 
 const METHOD_ICONS: Record<PaymentMethod, string> = {
   cash: "payments",
@@ -41,6 +37,14 @@ export default function PaymentModal({
   preselectedEntityType,
   preselectedEntityId,
 }: PaymentModalProps) {
+  const { t } = useLanguage();
+  const METHOD_LABELS: Record<PaymentMethod, string> = {
+    cash: t("payments.methodCash"),
+    upi: t("payments.methodUpi"),
+    bank_transfer: t("payments.methodBankTransfer"),
+    other: t("payments.methodOther"),
+  };
+
   const [entityType, setEntityType] = useState<"individual" | "team">("individual");
   const [entityId, setEntityId] = useState("");
   const [amount, setAmount] = useState("");
@@ -118,11 +122,11 @@ export default function PaymentModal({
 
   function validate(): boolean {
     const errs: Record<string, string> = {};
-    if (!entityId) errs.entity = "Please select a labour or team";
+    if (!entityId) errs.entity = t("payments.errorSelectEntity");
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-      errs.amount = "Enter a valid amount greater than 0";
+      errs.amount = t("payments.errorInvalidAmount");
     }
-    if (!date) errs.date = "Date is required";
+    if (!date) errs.date = t("payments.errorDateRequired");
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -165,11 +169,11 @@ export default function PaymentModal({
           setServerError(
             typeof data?.detail === "string"
               ? data.detail
-              : "Something went wrong. Please try again."
+              : t("payments.errorGeneric")
           );
         }
       } else {
-        setServerError("Network error. Check your connection.");
+        setServerError(t("payments.errorNetwork"));
       }
     } finally {
       setSubmitting(false);
@@ -196,7 +200,7 @@ export default function PaymentModal({
         className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
         role="dialog"
         aria-modal="true"
-        aria-label="Note Payment"
+        aria-label={t("payments.notePayment")}
       >
         <div
           className="w-full sm:max-w-lg flex flex-col shadow-2xl overflow-hidden"
@@ -226,14 +230,14 @@ export default function PaymentModal({
                 </span>
               </div>
               <h2 className="text-headline-md font-bold" style={{ color: "var(--color-primary)" }}>
-                Note Payment
+                {t("payments.notePayment")}
               </h2>
             </div>
             <button
               onClick={onClose}
               className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
               style={{ color: "var(--color-on-surface-variant)" }}
-              aria-label="Close"
+              aria-label={t("common.close")}
             >
               <span className="material-symbols-outlined">close</span>
             </button>
@@ -262,7 +266,7 @@ export default function PaymentModal({
                 className="text-label-caps"
                 style={{ color: "var(--color-on-surface-variant)" }}
               >
-                Pay to
+                {t("payments.payTo")}
               </label>
               <div
                 className="flex rounded-xl p-1 gap-1"
@@ -271,12 +275,12 @@ export default function PaymentModal({
                   border: "1px solid var(--color-outline-variant)",
                 }}
               >
-                {(["individual", "team"] as const).map((t) => (
+                {(["individual", "team"] as const).map((et) => (
                   <button
-                    key={t}
+                    key={et}
                     type="button"
                     onClick={() => {
-                      setEntityType(t);
+                      setEntityType(et);
                       setEntityId("");
                       setEntitySummary(null);
                       setErrors((prev) => {
@@ -287,17 +291,17 @@ export default function PaymentModal({
                     }}
                     className="flex-1 h-9 rounded-lg text-body-md font-semibold flex items-center justify-center gap-1.5 transition-all"
                     style={{
-                      backgroundColor: entityType === t ? "var(--color-primary)" : "transparent",
+                      backgroundColor: entityType === et ? "var(--color-primary)" : "transparent",
                       color:
-                        entityType === t
+                        entityType === et
                           ? "var(--color-on-primary)"
                           : "var(--color-on-surface-variant)",
                     }}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>
-                      {t === "individual" ? "person" : "groups"}
+                      {et === "individual" ? "person" : "groups"}
                     </span>
-                    {t === "individual" ? "Labour" : "Team"}
+                    {et === "individual" ? t("payments.labour") : t("payments.team")}
                   </button>
                 ))}
               </div>
@@ -309,7 +313,7 @@ export default function PaymentModal({
                 className="text-label-caps"
                 style={{ color: "var(--color-on-surface-variant)" }}
               >
-                Select {entityType === "individual" ? "Labour" : "Team"}{" "}
+                {entityType === "individual" ? t("payments.selectLabour") : t("payments.selectTeam")}{" "}
                 <span style={{ color: "var(--color-error)" }}>*</span>
               </label>
               {loadingEntities ? (
@@ -325,14 +329,14 @@ export default function PaymentModal({
                     className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin flex-shrink-0"
                     style={{ borderColor: "var(--color-primary)" }}
                   />
-                  <span className="text-body-md">Loading…</span>
+                  <span className="text-body-md">{t("common.loading")}</span>
                 </div>
               ) : (
-                <select
+                <Select
                   id="payment-entity-select"
                   value={entityId}
-                  onChange={(e) => {
-                    setEntityId(e.target.value);
+                  onChange={(v) => {
+                    setEntityId(v);
                     setEntitySummary(null);
                     setErrors((prev) => {
                       const next = { ...prev };
@@ -340,27 +344,10 @@ export default function PaymentModal({
                       return next;
                     });
                   }}
-                  className="h-11 px-3 rounded-lg text-body-md transition-colors"
-                  style={{
-                    border: errors.entity
-                      ? "1px solid var(--color-error)"
-                      : "1px solid var(--color-outline-variant)",
-                    backgroundColor: "var(--color-surface-container-lowest)",
-                    color: entityId
-                      ? "var(--color-on-surface)"
-                      : "var(--color-on-surface-variant)",
-                    outline: "none",
-                  }}
-                >
-                  <option value="">
-                    — Choose {entityType === "individual" ? "Labour" : "Team"} —
-                  </option>
-                  {entityOptions.map((opt) => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.name}
-                    </option>
-                  ))}
-                </select>
+                  hasError={!!errors.entity}
+                  placeholder={entityType === "individual" ? t("payments.chooseLabourPlaceholder") : t("payments.chooseTeamPlaceholder")}
+                  options={entityOptions.map((opt) => ({ value: opt.id, label: opt.name }))}
+                />
               )}
               {errors.entity && (
                 <p className="text-label-caps" style={{ color: "var(--color-error)" }}>
@@ -385,34 +372,34 @@ export default function PaymentModal({
                       style={{ borderColor: "var(--color-primary)" }}
                     />
                     <span className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                      Loading balance…
+                      {t("payments.loadingBalance")}
                     </span>
                   </div>
                 ) : entitySummary ? (
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <p className="text-label-caps mb-0.5" style={{ color: "var(--color-outline)" }}>Earned</p>
+                      <p className="text-label-caps mb-0.5" style={{ color: "var(--color-outline)" }}>{t("payments.earned")}</p>
                       <p className="text-body-md font-bold" style={{ color: "var(--color-on-surface)" }}>
                         {formatCurrency(entitySummary.total_earned)}
                       </p>
-                      <p className="text-label-caps" style={{ color: "var(--color-outline)" }}>From work</p>
+                      <p className="text-label-caps" style={{ color: "var(--color-outline)" }}>{t("payments.fromWork")}</p>
                     </div>
                     <div>
-                      <p className="text-label-caps mb-0.5" style={{ color: "var(--color-outline)" }}>Paid</p>
+                      <p className="text-label-caps mb-0.5" style={{ color: "var(--color-outline)" }}>{t("payments.paid")}</p>
                       <p className="text-body-md font-bold" style={{ color: "#2d7a4f" }}>
                         {formatCurrency(entitySummary.total_paid)}
                       </p>
-                      <p className="text-label-caps" style={{ color: "var(--color-outline)" }}>Given so far</p>
+                      <p className="text-label-caps" style={{ color: "var(--color-outline)" }}>{t("payments.givenSoFar")}</p>
                     </div>
                     <div>
-                      <p className="text-label-caps mb-0.5" style={{ color: "var(--color-outline)" }}>Outstanding</p>
+                      <p className="text-label-caps mb-0.5" style={{ color: "var(--color-outline)" }}>{t("payments.outstanding")}</p>
                       <p
                         className="text-body-md font-bold"
                         style={{ color: entitySummary.pending > 0 ? "var(--color-error)" : "#2d7a4f" }}
                       >
                         {formatCurrency(Math.max(0, entitySummary.pending))}
                       </p>
-                      <p className="text-label-caps" style={{ color: "var(--color-outline)" }}>Due</p>
+                      <p className="text-label-caps" style={{ color: "var(--color-outline)" }}>{t("payments.due")}</p>
                     </div>
                   </div>
                 ) : null}
@@ -425,7 +412,7 @@ export default function PaymentModal({
                 className="text-label-caps"
                 style={{ color: "var(--color-on-surface-variant)" }}
               >
-                Amount (₹) <span style={{ color: "var(--color-error)" }}>*</span>
+                {t("payments.amountLabel")} <span style={{ color: "var(--color-error)" }}>*</span>
               </label>
               <div className="relative">
                 <span
@@ -473,7 +460,7 @@ export default function PaymentModal({
                 className="text-label-caps"
                 style={{ color: "var(--color-on-surface-variant)" }}
               >
-                Payment Method
+                {t("payments.paymentMethod")}
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {(Object.keys(METHOD_LABELS) as PaymentMethod[]).map((m) => (
@@ -515,22 +502,13 @@ export default function PaymentModal({
                 className="text-label-caps"
                 style={{ color: "var(--color-on-surface-variant)" }}
               >
-                Date <span style={{ color: "var(--color-error)" }}>*</span>
+                {t("common.date")} <span style={{ color: "var(--color-error)" }}>*</span>
               </label>
-              <input
+              <DatePicker
                 id="payment-date"
-                type="date"
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="h-11 px-3 rounded-lg text-body-md transition-colors"
-                style={{
-                  border: errors.date
-                    ? "1px solid var(--color-error)"
-                    : "1px solid var(--color-outline-variant)",
-                  backgroundColor: "var(--color-surface-container-lowest)",
-                  color: "var(--color-on-surface)",
-                  outline: "none",
-                }}
+                onChange={setDate}
+                hasError={!!errors.date}
               />
             </div>
 
@@ -540,13 +518,13 @@ export default function PaymentModal({
                 className="text-label-caps"
                 style={{ color: "var(--color-on-surface-variant)" }}
               >
-                Notes (optional)
+                {t("payments.notesOptional")}
               </label>
               <textarea
                 id="payment-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. Weekly advance, festival bonus…"
+                placeholder={t("payments.notesPlaceholder")}
                 rows={2}
                 className="px-3 py-2.5 rounded-lg text-body-md transition-colors resize-none"
                 style={{
@@ -575,7 +553,7 @@ export default function PaymentModal({
                 backgroundColor: "transparent",
               }}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
@@ -595,14 +573,14 @@ export default function PaymentModal({
                     className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin"
                     style={{ borderColor: "var(--color-on-primary)" }}
                   />
-                  Recording…
+                  {t("payments.recording")}
                 </>
               ) : (
                 <>
                   <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>
                     check
                   </span>
-                  Record Payment
+                  {t("payments.recordPayment")}
                 </>
               )}
             </button>

@@ -1,27 +1,40 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useLanguage } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
+import { getInitials } from "@/lib/utils";
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: string;
   icon: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
-  { href: "/labours", label: "Labours", icon: "groups" },
-  { href: "/teams", label: "Teams", icon: "group_work" },
-  { href: "/plots", label: "Plots", icon: "landscape" },
-  { href: "/attendance", label: "Attendance", icon: "checklist" },
-  { href: "/contracts", label: "Contracts", icon: "description" },
-  { href: "/payments", label: "Payments", icon: "payments" },
-  { href: "/statements", label: "Statements", icon: "receipt_long" },
+  { href: "/dashboard", labelKey: "sidebar.dashboard", icon: "dashboard" },
+  { href: "/labours", labelKey: "sidebar.labours", icon: "groups" },
+  { href: "/teams", labelKey: "sidebar.teams", icon: "group_work" },
+  { href: "/plots", labelKey: "sidebar.plots", icon: "landscape" },
+  { href: "/attendance", labelKey: "sidebar.attendance", icon: "checklist" },
+  { href: "/contracts", labelKey: "sidebar.contracts", icon: "description" },
+  { href: "/payments", labelKey: "sidebar.payments", icon: "payments" },
+  { href: "/statements", labelKey: "sidebar.statements", icon: "receipt_long" },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { t } = useLanguage();
+  const { user, logout } = useAuth();
+  const [avatarError, setAvatarError] = useState(false);
+
+  async function handleLogout() {
+    await logout();
+    router.replace("/login");
+  }
 
   return (
     <nav
@@ -61,7 +74,7 @@ export default function Sidebar() {
             className="text-label-caps"
             style={{ color: "var(--color-on-surface-variant)" }}
           >
-            Modern Ledger
+            {t("sidebar.tagline")}
           </p>
         </div>
       </div>
@@ -91,7 +104,7 @@ export default function Sidebar() {
               >
                 {item.icon}
               </span>
-              <span className="text-body-md">{item.label}</span>
+              <span className="text-body-md">{t(item.labelKey)}</span>
             </Link>
           );
         })}
@@ -105,23 +118,60 @@ export default function Sidebar() {
         <Link
           href="/settings"
           className="flex items-center gap-3 px-4 py-2.5 rounded-xl sidebar-item-hover"
-          style={{ color: "var(--color-on-surface-variant)" }}
+          style={{
+            color: pathname === "/settings" ? "var(--color-primary)" : "var(--color-on-surface-variant)",
+            backgroundColor: pathname === "/settings" ? "var(--color-primary-fixed)" : "transparent",
+            fontWeight: pathname === "/settings" ? 600 : 400,
+          }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>
+          <span className={`material-symbols-outlined ${pathname === "/settings" ? "icon-fill" : ""}`} style={{ fontSize: "20px" }}>
             settings
           </span>
-          <span className="text-body-md">Settings</span>
+          <span className="text-body-md">{t("sidebar.settings")}</span>
         </Link>
-        <Link
-          href="/support"
-          className="flex items-center gap-3 px-4 py-2.5 rounded-xl sidebar-item-hover"
-          style={{ color: "var(--color-on-surface-variant)" }}
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>
-            help_outline
-          </span>
-          <span className="text-body-md">Support</span>
-        </Link>
+
+        {user && (
+          <div className="flex items-center gap-3 px-4 py-2.5 mt-1">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
+              style={{ backgroundColor: "var(--color-primary-fixed)" }}
+            >
+              {user.picture_url && !avatarError ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.picture_url}
+                  alt={user.name}
+                  className="w-full h-full object-cover"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                <span className="text-label-caps font-bold" style={{ color: "var(--color-primary)" }}>
+                  {getInitials(user.name)}
+                </span>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-body-md font-semibold truncate" style={{ color: "var(--color-on-surface)" }}>
+                {user.name}
+              </p>
+              <p className="text-label-caps truncate" style={{ color: "var(--color-on-surface-variant)" }}>
+                {user.email}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 hover-grow"
+              style={{ color: "var(--color-on-surface-variant)" }}
+              aria-label="Log out"
+              title="Log out"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>
+                logout
+              </span>
+            </button>
+          </div>
+        )}
       </div>
     </nav>
   );

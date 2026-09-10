@@ -51,6 +51,7 @@ export async function apiFetch<T = unknown>(
 
   const response = await fetch(url.toString(), {
     ...rest,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...headers,
@@ -63,6 +64,9 @@ export async function apiFetch<T = unknown>(
       errorData = await response.json();
     } catch {
       errorData = null;
+    }
+    if (response.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new Event("lb:unauthorized"));
     }
     throw new ApiError(response.status, response.statusText, errorData);
   }

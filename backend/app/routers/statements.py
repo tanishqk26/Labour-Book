@@ -19,11 +19,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.attendance import Attendance
 from app.models.labour import Labour
 from app.models.payment import Payment
 from app.models.team import Team
+from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/statements", tags=["Statements"])
 
@@ -110,9 +112,12 @@ async def _resolve_entity(
     db: AsyncSession,
     entity_type: str,
     entity_id: uuid.UUID,
+    owner_id: uuid.UUID,
 ) -> EntityInfo:
     if entity_type == "individual":
-        result = await db.execute(select(Labour).where(Labour.id == entity_id))
+        result = await db.execute(
+            select(Labour).where(Labour.id == entity_id, Labour.owner_id == owner_id)
+        )
         labour = result.scalar_one_or_none()
         if labour is None:
             raise HTTPException(status_code=404, detail="Labour not found")
@@ -127,7 +132,9 @@ async def _resolve_entity(
         )
     elif entity_type == "team":
         result = await db.execute(
-            select(Team).options(selectinload(Team.members)).where(Team.id == entity_id)
+            select(Team)
+            .options(selectinload(Team.members))
+            .where(Team.id == entity_id, Team.owner_id == owner_id)
         )
         team = result.scalar_one_or_none()
         if team is None:
@@ -152,11 +159,12 @@ async def _fetch_attendance(
     entity_id: uuid.UUID,
     date_from: Optional[date],
     date_to: Optional[date],
+    owner_id: uuid.UUID,
 ) -> list[Attendance]:
     if entity_type == "individual":
-        q = select(Attendance).where(Attendance.labour_id == entity_id)
+        q = select(Attendance).where(Attendance.labour_id == entity_id, Attendance.owner_id == owner_id)
     else:
-        q = select(Attendance).where(Attendance.team_id == entity_id)
+        q = select(Attendance).where(Attendance.team_id == entity_id, Attendance.owner_id == owner_id)
 
     if date_from:
         q = q.where(Attendance.date >= date_from)
@@ -174,11 +182,12 @@ async def _fetch_payments(
     entity_id: uuid.UUID,
     date_from: Optional[date],
     date_to: Optional[date],
+    owner_id: uuid.UUID,
 ) -> list[Payment]:
     if entity_type == "individual":
-        q = select(Payment).where(Payment.labour_id == entity_id)
+        q = select(Payment).where(Payment.labour_id == entity_id, Payment.owner_id == owner_id)
     else:
-        q = select(Payment).where(Payment.team_id == entity_id)
+        q = select(Payment).where(Payment.team_id == entity_id, Payment.owner_id == owner_id)
 
     if date_from:
         q = q.where(Payment.date >= date_from)
@@ -294,13 +303,14 @@ class StatementEntity(BaseModel):
 )
 async def list_statement_entities(
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> list[StatementEntity]:
     """Returns all active labours and teams that can have statements generated."""
     entities: list[StatementEntity] = []
 
     # Labours
     labour_result = await db.execute(
-        select(Labour).order_by(Labour.name)
+        select(Labour).where(Labour.owner_id == current_user.id).order_by(Labour.name)
     )
     for labour in labour_result.scalars().all():
         entities.append(StatementEntity(
@@ -314,7 +324,7 @@ async def list_statement_entities(
 
     # Teams
     team_result = await db.execute(
-        select(Team).order_by(Team.name)
+        select(Team).where(Team.owner_id == current_user.id).order_by(Team.name)
     )
     for team in team_result.scalars().all():
         entities.append(StatementEntity(
@@ -344,11 +354,12 @@ async def get_work_statement(
     date_from: Optional[date] = Query(None, description="Start date (ISO)"),
     date_to: Optional[date] = Query(None, description="End date (ISO)"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> WorkStatement:
     """Returns attendance-based work statement with date range filter."""
-    entity = await _resolve_entity(db, entity_type, entity_id)
-    attendances = await _fetch_attendance(db, entity_type, entity_id, date_from, date_to)
-    payments = await _fetch_payments(db, entity_type, entity_id, date_from, date_to)
+    entity = await _resolve_entity(db, entity_type, entity_id, current_user.id)
+    attendances = await _fetch_attendance(db, entity_type, entity_id, date_from, date_to, current_user.id)
+    payments = await _fetch_payments(db, entity_type, entity_id, date_from, date_to, current_user.id)
     rows = _build_work_rows(attendances)
     summary = _build_summary(attendances, payments)
 
@@ -376,11 +387,12 @@ async def get_payment_statement(
     date_from: Optional[date] = Query(None, description="Start date (ISO)"),
     date_to: Optional[date] = Query(None, description="End date (ISO)"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> PaymentStatement:
     """Returns payment ledger: credits (wage) vs borrowed (advances/payments)."""
-    entity = await _resolve_entity(db, entity_type, entity_id)
-    attendances = await _fetch_attendance(db, entity_type, entity_id, date_from, date_to)
-    payments = await _fetch_payments(db, entity_type, entity_id, date_from, date_to)
+    entity = await _resolve_entity(db, entity_type, entity_id, current_user.id)
+    attendances = await _fetch_attendance(db, entity_type, entity_id, date_from, date_to, current_user.id)
+    payments = await _fetch_payments(db, entity_type, entity_id, date_from, date_to, current_user.id)
     rows = _build_payment_rows(attendances, payments)
     summary = _build_summary(attendances, payments)
 
@@ -408,11 +420,12 @@ async def get_combined_statement(
     date_from: Optional[date] = Query(None, description="Start date (ISO)"),
     date_to: Optional[date] = Query(None, description="End date (ISO)"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> CombinedStatement:
     """Returns both attendance and payment rows with a unified summary."""
-    entity = await _resolve_entity(db, entity_type, entity_id)
-    attendances = await _fetch_attendance(db, entity_type, entity_id, date_from, date_to)
-    payments = await _fetch_payments(db, entity_type, entity_id, date_from, date_to)
+    entity = await _resolve_entity(db, entity_type, entity_id, current_user.id)
+    attendances = await _fetch_attendance(db, entity_type, entity_id, date_from, date_to, current_user.id)
+    payments = await _fetch_payments(db, entity_type, entity_id, date_from, date_to, current_user.id)
     work_rows = _build_work_rows(attendances)
     payment_rows = _build_payment_rows(attendances, payments)
     summary = _build_summary(attendances, payments)

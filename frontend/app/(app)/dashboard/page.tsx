@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import { formatCurrency, getGreeting } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface LabourAttendanceStatus {
   labour_id: string;
@@ -57,6 +58,7 @@ const AVATAR_COLORS = [
 ];
 
 export default function DashboardPage() {
+  const { t } = useLanguage();
   const today = todayISO();
   const [labourRecords, setLabourRecords] = useState<LabourAttendanceStatus[]>([]);
   const [teamRecords, setTeamRecords] = useState<TeamAttendanceStatus[]>([]);
@@ -73,11 +75,11 @@ export default function DashboardPage() {
       setLabourRecords(data.labours);
       setTeamRecords(data.teams);
     } catch {
-      setError("Failed to load data.");
+      setError(t("dashboard.failedToLoad"));
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [today, t]);
 
   useEffect(() => {
     fetchAttendance();
@@ -101,7 +103,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <title>Dashboard | LabourBook</title>
+      <title>{`${t("dashboard.pageTitle")} | LabourBook`}</title>
 
       <div className="flex flex-col min-h-screen" style={{ backgroundColor: "var(--color-background)" }}>
         {/* Page Header */}
@@ -111,10 +113,10 @@ export default function DashboardPage() {
           </p>
           <h1 className="text-headline-lg" style={{ color: "var(--color-on-surface)", fontSize: "clamp(24px, 5vw, 32px)" }}>
             {getGreeting()},{" "}
-            <span style={{ color: "var(--color-primary)" }}>Farm Manager</span>
+            <span style={{ color: "var(--color-primary)" }}>{t("dashboard.farmManager")}</span>
           </h1>
           <p className="text-body-md mt-1" style={{ color: "var(--color-on-surface-variant)" }}>
-            Here&apos;s what happened on your farm today.
+            {t("dashboard.subtitle")}
           </p>
         </header>
 
@@ -138,19 +140,19 @@ export default function DashboardPage() {
                 </span>
               </div>
               <p className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>
-                Today&apos;s Summary
+                {t("dashboard.todaysSummary")}
               </p>
             </div>
             <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
               {loading
-                ? "Loading summary..."
+                ? t("dashboard.loadingSummary")
                 : error
-                ? "Could not load summary."
+                ? t("dashboard.summaryError")
                 : totalEntities === 0
-                ? "No active labourers or teams. Add from the sidebar pages."
+                ? t("dashboard.noActiveSummary")
                 : isAttendanceCompleted
-                ? `${presentLabours.length} labourers & ${presentTeams.length} teams present today. Total cost: ${formatCurrency(totalWage)}.`
-                : `Attendance pending. Mark attendance to track costs accurately.`}
+                ? `${presentLabours.length} ${t("dashboard.summaryLabourersUnit")} & ${presentTeams.length} ${t("dashboard.summaryTeamsUnit")} ${t("dashboard.summaryPresentTodayCost")} ${formatCurrency(totalWage)}.`
+                : t("dashboard.attendancePending")}
             </p>
           </div>
 
@@ -190,10 +192,10 @@ export default function DashboardPage() {
               <div>
                 <p className="text-body-md font-semibold mb-1" style={{ color: "var(--color-on-surface)" }}>
                   {isAttendanceCompleted
-                    ? "Today's attendance is marked"
-                    : "Please mark today's attendance"}
+                    ? t("dashboard.attendanceMarked")
+                    : t("dashboard.pleaseMarkAttendance")}
                 </p>
-                    
+
               </div>
               <Link
                 href="/attendance/mark"
@@ -214,7 +216,7 @@ export default function DashboardPage() {
                 <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>
                   {isAttendanceCompleted ? "edit" : "checklist"}
                 </span>
-                {isAttendanceCompleted ? "Edit Attendance" : "Mark Today's Attendance"}
+                {isAttendanceCompleted ? t("dashboard.editAttendance") : t("dashboard.markTodaysAttendance")}
               </Link>
             </div>
           )}
@@ -223,7 +225,7 @@ export default function DashboardPage() {
           {!loading && !error && isAttendanceCompleted && (presentLabours.length + presentTeams.length) > 0 && (
             <>
               <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>
-                Today&apos;s Attendance
+                {t("dashboard.todaysAttendance")}
               </h2>
               <div
                 className="rounded-2xl overflow-hidden"
@@ -244,7 +246,7 @@ export default function DashboardPage() {
                     minWidth: "380px",
                   }}
                 >
-                  {["Name", "Earned", "Task", "Time"].map((h) => (
+                  {[t("common.name"), t("dashboard.colEarned"), t("dashboard.colTask"), t("dashboard.colTime")].map((h) => (
                     <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
                       {h}
                     </p>
@@ -276,7 +278,7 @@ export default function DashboardPage() {
                           <p className="text-body-md font-semibold truncate" style={{ color: "var(--color-on-surface)" }}>
                             {record.labour_name}
                           </p>
-                          <span className="text-label-caps" style={{ color: "#2d7a4f" }}>Present</span>
+                          <span className="text-label-caps" style={{ color: "#2d7a4f" }}>{t("dashboard.present")}</span>
                         </div>
                       </div>
                       <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
@@ -316,7 +318,7 @@ export default function DashboardPage() {
                           {record.team_name}
                         </p>
                         <span className="text-label-caps" style={{ color: "#6b21a8" }}>
-                          Team · {record.num_labourers ?? 0} people
+                          {t("dashboard.teamLabel")} · {record.num_labourers ?? 0} {t("dashboard.peopleUnit")}
                         </span>
                       </div>
                     </div>
@@ -349,7 +351,7 @@ export default function DashboardPage() {
                       payments
                     </span>
                     <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                      Today&apos;s Total Cost
+                      {t("dashboard.todaysTotalCost")}
                     </p>
                   </div>
                   <p className="text-display-currency" style={{ color: "var(--color-on-surface)" }}>
@@ -368,7 +370,7 @@ export default function DashboardPage() {
                       groups
                     </span>
                     <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                      Present Today
+                      {t("dashboard.presentToday")}
                     </p>
                   </div>
                   <p className="text-display-currency" style={{ color: "var(--color-on-surface)" }}>
@@ -385,9 +387,9 @@ export default function DashboardPage() {
               <span className="material-symbols-outlined" style={{ fontSize: "56px", color: "var(--color-outline)" }}>
                 groups
               </span>
-              <p className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>No active labourers or teams</p>
+              <p className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("dashboard.noActiveHeading")}</p>
               <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                Add labourers or teams from the sidebar to start tracking.
+                {t("dashboard.noActiveDesc")}
               </p>
               <Link
                 href="/labours"
@@ -395,7 +397,7 @@ export default function DashboardPage() {
                 style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>add</span>
-                Add Labourers
+                {t("dashboard.addLabourers")}
               </Link>
             </div>
           )}

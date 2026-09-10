@@ -3,6 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete, ApiError } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
+import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/ui/Select";
+import { useLanguage } from "@/context/LanguageContext";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -94,7 +97,10 @@ function statusColor(status: string) {
   return { bg: "#ffdad3", text: "#510900" }; // cancelled
 }
 
-function statusLabel(status: string) {
+function statusLabel(status: string, t: (key: string) => string) {
+  if (status === "active") return t("contracts.statusActive");
+  if (status === "completed") return t("contracts.statusCompleted");
+  if (status === "cancelled") return t("contracts.statusCancelled");
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
@@ -112,6 +118,7 @@ interface ContractFormProps {
 }
 
 function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: ContractFormProps) {
+  const { t } = useLanguage();
   const isEdit = !!contract;
 
   const [title, setTitle] = useState(contract?.title ?? "");
@@ -149,10 +156,10 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) { setError("Title is required."); return; }
-    if (!amount || Number(amount) <= 0) { setError("Amount must be greater than 0."); return; }
-    if (entityType === "individual" && !labourId) { setError("Select a labourer."); return; }
-    if (entityType === "team" && !teamId) { setError("Select a team."); return; }
+    if (!title.trim()) { setError(t("contracts.titleRequiredError")); return; }
+    if (!amount || Number(amount) <= 0) { setError(t("contracts.amountGreaterThanZeroError")); return; }
+    if (entityType === "individual" && !labourId) { setError(t("contracts.selectLabourerError")); return; }
+    if (entityType === "team" && !teamId) { setError(t("contracts.selectTeamError")); return; }
 
     setSubmitting(true);
     setError(null);
@@ -184,9 +191,9 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
     } catch (err) {
       if (err instanceof ApiError) {
         const data = err.data as { detail?: string } | null;
-        setError(typeof data?.detail === "string" ? data.detail : "Failed to save contract.");
+        setError(typeof data?.detail === "string" ? data.detail : t("contracts.saveContractFailedError"));
       } else {
-        setError("Network error. Try again.");
+        setError(t("contracts.networkError"));
       }
       setSubmitting(false);
     }
@@ -229,7 +236,7 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
             style={{ borderBottom: "1px solid var(--color-outline-variant)" }}
           >
             <h2 className="text-headline-md" style={{ color: "var(--color-primary)" }}>
-              {isEdit ? "Edit Contract" : "New Contract"}
+              {isEdit ? t("contracts.editContractTitle") : t("contracts.newContractTitle")}
             </h2>
             <button
               onClick={onClose}
@@ -251,13 +258,13 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
             {/* Title */}
             <div className="flex flex-col gap-1">
               <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                Work Description *
+                {t("contracts.workDescriptionLabel")}
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Grape pruning — Plot 2"
+                placeholder={t("contracts.workDescriptionPlaceholder")}
                 className="h-11 px-3 rounded-lg text-body-md"
                 style={inputStyle}
               />
@@ -266,12 +273,12 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
             {/* Notes */}
             <div className="flex flex-col gap-1">
               <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                Notes (optional)
+                {t("contracts.notesLabel")}
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Any additional details..."
+                placeholder={t("contracts.notesPlaceholder")}
                 rows={1}
                 className="px-3 py-2 rounded-lg text-body-md resize-none"
                 style={{ ...inputStyle, height: "52px" }}
@@ -282,22 +289,22 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
             {!isEdit && (
               <div className="flex flex-col gap-1">
                 <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                  Assign To *
+                  {t("contracts.assignToLabel")}
                 </label>
                 <div className="flex gap-2">
-                  {(["individual", "team"] as const).map((t) => (
+                  {(["individual", "team"] as const).map((et) => (
                     <button
-                      key={t}
+                      key={et}
                       type="button"
-                      onClick={() => setEntityType(t)}
+                      onClick={() => setEntityType(et)}
                       className="flex-1 h-10 rounded-lg text-body-md font-semibold transition-all"
                       style={{
-                        backgroundColor: entityType === t ? "var(--color-primary)" : "var(--color-surface-container)",
-                        color: entityType === t ? "var(--color-on-primary)" : "var(--color-on-surface-variant)",
+                        backgroundColor: entityType === et ? "var(--color-primary)" : "var(--color-surface-container)",
+                        color: entityType === et ? "var(--color-on-primary)" : "var(--color-on-surface-variant)",
                         border: "1px solid var(--color-outline-variant)",
                       }}
                     >
-                      {t === "individual" ? "Individual Labour" : "Labour Team"}
+                      {et === "individual" ? t("contracts.individualLabour") : t("contracts.labourTeam")}
                     </button>
                   ))}
                 </div>
@@ -308,38 +315,28 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
             {!isEdit && entityType === "individual" && (
               <div className="flex flex-col gap-1">
                 <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                  Labourer *
+                  {t("contracts.labourerLabel")}
                 </label>
-                <select
+                <Select
                   value={labourId}
-                  onChange={(e) => setLabourId(e.target.value)}
-                  className="h-11 px-3 rounded-lg text-body-md"
-                  style={inputStyle}
-                >
-                  <option value="">Select labourer…</option>
-                  {labours.map((l) => (
-                    <option key={l.id} value={l.id}>{l.name}</option>
-                  ))}
-                </select>
+                  onChange={setLabourId}
+                  placeholder={t("contracts.selectLabourerPlaceholder")}
+                  options={labours.map((l) => ({ value: l.id, label: l.name }))}
+                />
               </div>
             )}
 
             {!isEdit && entityType === "team" && (
               <div className="flex flex-col gap-1">
                 <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                  Team *
+                  {t("contracts.teamLabel")}
                 </label>
-                <select
+                <Select
                   value={teamId}
-                  onChange={(e) => setTeamId(e.target.value)}
-                  className="h-11 px-3 rounded-lg text-body-md"
-                  style={inputStyle}
-                >
-                  <option value="">Select team…</option>
-                  {teams.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                  onChange={setTeamId}
+                  placeholder={t("contracts.selectTeamPlaceholder")}
+                  options={teams.map((tm) => ({ value: tm.id, label: tm.name }))}
+                />
               </div>
             )}
 
@@ -347,33 +344,29 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
             {!isEdit && (
               <div className="flex flex-col gap-1">
                 <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                  Plot (optional)
+                  {t("contracts.plotLabel")}
                 </label>
-                <select
+                <Select
                   value={plotId}
-                  onChange={e => { setPlotId(e.target.value); if (!e.target.value) { setAmountPerAcre(""); } }}
-                  className="h-11 px-3 rounded-lg text-body-md"
-                  style={inputStyle}
-                >
-                  <option value="">No plot selected</option>
-                  {plots.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} — {p.size_acres} acres{p.crop_name ? ` (${p.crop_name})` : ""}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => { setPlotId(v); if (!v) { setAmountPerAcre(""); } }}
+                  placeholder={t("contracts.noPlotSelected")}
+                  options={plots.map((p) => ({
+                    value: p.id,
+                    label: `${p.name} — ${p.size_acres} ${t("contracts.acresUnit")}${p.crop_name ? ` (${p.crop_name})` : ""}`,
+                  }))}
+                />
 
                 {/* Rate per acre — only shows when a plot is selected */}
                 {plotId && (
                   <div className="flex flex-col gap-1 mt-2">
                     <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                      Rate per Acre (₹) *
+                      {t("contracts.ratePerAcreLabel")}
                     </label>
                     <input
                       type="number"
                       value={amountPerAcre}
                       onChange={e => setAmountPerAcre(e.target.value)}
-                      placeholder="e.g. 5000"
+                      placeholder={t("contracts.ratePerAcrePlaceholder")}
                       min={1}
                       className="h-11 px-3 rounded-lg text-body-md"
                       style={inputStyle}
@@ -384,7 +377,7 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
                         style={{ backgroundColor: "var(--color-primary-fixed)", border: "1px solid var(--color-primary-fixed-dim)" }}>
                         <span className="material-symbols-outlined" style={{ fontSize: "16px", color: "var(--color-primary)" }}>calculate</span>
                         <p className="text-label-caps" style={{ color: "var(--color-on-primary-fixed)" }}>
-                          {amountPerAcre} × {selectedPlot?.size_acres} acres = <strong>{formatCurrency(calculatedAmount)}</strong>
+                          {amountPerAcre} × {selectedPlot?.size_acres} {t("contracts.acresUnit")} = <strong>{formatCurrency(calculatedAmount)}</strong>
                         </p>
                       </div>
                     )}
@@ -396,41 +389,38 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
             {/* Amount */}
             <div className="flex flex-col gap-1">
               <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                {plotId ? "Total Amount (₹) — auto-calculated" : "Agreed Amount (₹) *"}
+                {plotId ? t("contracts.totalAmountAutoLabel") : t("contracts.agreedAmountLabel")}
               </label>
               <input
                 type="number"
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
-                placeholder="e.g. 25000"
+                placeholder={t("contracts.amountPlaceholder")}
                 min={1}
                 readOnly={!!calculatedAmount}
                 className="h-11 px-3 rounded-lg text-body-md"
                 style={{ ...inputStyle, opacity: calculatedAmount ? 0.75 : 1, cursor: calculatedAmount ? "not-allowed" : "text" }}
               />
               <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)", opacity: 0.7 }}>
-                {plotId ? "Calculated from rate × plot size. Edit the rate above to change." : "Fixed amount, independent of daily wages."}
+                {plotId ? t("contracts.calculatedFromRateHint") : t("contracts.fixedAmountHint")}
               </p>
             </div>
 
             {/* Assigned Date */}
             <div className="flex flex-col gap-1">
               <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                Assignment Date *
+                {t("contracts.assignmentDateLabel")}
               </label>
-              <input
-                type="date"
+              <DatePicker
                 value={assignedDate}
-                onChange={(e) => setAssignedDate(e.target.value)}
-                className="h-11 px-3 rounded-lg text-body-md"
-                style={inputStyle}
+                onChange={setAssignedDate}
               />
             </div>
 
             {/* Status — always editable */}
             <div className="flex flex-col gap-1">
               <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                Status
+                {t("common.status")}
               </label>
               <div className="flex gap-2">
                 {(["active", "completed", "cancelled"] as const).map((s) => {
@@ -448,7 +438,7 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
                         fontWeight: status === s ? 700 : 400,
                       }}
                     >
-                      {statusLabel(s)}
+                      {statusLabel(s, t)}
                     </button>
                   );
                 })}
@@ -467,7 +457,7 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
               className="flex-1 h-11 rounded-xl text-body-md font-semibold"
               style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               onClick={handleSubmit as unknown as React.MouseEventHandler}
@@ -478,12 +468,12 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
               {submitting ? (
                 <>
                   <span className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "white" }} />
-                  Saving…
+                  {t("contracts.savingText")}
                 </>
               ) : (
                 <>
                   <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>save</span>
-                  {isEdit ? "Save Changes" : "Create Contract"}
+                  {isEdit ? t("common.saveChanges") : t("contracts.createContract")}
                 </>
               )}
             </button>
@@ -509,6 +499,7 @@ function ContractCard({
   onDelete: () => void;
   onStatusChanged: (id: string, status: Contract["status"]) => void;
 }) {
+  const { t } = useLanguage();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
@@ -556,10 +547,10 @@ function ContractCard({
             delete_forever
           </span>
           <p className="text-body-md font-semibold" style={{ color: "var(--color-on-error-container)" }}>
-            Delete this contract?
+            {t("contracts.deleteConfirmTitle")}
           </p>
           <p className="text-label-caps" style={{ color: "var(--color-on-error-container)", opacity: 0.8 }}>
-            This action cannot be undone.
+            {t("contracts.deleteConfirmSubtitle")}
           </p>
           <div className="flex gap-2 w-full">
             <button
@@ -567,7 +558,7 @@ function ContractCard({
               className="flex-1 h-9 rounded-lg text-body-md font-semibold"
               style={{ border: "1px solid var(--color-on-error-container)", color: "var(--color-on-error-container)" }}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               onClick={handleDelete}
@@ -575,7 +566,7 @@ function ContractCard({
               className="flex-1 h-9 rounded-lg text-body-md font-semibold disabled:opacity-50"
               style={{ backgroundColor: "var(--color-error)", color: "var(--color-on-error)" }}
             >
-              {deleting ? "Deleting…" : "Delete"}
+              {deleting ? t("contracts.deletingText") : t("common.delete")}
             </button>
           </div>
         </div>
@@ -588,9 +579,9 @@ function ContractCard({
             {contract.title}
           </h3>
           <p className="text-label-caps mt-0.5" style={{ color: "var(--color-on-surface-variant)" }}>
-            {contract.entity_name ?? (contract.entity_type === "team" ? "Team" : "Labour")}
+            {contract.entity_name ?? (contract.entity_type === "team" ? t("contracts.entityTeamFallback") : t("contracts.entityLabourFallback"))}
             {" · "}
-            {contract.entity_type === "team" ? "Team" : "Individual"}
+            {contract.entity_type === "team" ? t("contracts.entityTypeTeam") : t("contracts.entityTypeIndividual")}
           </p>
         </div>
         {/* Edit + Delete */}
@@ -599,7 +590,7 @@ function ContractCard({
             onClick={onEdit}
             className="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity"
             style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}
-            aria-label="Edit contract"
+            aria-label={t("contracts.editContractAria")}
           >
             <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>edit</span>
           </button>
@@ -607,7 +598,7 @@ function ContractCard({
             onClick={() => setConfirmDelete(true)}
             className="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity"
             style={{ border: "1px solid var(--color-error)", color: "var(--color-error)" }}
-            aria-label="Delete contract"
+            aria-label={t("contracts.deleteContractAria")}
           >
             <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>delete</span>
           </button>
@@ -628,7 +619,7 @@ function ContractCard({
       >
         <div>
           <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-            Agreed Amount
+            {t("contracts.agreedAmount")}
           </p>
           <p className="text-headline-md font-bold" style={{ color: "var(--color-primary)" }}>
             {formatCurrency(contract.amount)}
@@ -636,7 +627,7 @@ function ContractCard({
         </div>
         <div className="text-right">
           <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-            Assigned
+            {t("contracts.assignedLabel")}
           </p>
           <p className="text-body-md font-medium" style={{ color: "var(--color-on-surface)" }}>
             {formatDate(contract.assigned_date)}
@@ -649,7 +640,7 @@ function ContractCard({
         className="pt-3 flex flex-col gap-2"
         style={{ borderTop: "1px solid var(--color-outline-variant)" }}
       >
-        <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Status</p>
+        <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("common.status")}</p>
         <div className="flex gap-1.5">
           {(["active", "completed", "cancelled"] as const).map((s) => {
             const sc = statusColor(s);
@@ -672,7 +663,7 @@ function ContractCard({
                 {isLoading ? (
                   <span className="w-3 h-3 rounded-full border border-t-transparent animate-spin" style={{ borderColor: "currentColor" }} />
                 ) : (
-                  statusLabel(s)
+                  statusLabel(s, t)
                 )}
               </button>
             );
@@ -688,6 +679,7 @@ function ContractCard({
 // ---------------------------------------------------------------------------
 
 export default function ContractsPage() {
+  const { t } = useLanguage();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -720,11 +712,11 @@ export default function ContractsPage() {
       setContracts(data.items);
       setTotal(data.total);
     } catch {
-      setError("Failed to load contracts.");
+      setError(t("contracts.loadFailedError"));
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter]);
+  }, [page, statusFilter, t]);
 
   useEffect(() => { fetchContracts(); }, [fetchContracts]);
   useEffect(() => { setPage(1); }, [statusFilter]);
@@ -778,17 +770,17 @@ export default function ContractsPage() {
     (plotFilter ? 1 : 0) + (dateFilter ? 1 : 0) + (yearFilter ? 1 : 0);
 
   const filterButtons: { key: StatusFilter; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "active", label: "Active" },
-    { key: "completed", label: "Completed" },
-    { key: "cancelled", label: "Cancelled" },
+    { key: "all", label: t("common.all") },
+    { key: "active", label: t("contracts.statusActive") },
+    { key: "completed", label: t("contracts.statusCompleted") },
+    { key: "cancelled", label: t("contracts.statusCancelled") },
   ];
 
   const totalAmount = displayedContracts.reduce((s, c) => s + c.amount, 0);
 
   return (
     <>
-      <title>Contracts | LabourBook</title>
+      <title>{`${t("contracts.pageTitleTab")} | LabourBook`}</title>
 
       {showForm && (
         <ContractForm
@@ -806,16 +798,16 @@ export default function ContractsPage() {
         <header className="px-4 md:px-8 pt-8 md:pt-10 pb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <p className="text-label-caps mb-2" style={{ color: "var(--color-on-surface-variant)" }}>
-              CONTRACTS
+              {t("contracts.pageEyebrow")}
             </p>
             <h1
               className="text-headline-lg"
               style={{ color: "var(--color-on-surface)", fontSize: "clamp(24px, 5vw, 32px)" }}
             >
-              Contract Work
+              {t("contracts.pageTitle")}
             </h1>
             <p className="text-body-md mt-1" style={{ color: "var(--color-on-surface-variant)" }}>
-              Fixed-price work assigned to labourers or teams.
+              {t("contracts.pageSubtitle")}
             </p>
           </div>
           <button
@@ -825,7 +817,7 @@ export default function ContractsPage() {
             style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>add</span>
-            New Contract
+            {t("contracts.newContract")}
           </button>
         </header>
 
@@ -842,7 +834,7 @@ export default function ContractsPage() {
             >
               <div>
                 <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                  {statusFilter === "all" ? "Showing" : statusLabel(statusFilter)} Contracts
+                  {statusFilter === "all" ? t("contracts.showing") : statusLabel(statusFilter, t)} {t("contracts.contractsWord")}
                 </p>
                 <p className="text-headline-md font-bold" style={{ color: "var(--color-on-surface)" }}>
                   {displayedContracts.length}
@@ -850,7 +842,7 @@ export default function ContractsPage() {
               </div>
               <div className="w-px h-10 self-center" style={{ backgroundColor: "var(--color-outline-variant)" }} />
               <div>
-                <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Total Value</p>
+                <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("contracts.totalValue")}</p>
                 <p className="text-headline-md font-bold" style={{ color: "var(--color-primary)" }}>
                   {formatCurrency(totalAmount)}
                 </p>
@@ -892,7 +884,7 @@ export default function ContractsPage() {
                 }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>filter_list</span>
-                Filters
+                {t("common.filters")}
                 {activeFilterCount > 0 && (
                   <span className="w-5 h-5 rounded-full text-label-caps flex items-center justify-center text-xs font-bold"
                     style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}>
@@ -907,7 +899,7 @@ export default function ContractsPage() {
                   style={{ color: "var(--color-error)", border: "1px solid var(--color-error)" }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>close</span>
-                  Clear
+                  {t("common.clear")}
                 </button>
               )}
             </div>
@@ -919,45 +911,28 @@ export default function ContractsPage() {
                 {/* Plot filter */}
                 {plots.length > 0 && (
                   <div className="flex flex-col gap-1">
-                    <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Plot</label>
-                    <select
+                    <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("contracts.plotFilterLabel")}</label>
+                    <Select
                       value={plotFilter}
-                      onChange={e => setPlotFilter(e.target.value)}
-                      className="h-10 px-3 rounded-lg text-body-md"
-                      style={{
-                        backgroundColor: "var(--color-surface-container-low)",
-                        border: "1px solid var(--color-outline-variant)",
-                        color: "var(--color-on-surface)",
-                        outline: "none",
-                      }}
-                    >
-                      <option value="">All plots</option>
-                      {plots.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}{p.crop_name ? ` (${p.crop_name})` : ""}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={setPlotFilter}
+                      placeholder={t("contracts.allPlotsPlaceholder")}
+                      options={plots.map((p) => ({
+                        value: p.id,
+                        label: `${p.name}${p.crop_name ? ` (${p.crop_name})` : ""}`,
+                      }))}
+                    />
                   </div>
                 )}
 
                 {/* Date filter */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Specific Date</label>
+                  <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("contracts.specificDateLabel")}</label>
                   <div className="flex items-center gap-2">
-                    <input
+                    <DatePicker
                       id="contract-date-filter"
-                      type="date"
                       value={dateFilter}
-                      onChange={e => { setDateFilter(e.target.value); setYearFilter(""); }}
-                      className="h-10 px-3 rounded-lg text-body-md flex-1"
-                      style={{
-                        backgroundColor: "var(--color-surface-container-low)",
-                        border: "1px solid var(--color-outline-variant)",
-                        color: dateFilter ? "var(--color-on-surface)" : "var(--color-on-surface-variant)",
-                        outline: "none",
-                        colorScheme: "dark",
-                      }}
+                      onChange={(v) => { setDateFilter(v); setYearFilter(""); }}
+                      className="flex-1"
                     />
                     {dateFilter && (
                       <button onClick={() => setDateFilter("")} className="h-10 px-3 rounded-lg"
@@ -970,7 +945,7 @@ export default function ContractsPage() {
 
                 {/* Year filter (April-March) */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Agricultural Year (Apr – Mar)</label>
+                  <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("contracts.agriYearLabel")}</label>
                   <div className="flex flex-wrap gap-2">
                     {allAgriYears.map(yr => (
                       <button
@@ -1004,7 +979,7 @@ export default function ContractsPage() {
                 className="px-5 py-2 rounded-lg text-body-md font-semibold"
                 style={{ backgroundColor: "var(--color-on-error-container)", color: "var(--color-error-container)" }}
               >
-                Try Again
+                {t("contracts.tryAgain")}
               </button>
             </div>
           )}
@@ -1025,14 +1000,22 @@ export default function ContractsPage() {
               <span className="material-symbols-outlined" style={{ fontSize: "64px", color: "var(--color-outline)" }}>description</span>
               <div className="text-center">
                 <p className="text-headline-md mb-1" style={{ color: "var(--color-on-surface)" }}>
-                  {activeFilterCount > 0 ? "No contracts match filters" : statusFilter !== "all" ? `No ${statusFilter} contracts` : "No contracts yet"}
+                  {activeFilterCount > 0
+                    ? t("contracts.noContractsMatchFilters")
+                    : statusFilter === "active"
+                    ? t("contracts.noActiveContracts")
+                    : statusFilter === "completed"
+                    ? t("contracts.noCompletedContracts")
+                    : statusFilter === "cancelled"
+                    ? t("contracts.noCancelledContracts")
+                    : t("contracts.noContractsYet")}
                 </p>
                 <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
                   {activeFilterCount > 0
-                    ? "Try adjusting or clearing the filters above."
+                    ? t("contracts.adjustFiltersHint")
                     : statusFilter !== "all"
-                    ? "Try changing the filter above."
-                    : "Create your first contract to track fixed-price work."}
+                    ? t("contracts.changeFilterHint")
+                    : t("contracts.createFirstContractHint")}
                 </p>
               </div>
               {statusFilter === "all" && activeFilterCount === 0 && (
@@ -1042,7 +1025,7 @@ export default function ContractsPage() {
                   style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>add</span>
-                  New Contract
+                  {t("contracts.newContract")}
                 </button>
               )}
             </div>
@@ -1073,10 +1056,10 @@ export default function ContractsPage() {
                     style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>chevron_left</span>
-                    Prev
+                    {t("contracts.prev")}
                   </button>
                   <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                    Page {page} of {Math.ceil(total / PAGE_SIZE)}
+                    {t("contracts.pageLabel")} {page} {t("contracts.ofLabel")} {Math.ceil(total / PAGE_SIZE)}
                   </p>
                   <button
                     onClick={() => setPage((p) => p + 1)}
@@ -1084,7 +1067,7 @@ export default function ContractsPage() {
                     className="h-9 px-4 rounded-lg text-body-md font-semibold flex items-center gap-1 disabled:opacity-40"
                     style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}
                   >
-                    Next
+                    {t("common.next")}
                     <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>chevron_right</span>
                   </button>
                 </div>

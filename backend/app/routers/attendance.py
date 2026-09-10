@@ -19,10 +19,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.attendance import Attendance
 from app.models.labour import Labour
 from app.models.team import Team
+from app.models.user import User
 from app.schemas.attendance import (
     AttendanceCreate,
     AttendanceBulkCreate,
@@ -61,11 +63,11 @@ def _compute_wage_team(team: Team, att_status: str, num_labourers: Optional[int]
     return round(num_labourers * daily + car + mgr, 2)
 
 
-async def _get_or_404(db: AsyncSession, attendance_id: uuid.UUID) -> Attendance:
+async def _get_or_404(db: AsyncSession, attendance_id: uuid.UUID, owner_id: uuid.UUID) -> Attendance:
     result = await db.execute(
         select(Attendance)
         .options(selectinload(Attendance.labour), selectinload(Attendance.team))
-        .where(Attendance.id == attendance_id)
+        .where(Attendance.id == attendance_id, Attendance.owner_id == owner_id)
     )
     att = result.scalar_one_or_none()
     if att is None:
@@ -88,6 +90,7 @@ async def _get_or_404(db: AsyncSession, attendance_id: uuid.UUID) -> Attendance:
 async def get_daily_attendance(
     for_date: Optional[date] = Query(None, description="ISO date, defaults to today"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> DailyAttendanceView:
     """
     Returns labours and teams enriched with their attendance for the given date.
@@ -96,7 +99,9 @@ async def get_daily_attendance(
 
     # --- Labours ---
     labour_result = await db.execute(
-        select(Labour).where(Labour.is_active.is_(True)).order_by(Labour.name)
+        select(Labour)
+        .where(Labour.is_active.is_(True), Labour.owner_id == current_user.id)
+        .order_by(Labour.name)
     )
     all_labours = labour_result.scalars().all()
     labour_map: dict[uuid.UUID, Labour] = {l.id: l for l in all_labours}
@@ -106,6 +111,7 @@ async def get_daily_attendance(
         select(Attendance).where(
             Attendance.labour_id.isnot(None),
             Attendance.date == target_date,
+            Attendance.owner_id == current_user.id,
         )
     )
     today_labour_att = today_att_result.scalars().all()
@@ -121,6 +127,7 @@ async def get_daily_attendance(
                 Attendance.labour_id.isnot(None),
                 Attendance.date == yesterday,
                 Attendance.status == "present",
+                Attendance.owner_id == current_user.id,
             )
         )
         yesterday_present = yesterday_att_result.scalars().all()
@@ -156,7 +163,9 @@ async def get_daily_attendance(
 
     # --- Teams ---
     team_result = await db.execute(
-        select(Team).where(Team.is_active.is_(True)).order_by(Team.name)
+        select(Team)
+        .where(Team.is_active.is_(True), Team.owner_id == current_user.id)
+        .order_by(Team.name)
     )
     all_teams = team_result.scalars().all()
     team_map: dict[uuid.UUID, Team] = {t.id: t for t in all_teams}
@@ -165,6 +174,7 @@ async def get_daily_attendance(
         select(Attendance).where(
             Attendance.team_id.isnot(None),
             Attendance.date == target_date,
+            Attendance.owner_id == current_user.id,
         )
     )
     today_team_att = today_team_att_result.scalars().all()
@@ -204,10 +214,11 @@ async def get_daily_attendance(
 )
 async def get_today_attendance(
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> DailyAttendanceSummary:
     """Returns today's attendance records with summary stats."""
     today = date.today()
-    return await _build_daily_summary(db, today)
+    return await _build_daily_summary(db, today, current_user.id)
 
 
 @router.get(
@@ -218,16 +229,17 @@ async def get_today_attendance(
 async def get_attendance_by_date(
     for_date: date,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> DailyAttendanceSummary:
     """Returns attendance records for a given date."""
-    return await _build_daily_summary(db, for_date)
+    return await _build_daily_summary(db, for_date, current_user.id)
 
 
-async def _build_daily_summary(db: AsyncSession, target_date: date) -> DailyAttendanceSummary:
+async def _build_daily_summary(db: AsyncSession, target_date: date, owner_id: uuid.UUID) -> DailyAttendanceSummary:
     result = await db.execute(
         select(Attendance)
         .options(selectinload(Attendance.labour), selectinload(Attendance.team))
-        .where(Attendance.date == target_date)
+        .where(Attendance.date == target_date, Attendance.owner_id == owner_id)
         .order_by(Attendance.created_at)
     )
     records = result.scalars().all()
@@ -256,6 +268,7 @@ async def _build_daily_summary(db: AsyncSession, target_date: date) -> DailyAtte
 async def bulk_upsert_attendance(
     payload: AttendanceBulkCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> list[AttendanceRead]:
     """
     Bulk upsert multiple attendance records for a given date.
@@ -265,27 +278,27 @@ async def bulk_upsert_attendance(
     labour_items = [r for r in payload.records if r.labour_id]
     team_items = [r for r in payload.records if r.team_id]
 
-    # Fetch all labours
+    # Fetch all labours (only ones this user owns)
     labour_ids = [item.labour_id for item in labour_items]
     labours: dict[uuid.UUID, Labour] = {}
     if labour_ids:
         labour_result = await db.execute(
-            select(Labour).where(Labour.id.in_(labour_ids))
+            select(Labour).where(Labour.id.in_(labour_ids), Labour.owner_id == current_user.id)
         )
         labours = {l.id: l for l in labour_result.scalars().all()}
 
-    # Fetch all teams
+    # Fetch all teams (only ones this user owns)
     team_ids = [item.team_id for item in team_items]
     teams: dict[uuid.UUID, Team] = {}
     if team_ids:
         team_result = await db.execute(
-            select(Team).where(Team.id.in_(team_ids))
+            select(Team).where(Team.id.in_(team_ids), Team.owner_id == current_user.id)
         )
         teams = {t.id: t for t in team_result.scalars().all()}
 
     # Fetch existing attendance records for this date
     existing_result = await db.execute(
-        select(Attendance).where(Attendance.date == payload.date)
+        select(Attendance).where(Attendance.date == payload.date, Attendance.owner_id == current_user.id)
     )
     existing_all = existing_result.scalars().all()
     existing_labour_map: dict[uuid.UUID, Attendance] = {
@@ -326,6 +339,7 @@ async def bulk_upsert_attendance(
                 work_start_time=item.work_start_time,
                 work_end_time=item.work_end_time,
                 wage_earned=wage,
+                owner_id=current_user.id,
             )
             db.add(att)
             await db.flush()
@@ -362,6 +376,7 @@ async def bulk_upsert_attendance(
                 work_start_time=item.work_start_time,
                 work_end_time=item.work_end_time,
                 wage_earned=wage,
+                owner_id=current_user.id,
             )
             db.add(att)
             await db.flush()
@@ -373,7 +388,7 @@ async def bulk_upsert_attendance(
     reloaded_result = await db.execute(
         select(Attendance)
         .options(selectinload(Attendance.labour), selectinload(Attendance.team))
-        .where(Attendance.id.in_(result_ids))
+        .where(Attendance.id.in_(result_ids), Attendance.owner_id == current_user.id)
     )
     return [AttendanceRead.model_validate(a) for a in reloaded_result.scalars().all()]
 
@@ -391,13 +406,14 @@ async def bulk_upsert_attendance(
 async def upsert_attendance(
     payload: AttendanceCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AttendanceRead:
     """
     Mark attendance for a labour or team on a date.
     """
     if payload.labour_id:
         labour_result = await db.execute(
-            select(Labour).where(Labour.id == payload.labour_id)
+            select(Labour).where(Labour.id == payload.labour_id, Labour.owner_id == current_user.id)
         )
         labour = labour_result.scalar_one_or_none()
         if labour is None:
@@ -407,6 +423,7 @@ async def upsert_attendance(
             select(Attendance).where(
                 Attendance.labour_id == payload.labour_id,
                 Attendance.date == payload.date,
+                Attendance.owner_id == current_user.id,
             )
         )
         existing = existing_result.scalar_one_or_none()
@@ -414,7 +431,7 @@ async def upsert_attendance(
 
     elif payload.team_id:
         team_result = await db.execute(
-            select(Team).where(Team.id == payload.team_id)
+            select(Team).where(Team.id == payload.team_id, Team.owner_id == current_user.id)
         )
         team = team_result.scalar_one_or_none()
         if team is None:
@@ -424,6 +441,7 @@ async def upsert_attendance(
             select(Attendance).where(
                 Attendance.team_id == payload.team_id,
                 Attendance.date == payload.date,
+                Attendance.owner_id == current_user.id,
             )
         )
         existing = existing_result.scalar_one_or_none()
@@ -454,6 +472,7 @@ async def upsert_attendance(
             work_start_time=payload.work_start_time,
             work_end_time=payload.work_end_time,
             wage_earned=wage,
+            owner_id=current_user.id,
         )
         db.add(att)
         await db.flush()
@@ -463,7 +482,7 @@ async def upsert_attendance(
     reloaded = await db.execute(
         select(Attendance)
         .options(selectinload(Attendance.labour), selectinload(Attendance.team))
-        .where(Attendance.id == result_obj.id)
+        .where(Attendance.id == result_obj.id, Attendance.owner_id == current_user.id)
     )
     return AttendanceRead.model_validate(reloaded.scalar_one())
 
@@ -482,12 +501,14 @@ async def get_attendance_history(
     page_size: int = Query(30, ge=1, le=100),
     entity_type: Optional[str] = Query(None, description="labour | team"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     """Returns paginated attendance records, optionally filtered by entity type."""
     from sqlalchemy import func as sqlfunc
     query = (
         select(Attendance)
         .options(selectinload(Attendance.labour), selectinload(Attendance.team))
+        .where(Attendance.owner_id == current_user.id)
     )
     if entity_type == "labour":
         query = query.where(Attendance.labour_id.isnot(None))
@@ -520,12 +541,13 @@ async def get_labour_attendance_history(
     labour_id: uuid.UUID,
     limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> list[AttendanceRead]:
     """Returns all attendance records for a specific labourer, newest first."""
     result = await db.execute(
         select(Attendance)
         .options(selectinload(Attendance.labour), selectinload(Attendance.team))
-        .where(Attendance.labour_id == labour_id)
+        .where(Attendance.labour_id == labour_id, Attendance.owner_id == current_user.id)
         .order_by(Attendance.date.desc())
         .limit(limit)
     )
@@ -541,12 +563,13 @@ async def get_team_attendance_history(
     team_id: uuid.UUID,
     limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> list[AttendanceRead]:
     """Returns all attendance records for a specific team, newest first."""
     result = await db.execute(
         select(Attendance)
         .options(selectinload(Attendance.labour), selectinload(Attendance.team))
-        .where(Attendance.team_id == team_id)
+        .where(Attendance.team_id == team_id, Attendance.owner_id == current_user.id)
         .order_by(Attendance.date.desc())
         .limit(limit)
     )
@@ -565,8 +588,9 @@ async def get_team_attendance_history(
 async def get_attendance(
     attendance_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AttendanceRead:
-    att = await _get_or_404(db, attendance_id)
+    att = await _get_or_404(db, attendance_id, current_user.id)
     return AttendanceRead.model_validate(att)
 
 
@@ -583,8 +607,9 @@ async def update_attendance(
     attendance_id: uuid.UUID,
     payload: AttendanceUpdate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> AttendanceRead:
-    att = await _get_or_404(db, attendance_id)
+    att = await _get_or_404(db, attendance_id, current_user.id)
 
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():

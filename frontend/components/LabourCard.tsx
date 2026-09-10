@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Labour, EntityPaymentSummary } from "@/types";
 import { formatCurrency, getInitials } from "@/lib/utils";
 import { apiDelete, apiPost } from "@/lib/api";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface LabourCardProps {
   labour: Labour;
@@ -14,6 +15,7 @@ interface LabourCardProps {
 }
 
 export default function LabourCard({ labour, paymentSummary, onDeactivated, onSettled }: LabourCardProps) {
+  const { t } = useLanguage();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
   const [confirmSettle, setConfirmSettle] = useState(false);
@@ -54,7 +56,7 @@ export default function LabourCard({ labour, paymentSummary, onDeactivated, onSe
       setConfirmSettle(false);
       onSettled?.();
     } catch {
-      setSettleError("Settlement failed. Please try again.");
+      setSettleError(t("labours.settlementFailedMessage"));
     } finally {
       setSettling(false);
     }
@@ -78,10 +80,10 @@ export default function LabourCard({ labour, paymentSummary, onDeactivated, onSe
             person_off
           </span>
           <p className="text-body-md font-semibold" style={{ color: "var(--color-on-error-container)" }}>
-            Deactivate {labour.name}?
+            {t("labours.deactivateQuestion")} {labour.name}?
           </p>
           <p className="text-label-caps" style={{ color: "var(--color-on-error-container)", opacity: 0.8 }}>
-            Attendance history will be preserved.
+            {t("labours.attendanceHistoryPreserved")}
           </p>
           <div className="flex gap-2 w-full">
             <button
@@ -89,7 +91,7 @@ export default function LabourCard({ labour, paymentSummary, onDeactivated, onSe
               className="flex-1 h-9 rounded-lg text-body-md font-semibold"
               style={{ border: "1px solid var(--color-on-error-container)", color: "var(--color-on-error-container)" }}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               onClick={handleDeactivate}
@@ -97,7 +99,7 @@ export default function LabourCard({ labour, paymentSummary, onDeactivated, onSe
               className="flex-1 h-9 rounded-lg text-body-md font-semibold transition-opacity disabled:opacity-50"
               style={{ backgroundColor: "var(--color-error)", color: "var(--color-on-error)" }}
             >
-              {deactivating ? "Deactivating…" : "Deactivate"}
+              {deactivating ? t("labours.deactivating") : t("labours.deactivate")}
             </button>
           </div>
         </div>
@@ -116,12 +118,12 @@ export default function LabourCard({ labour, paymentSummary, onDeactivated, onSe
             check_circle
           </span>
           <p className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>
-            Settle {labour.name}&apos;s balance?
+            {t("labours.settle")} {labour.name}{t("labours.settleBalanceQuestionSuffix")}
           </p>
           <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-            Records a cash payment of{" "}
+            {t("labours.recordsPaymentPrefix")}{" "}
             <strong style={{ color: "var(--color-on-surface)" }}>{formatCurrency(outstanding)}</strong>{" "}
-            to clear the outstanding balance.
+            {t("labours.clearOutstandingBalanceSuffix")}
           </p>
           {settleError && (
             <p className="text-label-caps" style={{ color: "var(--color-error)" }}>{settleError}</p>
@@ -132,7 +134,7 @@ export default function LabourCard({ labour, paymentSummary, onDeactivated, onSe
               className="flex-1 h-9 rounded-lg text-body-md font-semibold"
               style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               onClick={handleSettle}
@@ -140,7 +142,7 @@ export default function LabourCard({ labour, paymentSummary, onDeactivated, onSe
               className="flex-1 h-9 rounded-lg text-body-md font-semibold flex items-center justify-center gap-1.5 transition-opacity disabled:opacity-50"
               style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
             >
-              {settling ? "Settling…" : `Settle ${formatCurrency(outstanding)}`}
+              {settling ? t("labours.settling") : `${t("labours.settle")} ${formatCurrency(outstanding)}`}
             </button>
           </div>
         </div>
@@ -166,8 +168,8 @@ export default function LabourCard({ labour, paymentSummary, onDeactivated, onSe
           onClick={() => setConfirmDelete(true)}
           className="w-8 h-8 rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity flex-shrink-0"
           style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}
-          title="Deactivate labour"
-          aria-label="Deactivate labour"
+          title={t("labours.deactivateLabourAria")}
+          aria-label={t("labours.deactivateLabourAria")}
         >
           <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>person_off</span>
         </button>
@@ -179,13 +181,13 @@ export default function LabourCard({ labour, paymentSummary, onDeactivated, onSe
         style={{ borderTop: "1px solid var(--color-outline-variant)" }}
       >
         <div>
-          <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Daily Wage</p>
+          <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("labours.dailyWage")}</p>
           <p className="text-body-md font-medium" style={{ color: "var(--color-on-surface)" }}>
-            {formatCurrency(labour.daily_wage)}/day
+            {formatCurrency(labour.daily_wage)}{t("labours.perDay")}
           </p>
         </div>
         <div>
-          <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>Timing</p>
+          <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("labours.timing")}</p>
           <p className="text-body-md font-medium" style={{ color: "var(--color-on-surface)" }}>
             {timingDisplay}
           </p>
@@ -199,12 +201,12 @@ export default function LabourCard({ labour, paymentSummary, onDeactivated, onSe
           style={{ borderTop: "1px solid var(--color-outline-variant)" }}
         >
           <div>
-            <p className="text-label-caps mb-0.5" style={{ color: "var(--color-outline)" }}>Balance</p>
+            <p className="text-label-caps mb-0.5" style={{ color: "var(--color-outline)" }}>{t("labours.balance")}</p>
             <p
               className="text-body-md font-bold"
               style={{ color: outstanding > 0 ? "var(--color-error)" : "#2d7a4f" }}
             >
-              {outstanding > 0 ? `${formatCurrency(outstanding)} due` : "Settled ✓"}
+              {outstanding > 0 ? `${formatCurrency(outstanding)} ${t("labours.due")}` : t("labours.settled")}
             </p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -221,7 +223,7 @@ export default function LabourCard({ labour, paymentSummary, onDeactivated, onSe
                   : "#510900",
               }}
             >
-              {paymentStatus === "paid" ? "Paid" : paymentStatus === "partially_paid" ? "Partial" : "Pending"}
+              {paymentStatus === "paid" ? t("labours.paymentStatusPaid") : paymentStatus === "partially_paid" ? t("labours.paymentStatusPartial") : t("labours.paymentStatusPending")}
             </span>
             {outstanding > 0 && (
               <button
@@ -230,7 +232,7 @@ export default function LabourCard({ labour, paymentSummary, onDeactivated, onSe
                 style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: "12px" }}>check_circle</span>
-                Settle
+                {t("labours.settle")}
               </button>
             )}
           </div>
@@ -251,7 +253,7 @@ export default function LabourCard({ labour, paymentSummary, onDeactivated, onSe
           (e.currentTarget as HTMLElement).style.color = "var(--color-primary)";
         }}
       >
-        View Profile
+        {t("labours.viewProfile")}
       </Link>
     </div>
   );

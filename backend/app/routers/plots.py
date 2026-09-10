@@ -11,8 +11,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.plot import Plot
+from app.models.user import User
 from app.schemas.plot import PlotCreate, PlotRead, PlotUpdate, PaginatedPlots
 
 router = APIRouter(prefix="/api/v1/plots", tags=["Plots"])
@@ -22,8 +24,10 @@ router = APIRouter(prefix="/api/v1/plots", tags=["Plots"])
 # Helper
 # ---------------------------------------------------------------------------
 
-async def _get_or_404(db: AsyncSession, plot_id: uuid.UUID) -> Plot:
-    result = await db.execute(select(Plot).where(Plot.id == plot_id))
+async def _get_or_404(db: AsyncSession, plot_id: uuid.UUID, owner_id: uuid.UUID) -> Plot:
+    result = await db.execute(
+        select(Plot).where(Plot.id == plot_id, Plot.owner_id == owner_id)
+    )
     plot = result.scalar_one_or_none()
     if not plot:
         raise HTTPException(status_code=404, detail="Plot not found")
@@ -40,8 +44,9 @@ async def list_plots(
     page_size: int = Query(50, ge=1, le=200),
     status: Optional[str] = Query(None, description="active | inactive"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> PaginatedPlots:
-    query = select(Plot).order_by(Plot.name)
+    query = select(Plot).where(Plot.owner_id == current_user.id).order_by(Plot.name)
 
     if status == "active":
         query = query.where(Plot.is_active.is_(True))
@@ -72,12 +77,14 @@ async def list_plots(
 async def create_plot(
     payload: PlotCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> PlotRead:
     plot = Plot(
         name=payload.name,
         size_acres=payload.size_acres,
         crop_name=payload.crop_name,
         notes=payload.notes,
+        owner_id=current_user.id,
     )
     db.add(plot)
     await db.flush()
@@ -93,8 +100,9 @@ async def create_plot(
 async def get_plot(
     plot_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> PlotRead:
-    plot = await _get_or_404(db, plot_id)
+    plot = await _get_or_404(db, plot_id, current_user.id)
     return PlotRead.from_orm_obj(plot)
 
 
@@ -107,8 +115,9 @@ async def update_plot(
     plot_id: uuid.UUID,
     payload: PlotUpdate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> PlotRead:
-    plot = await _get_or_404(db, plot_id)
+    plot = await _get_or_404(db, plot_id, current_user.id)
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(plot, field, value)
     await db.flush()
@@ -124,8 +133,9 @@ async def update_plot(
 async def delete_plot(
     plot_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> None:
-    plot = await _get_or_404(db, plot_id)
+    plot = await _get_or_404(db, plot_id, current_user.id)
     plot.is_active = False
     await db.flush()
 
@@ -138,7 +148,8 @@ async def delete_plot(
 async def hard_delete_plot(
     plot_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> None:
-    plot = await _get_or_404(db, plot_id)
+    plot = await _get_or_404(db, plot_id, current_user.id)
     await db.delete(plot)
     await db.flush()

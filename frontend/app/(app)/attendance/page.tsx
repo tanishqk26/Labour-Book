@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { apiGet } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
+import DatePicker from "@/components/ui/DatePicker";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface AttendanceHistoryItem {
   id: string;
@@ -35,7 +37,7 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function formatDateHeading(dateStr: string): string {
+function formatDateHeading(dateStr: string, todayLabel: string, yesterdayLabel: string): string {
   const d = new Date(dateStr + "T00:00:00");
   const today = new Date();
   const yesterday = new Date();
@@ -46,8 +48,8 @@ function formatDateHeading(dateStr: string): string {
     a.getMonth() === b.getMonth() &&
     a.getFullYear() === b.getFullYear();
 
-  if (sameDay(d, today)) return "Today";
-  if (sameDay(d, yesterday)) return "Yesterday";
+  if (sameDay(d, today)) return todayLabel;
+  if (sameDay(d, yesterday)) return yesterdayLabel;
 
   return d.toLocaleDateString("en-IN", {
     weekday: "short",
@@ -84,35 +86,20 @@ function DateInput({
           {label}
         </label>
       )}
-      <div className="relative flex items-center">
-        <span
-          className="material-symbols-outlined absolute left-3 pointer-events-none"
-          style={{ fontSize: "16px", color: "var(--color-on-surface-variant)" }}
-        >
-          calendar_today
-        </span>
-        <input
-          id={id}
-          type="date"
-          value={value}
-          max={max}
-          min={min}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-10 pl-9 pr-3 rounded-lg text-body-md w-full"
-          style={{
-            backgroundColor: "var(--color-surface-container-low)",
-            border: "1px solid var(--color-outline-variant)",
-            color: value ? "var(--color-on-surface)" : "var(--color-on-surface-variant)",
-            outline: "none",
-            colorScheme: "dark",
-          }}
-        />
-      </div>
+      <DatePicker
+        id={id}
+        value={value}
+        onChange={onChange}
+        max={max}
+        min={min}
+        className="w-full"
+      />
     </div>
   );
 }
 
 export default function AttendancePage() {
+  const { t } = useLanguage();
   const [entityFilter, setEntityFilter] = useState<FilterType>("all");
   const [dateMode, setDateMode] = useState<DateMode>("all");
   const [singleDate, setSingleDate] = useState("");
@@ -136,11 +123,11 @@ export default function AttendancePage() {
       const result = await apiGet<HistoryResponse>(`/api/v1/attendance/history?${qs}`);
       setData(result);
     } catch {
-      setError("Failed to load attendance records.");
+      setError(t("attendance.loadErrorHistory"));
     } finally {
       setLoading(false);
     }
-  }, [entityFilter, page]);
+  }, [entityFilter, page, t]);
 
   useEffect(() => {
     fetchData();
@@ -178,28 +165,28 @@ export default function AttendancePage() {
   const grandTotal = dateFilteredItems.reduce((s, r) => s + (r.wage_earned ?? 0), 0);
 
   const entityFilterButtons: { key: FilterType; label: string; icon: string }[] = [
-    { key: "all", label: "All", icon: "format_list_bulleted" },
-    { key: "labour", label: "Labourers", icon: "person" },
-    { key: "team", label: "Teams", icon: "groups" },
+    { key: "all", label: t("common.all"), icon: "format_list_bulleted" },
+    { key: "labour", label: t("attendance.labourersFilter"), icon: "person" },
+    { key: "team", label: t("attendance.teamsFilter"), icon: "groups" },
   ];
 
   const today = todayISO();
 
   return (
     <>
-      <title>Attendance | LabourBook</title>
+      <title>{`${t("attendance.pageTitle")} | LabourBook`}</title>
       <div className="flex flex-col min-h-screen" style={{ backgroundColor: "var(--color-background)" }}>
 
         {/* Header */}
         <header className="px-4 md:px-8 pt-8 md:pt-10 pb-6">
           <p className="text-label-caps mb-3" style={{ color: "var(--color-on-surface-variant)" }}>
-            ATTENDANCE
+            {t("attendance.eyebrow")}
           </p>
           <h1 className="text-headline-lg" style={{ color: "var(--color-on-surface)" }}>
-            Attendance History
+            {t("attendance.historyTitle")}
           </h1>
           <p className="text-body-md mt-1" style={{ color: "var(--color-on-surface-variant)" }}>
-            All days with present labourers or teams.
+            {t("attendance.historySubtitle")}
           </p>
         </header>
 
@@ -216,7 +203,7 @@ export default function AttendancePage() {
             {/* Row 1: entity chips + record count */}
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-label-caps mr-1" style={{ color: "var(--color-on-surface-variant)" }}>
-                Show:
+                {t("attendance.show")}
               </span>
               {entityFilterButtons.map((btn) => (
                 <button
@@ -237,7 +224,7 @@ export default function AttendancePage() {
               ))}
               {!loading && data && totalShown > 0 && (
                 <span className="ml-auto text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                  {totalShown} records · <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>{formatCurrency(grandTotal)}</span>
+                  {totalShown} {t("attendance.records")} · <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>{formatCurrency(grandTotal)}</span>
                 </span>
               )}
             </div>
@@ -245,7 +232,7 @@ export default function AttendancePage() {
             {/* Row 2: date mode selector */}
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-label-caps mr-1" style={{ color: "var(--color-on-surface-variant)" }}>
-                Date:
+                {t("attendance.dateColon")}
               </span>
               {(["all", "single", "range"] as DateMode[]).map((mode) => (
                 <button
@@ -263,7 +250,7 @@ export default function AttendancePage() {
                   <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>
                     {mode === "all" ? "event_note" : mode === "single" ? "calendar_today" : "date_range"}
                   </span>
-                  {mode === "all" ? "All Time" : mode === "single" ? "Specific Date" : "Date Range"}
+                  {mode === "all" ? t("attendance.allTime") : mode === "single" ? t("attendance.specificDate") : t("attendance.dateRange")}
                 </button>
               ))}
             </div>
@@ -276,7 +263,7 @@ export default function AttendancePage() {
                   value={singleDate}
                   onChange={setSingleDate}
                   max={today}
-                  label="Select date"
+                  label={t("attendance.selectDate")}
                 />
                 {singleDate && (
                   <button
@@ -285,7 +272,7 @@ export default function AttendancePage() {
                     style={{ color: "var(--color-on-surface-variant)", border: "1px solid var(--color-outline-variant)" }}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>close</span>
-                    Clear
+                    {t("common.clear")}
                   </button>
                 )}
               </div>
@@ -301,7 +288,7 @@ export default function AttendancePage() {
                     if (dateTo && v > dateTo) setDateTo("");
                   }}
                   max={dateTo || today}
-                  label="From"
+                  label={t("common.from")}
                 />
                 <span className="text-body-md mb-2.5" style={{ color: "var(--color-on-surface-variant)" }}>→</span>
                 <DateInput
@@ -310,7 +297,7 @@ export default function AttendancePage() {
                   onChange={setDateTo}
                   min={dateFrom}
                   max={today}
-                  label="To"
+                  label={t("common.to")}
                 />
                 {(dateFrom || dateTo) && (
                   <button
@@ -319,7 +306,7 @@ export default function AttendancePage() {
                     style={{ color: "var(--color-on-surface-variant)", border: "1px solid var(--color-outline-variant)" }}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>close</span>
-                    Clear
+                    {t("common.clear")}
                   </button>
                 )}
               </div>
@@ -333,7 +320,7 @@ export default function AttendancePage() {
               <p className="text-body-md font-semibold mb-2">{error}</p>
               <button onClick={fetchData} className="px-5 py-2 rounded-lg text-body-md font-semibold"
                 style={{ backgroundColor: "var(--color-on-error-container)", color: "var(--color-error-container)" }}>
-                Try Again
+                {t("attendance.tryAgain")}
               </button>
             </div>
           )}
@@ -354,11 +341,11 @@ export default function AttendancePage() {
                   <span className="material-symbols-outlined" style={{ fontSize: "56px", color: "var(--color-outline)" }}>
                     event_busy
                   </span>
-                  <p className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>No records found</p>
+                  <p className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("attendance.noRecordsFound")}</p>
                   <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
                     {dateMode !== "all"
-                      ? "No present attendance for the selected date(s)."
-                      : "No present attendance has been recorded yet."}
+                      ? t("attendance.noPresentForSelectedDate")
+                      : t("attendance.noPresentRecorded")}
                   </p>
                 </div>
               ) : (
@@ -375,7 +362,7 @@ export default function AttendancePage() {
                               calendar_today
                             </span>
                             <p className="text-label-caps font-bold" style={{ color: "var(--color-on-surface)" }}>
-                              {formatDateHeading(dateStr)}
+                              {formatDateHeading(dateStr, t("attendance.today"), t("attendance.yesterday"))}
                             </p>
                             <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
                               · {new Date(dateStr + "T00:00:00").toLocaleDateString("en-IN", {
@@ -401,7 +388,7 @@ export default function AttendancePage() {
                                 backgroundColor: "var(--color-surface-container-low)",
                                 minWidth: "420px",
                               }}>
-                              {["Name", "Type", "Task", "Time", "Amount"].map((h) => (
+                              {[t("common.name"), t("attendance.colType"), t("attendance.colTask"), t("attendance.colTime"), t("common.amount")].map((h) => (
                                 <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
                               ))}
                             </div>
@@ -409,8 +396,8 @@ export default function AttendancePage() {
                             {items.map((item, idx) => {
                               const isTeam = !!item.team_id;
                               const entityName = isTeam
-                                ? (item.team?.name ?? "Team")
-                                : (item.labour?.name ?? "Labour");
+                                ? (item.team?.name ?? t("attendance.teamFallbackName"))
+                                : (item.labour?.name ?? t("attendance.labourFallbackName"));
                               const isLast = idx === items.length - 1;
                               return (
                                 <div key={item.id} className="grid items-center px-5 py-3"
@@ -433,8 +420,8 @@ export default function AttendancePage() {
                                   {/* Type */}
                                   <span className="text-label-caps" style={{ color: isTeam ? "#6b21a8" : "var(--color-on-surface-variant)" }}>
                                     {isTeam
-                                      ? `Team${item.num_labourers ? ` · ${item.num_labourers}` : ""}`
-                                      : (item.status === "half_day" ? "Half Day" : "Labour")}
+                                      ? `${t("attendance.teamFallbackName")}${item.num_labourers ? ` · ${item.num_labourers}` : ""}`
+                                      : (item.status === "half_day" ? t("attendance.halfDay") : t("attendance.labourFallbackName"))}
                                   </span>
                                   {/* Task */}
                                   <p className="text-body-md truncate pr-2" style={{ color: "var(--color-on-surface-variant)" }}>
@@ -469,16 +456,16 @@ export default function AttendancePage() {
                     style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>chevron_left</span>
-                    Prev
+                    {t("attendance.prev")}
                   </button>
-                  <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>Page {data.page}</p>
+                  <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("attendance.page")} {data.page}</p>
                   <button
                     onClick={() => setPage((p) => p + 1)}
                     disabled={!data.has_more}
                     className="h-9 px-4 rounded-lg text-body-md font-semibold flex items-center gap-1 disabled:opacity-40"
                     style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}
                   >
-                    Next
+                    {t("common.next")}
                     <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>chevron_right</span>
                   </button>
                 </div>

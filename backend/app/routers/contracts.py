@@ -12,11 +12,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.contract import Contract
 from app.models.labour import Labour
 from app.models.team import Team
 from app.models.plot import Plot
+from app.models.user import User
 from app.schemas.contract import (
     ContractCreate,
     ContractRead,
@@ -78,11 +80,11 @@ def contract_to_read(contract: Contract, entity_name: Optional[str] = None) -> C
     )
 
 
-async def _get_contract_or_404(db: AsyncSession, contract_id: uuid.UUID) -> Contract:
+async def _get_contract_or_404(db: AsyncSession, contract_id: uuid.UUID, owner_id: uuid.UUID) -> Contract:
     result = await db.execute(
         select(Contract)
         .options(selectinload(Contract.plot))
-        .where(Contract.id == contract_id)
+        .where(Contract.id == contract_id, Contract.owner_id == owner_id)
     )
     contract = result.scalar_one_or_none()
     if contract is None:
@@ -106,22 +108,29 @@ async def _get_contract_or_404(db: AsyncSession, contract_id: uuid.UUID) -> Cont
 async def create_contract(
     payload: ContractCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ContractRead:
     """Create a new fixed-price contract. If plot_id + amount_per_acre are provided,
     amount = amount_per_acre * plot.size_acres (computed by the client and sent as `amount`)."""
-    # Validate entity exists
+    # Validate entity exists and belongs to this user
     if payload.entity_type == "individual" and payload.labour_id:
-        result = await db.execute(select(Labour).where(Labour.id == payload.labour_id))
+        result = await db.execute(
+            select(Labour).where(Labour.id == payload.labour_id, Labour.owner_id == current_user.id)
+        )
         if result.scalar_one_or_none() is None:
             raise HTTPException(status_code=404, detail="Labour not found")
     elif payload.entity_type == "team" and payload.team_id:
-        result = await db.execute(select(Team).where(Team.id == payload.team_id))
+        result = await db.execute(
+            select(Team).where(Team.id == payload.team_id, Team.owner_id == current_user.id)
+        )
         if result.scalar_one_or_none() is None:
             raise HTTPException(status_code=404, detail="Team not found")
 
     # Validate plot if provided
     if payload.plot_id:
-        result = await db.execute(select(Plot).where(Plot.id == payload.plot_id))
+        result = await db.execute(
+            select(Plot).where(Plot.id == payload.plot_id, Plot.owner_id == current_user.id)
+        )
         if result.scalar_one_or_none() is None:
             raise HTTPException(status_code=404, detail="Plot not found")
 
@@ -136,13 +145,14 @@ async def create_contract(
         amount=payload.amount,
         assigned_date=payload.assigned_date,
         status=payload.status,
+        owner_id=current_user.id,
     )
     db.add(contract)
     await db.flush()
     await db.refresh(contract)
 
     # Reload with plot relationship
-    reloaded = await _get_contract_or_404(db, contract.id)
+    reloaded = await _get_contract_or_404(db, contract.id, current_user.id)
     entity_name = await _resolve_entity_name(db, reloaded)
     return contract_to_read(reloaded, entity_name)
 
@@ -160,9 +170,10 @@ async def list_contracts(
     labour_id: Optional[uuid.UUID] = Query(None),
     team_id: Optional[uuid.UUID] = Query(None),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> PaginatedContracts:
     """Paginated list of contracts with optional filters."""
-    query = select(Contract).options(selectinload(Contract.plot))
+    query = select(Contract).options(selectinload(Contract.plot)).where(Contract.owner_id == current_user.id)
 
     if entity_type:
         query = query.where(Contract.entity_type == entity_type)
@@ -219,8 +230,9 @@ async def list_contracts(
 async def get_contract(
     contract_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ContractRead:
-    contract = await _get_contract_or_404(db, contract_id)
+    contract = await _get_contract_or_404(db, contract_id, current_user.id)
     entity_name = await _resolve_entity_name(db, contract)
     return contract_to_read(contract, entity_name)
 
@@ -234,16 +246,17 @@ async def update_contract(
     contract_id: uuid.UUID,
     payload: ContractUpdate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ContractRead:
     """Partially update a contract."""
-    contract = await _get_contract_or_404(db, contract_id)
+    contract = await _get_contract_or_404(db, contract_id, current_user.id)
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(contract, field, value)
     await db.flush()
 
     # Reload with relationships
-    reloaded = await _get_contract_or_404(db, contract_id)
+    reloaded = await _get_contract_or_404(db, contract_id, current_user.id)
     entity_name = await _resolve_entity_name(db, reloaded)
     return contract_to_read(reloaded, entity_name)
 
@@ -256,8 +269,9 @@ async def update_contract(
 async def delete_contract(
     contract_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> None:
     """Permanently delete a contract record."""
-    contract = await _get_contract_or_404(db, contract_id)
+    contract = await _get_contract_or_404(db, contract_id, current_user.id)
     await db.delete(contract)
     await db.flush()

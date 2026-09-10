@@ -8,7 +8,7 @@ Uses classic column definitions for Python 3.14 compatibility.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Numeric, String, func
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -19,6 +19,12 @@ class Labour(Base):
     __tablename__ = "labours"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     name = Column(String(100), nullable=False, index=True)
     hometown = Column(String(100), nullable=True)
     phone = Column(String(20), nullable=True)

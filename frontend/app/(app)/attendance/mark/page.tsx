@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPost, ApiError } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
+import TimePicker from "@/components/ui/TimePicker";
+import { useLanguage } from "@/context/LanguageContext";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -129,6 +131,7 @@ interface QuickCreateLabourProps {
 }
 
 function QuickCreateLabour({ defaultName, onCreated, onCancel }: QuickCreateLabourProps) {
+  const { t } = useLanguage();
   const [name, setName] = useState(defaultName);
   const [wage, setWage] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -137,7 +140,7 @@ function QuickCreateLabour({ defaultName, onCreated, onCancel }: QuickCreateLabo
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !wage || Number(wage) <= 0) {
-      setError("Name and daily wage are required.");
+      setError(t("attendance.nameWageRequired"));
       return;
     }
     setSubmitting(true);
@@ -151,9 +154,9 @@ function QuickCreateLabour({ defaultName, onCreated, onCancel }: QuickCreateLabo
     } catch (err) {
       if (err instanceof ApiError) {
         const data = err.data as { detail?: string } | null;
-        setError(typeof data?.detail === "string" ? data.detail : "Failed to create labour.");
+        setError(typeof data?.detail === "string" ? data.detail : t("attendance.failedCreateLabour"));
       } else {
-        setError("Network error. Try again.");
+        setError(t("attendance.networkErrorTryAgain"));
       }
     } finally {
       setSubmitting(false);
@@ -170,18 +173,18 @@ function QuickCreateLabour({ defaultName, onCreated, onCancel }: QuickCreateLabo
       }}
     >
       <p className="text-label-caps font-semibold" style={{ color: "var(--color-primary)" }}>
-        Create New Labour
+        {t("attendance.createNewLabour")}
       </p>
       {error && (
         <p className="text-label-caps" style={{ color: "var(--color-error)" }}>{error}</p>
       )}
       <div className="flex flex-col gap-1">
-        <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Full Name *</label>
+        <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("attendance.fullName")}</label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Ramesh Shinde"
+          placeholder={t("attendance.namePlaceholderExample")}
           autoFocus
           className="h-10 px-3 rounded-lg text-body-md w-full"
           style={{
@@ -194,12 +197,12 @@ function QuickCreateLabour({ defaultName, onCreated, onCancel }: QuickCreateLabo
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Daily Wage (₹/day) *</label>
+        <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("attendance.dailyWage")}</label>
         <input
           type="number"
           value={wage}
           onChange={(e) => setWage(e.target.value)}
-          placeholder="e.g. 500"
+          placeholder={t("attendance.wagePlaceholderExample")}
           min={1}
           className="h-10 px-3 rounded-lg text-body-md w-full"
           style={{
@@ -218,7 +221,7 @@ function QuickCreateLabour({ defaultName, onCreated, onCancel }: QuickCreateLabo
           className="flex-1 h-9 rounded-lg text-body-md font-semibold"
           style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}
         >
-          Cancel
+          {t("common.cancel")}
         </button>
         <button
           type="submit"
@@ -226,7 +229,7 @@ function QuickCreateLabour({ defaultName, onCreated, onCancel }: QuickCreateLabo
           className="flex-1 h-9 rounded-lg text-body-md font-semibold transition-opacity"
           style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)", opacity: submitting ? 0.6 : 1 }}
         >
-          {submitting ? "Creating…" : "Create & Add"}
+          {submitting ? t("attendance.creating") : t("attendance.createAndAdd")}
         </button>
       </div>
     </form>
@@ -244,6 +247,7 @@ interface QuickCreateTeamProps {
 }
 
 function QuickCreateTeam({ defaultName, onCreated, onCancel }: QuickCreateTeamProps) {
+  const { t } = useLanguage();
   const [name, setName] = useState(defaultName);
   const [wage, setWage] = useState("");
   const [carRent, setCarRent] = useState("0");
@@ -254,7 +258,7 @@ function QuickCreateTeam({ defaultName, onCreated, onCancel }: QuickCreateTeamPr
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !wage || Number(wage) <= 0) {
-      setError("Team name and daily wage are required.");
+      setError(t("attendance.teamNameWageRequired"));
       return;
     }
     setSubmitting(true);
@@ -270,9 +274,9 @@ function QuickCreateTeam({ defaultName, onCreated, onCancel }: QuickCreateTeamPr
     } catch (err) {
       if (err instanceof ApiError) {
         const data = err.data as { detail?: string } | null;
-        setError(typeof data?.detail === "string" ? data.detail : "Failed to create team.");
+        setError(typeof data?.detail === "string" ? data.detail : t("attendance.failedCreateTeam"));
       } else {
-        setError("Network error. Try again.");
+        setError(t("attendance.networkErrorTryAgain"));
       }
     } finally {
       setSubmitting(false);
@@ -289,18 +293,18 @@ function QuickCreateTeam({ defaultName, onCreated, onCancel }: QuickCreateTeamPr
       }}
     >
       <p className="text-label-caps font-semibold" style={{ color: "#6b21a8" }}>
-        Create New Team
+        {t("attendance.createNewTeam")}
       </p>
       {error && (
         <p className="text-label-caps" style={{ color: "var(--color-error)" }}>{error}</p>
       )}
       <div className="flex flex-col gap-1">
-        <label className="text-label-caps" style={{ color: "#6b21a8" }}>Team Name *</label>
+        <label className="text-label-caps" style={{ color: "#6b21a8" }}>{t("attendance.teamName")}</label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Shinde Team"
+          placeholder={t("attendance.teamNamePlaceholderExample")}
           autoFocus
           className="h-10 px-3 rounded-lg text-body-md w-full"
           style={{
@@ -313,12 +317,12 @@ function QuickCreateTeam({ defaultName, onCreated, onCancel }: QuickCreateTeamPr
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-label-caps" style={{ color: "#6b21a8" }}>Wage per Labour (₹/day) *</label>
+        <label className="text-label-caps" style={{ color: "#6b21a8" }}>{t("attendance.wagePerLabour")}</label>
         <input
           type="number"
           value={wage}
           onChange={(e) => setWage(e.target.value)}
-          placeholder="e.g. 400"
+          placeholder={t("attendance.teamWagePlaceholderExample")}
           min={1}
           className="h-10 px-3 rounded-lg text-body-md w-full"
           style={{
@@ -331,7 +335,7 @@ function QuickCreateTeam({ defaultName, onCreated, onCancel }: QuickCreateTeamPr
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-label-caps" style={{ color: "#6b21a8" }}>Car Rent (₹/day)</label>
+        <label className="text-label-caps" style={{ color: "#6b21a8" }}>{t("attendance.carRent")}</label>
         <input
           type="number"
           value={carRent}
@@ -349,7 +353,7 @@ function QuickCreateTeam({ defaultName, onCreated, onCancel }: QuickCreateTeamPr
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-label-caps" style={{ color: "#6b21a8" }}>Manager Fee (₹/day)</label>
+        <label className="text-label-caps" style={{ color: "#6b21a8" }}>{t("attendance.managerFee")}</label>
         <input
           type="number"
           value={managerFee}
@@ -373,7 +377,7 @@ function QuickCreateTeam({ defaultName, onCreated, onCancel }: QuickCreateTeamPr
           className="flex-1 h-9 rounded-lg text-body-md font-semibold"
           style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}
         >
-          Cancel
+          {t("common.cancel")}
         </button>
         <button
           type="submit"
@@ -381,7 +385,7 @@ function QuickCreateTeam({ defaultName, onCreated, onCancel }: QuickCreateTeamPr
           className="flex-1 h-9 rounded-lg text-body-md font-semibold transition-opacity"
           style={{ backgroundColor: "#6b21a8", color: "#fff", opacity: submitting ? 0.6 : 1 }}
         >
-          {submitting ? "Creating…" : "Create & Add"}
+          {submitting ? t("attendance.creating") : t("attendance.createAndAdd")}
         </button>
       </div>
     </form>
@@ -415,6 +419,7 @@ function AddPanel({
   onNewLabourCreated,
   onNewTeamCreated,
 }: AddPanelProps) {
+  const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [showCreateLabour, setShowCreateLabour] = useState(false);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
@@ -459,7 +464,7 @@ function AddPanel({
             style={{ borderBottom: "1px solid var(--color-outline-variant)" }}
           >
             <h3 className="text-headline-md" style={{ color: "var(--color-primary)" }}>
-              Add to Today&apos;s List
+              {t("attendance.addToTodaysList")}
             </h3>
             <button
               onClick={onClose}
@@ -477,7 +482,7 @@ function AddPanel({
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search labourer or team..."
+                placeholder={t("attendance.searchLabourOrTeam")}
                 autoFocus
                 className="w-full h-10 px-3 rounded-lg text-body-md"
                 style={{
@@ -511,7 +516,7 @@ function AddPanel({
             {!showingCreate && noResults && (
               <div className="py-8 text-center px-4">
                 <p className="text-body-md mb-4" style={{ color: "var(--color-on-surface-variant)" }}>
-                  {search ? `No match for "${search}"` : "Everyone is already in today's list"}
+                  {search ? `${t("attendance.noMatchFor")} "${search}"` : t("attendance.everyonePresent")}
                 </p>
               </div>
             )}
@@ -520,7 +525,7 @@ function AddPanel({
             {!showingCreate && availableLabours.length > 0 && (
               <>
                 <div className="px-6 py-2" style={{ backgroundColor: "var(--color-surface-container-low)" }}>
-                  <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Labourers</p>
+                  <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("attendance.labourersFilter")}</p>
                 </div>
                 {availableLabours.map((labour) => (
                   <button
@@ -539,7 +544,7 @@ function AddPanel({
                       <p className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>{labour.name}</p>
                     </div>
                     <span className="text-label-caps flex-shrink-0" style={{ color: "var(--color-on-surface-variant)" }}>
-                      {formatCurrency(labour.daily_wage)}/day
+                      {formatCurrency(labour.daily_wage)}{t("attendance.perDay")}
                     </span>
                     <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: "18px", color: "var(--color-primary)" }}>
                       add_circle
@@ -553,7 +558,7 @@ function AddPanel({
             {!showingCreate && availableTeams.length > 0 && (
               <>
                 <div className="px-6 py-2" style={{ backgroundColor: "var(--color-surface-container-low)" }}>
-                  <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Teams</p>
+                  <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("attendance.teamsFilter")}</p>
                 </div>
                 {availableTeams.map((team) => (
                   <button
@@ -571,7 +576,7 @@ function AddPanel({
                     <div className="min-w-0 flex-1">
                       <p className="text-body-md font-semibold" style={{ color: "var(--color-on-surface)" }}>{team.name}</p>
                       <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                        {formatCurrency(team.daily_wage)}/labour + {formatCurrency(team.car_rent)} car + {formatCurrency(team.manager_fee)} mgr
+                        {formatCurrency(team.daily_wage)}{t("attendance.perLabourSuffix")} + {formatCurrency(team.car_rent)} {t("attendance.carSuffix")} + {formatCurrency(team.manager_fee)} {t("attendance.mgrSuffix")}
                       </p>
                     </div>
                     <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: "18px", color: "#6b21a8" }}>
@@ -591,7 +596,7 @@ function AddPanel({
                   style={{ backgroundColor: "var(--color-primary-fixed)", color: "var(--color-primary)" }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>person_add</span>
-                  Create Labour
+                  {t("attendance.createLabourBtn")}
                 </button>
                 <button
                   onClick={() => setShowCreateTeam(true)}
@@ -599,7 +604,7 @@ function AddPanel({
                   style={{ backgroundColor: "#f3e8ff", color: "#6b21a8" }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>group_add</span>
-                  Create Team
+                  {t("attendance.createTeamBtn")}
                 </button>
               </div>
             )}
@@ -615,6 +620,7 @@ function AddPanel({
 // ---------------------------------------------------------------------------
 
 export default function MarkAttendancePage() {
+  const { t } = useLanguage();
   const today = todayISO();
   const router = useRouter();
 
@@ -680,11 +686,11 @@ export default function MarkAttendancePage() {
 
       setChecklist(items);
     } catch {
-      setError("Failed to load attendance data.");
+      setError(t("attendance.loadErrorMark"));
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [today, t]);
 
   useEffect(() => {
     fetchData();
@@ -828,9 +834,9 @@ export default function MarkAttendancePage() {
     } catch (err) {
       if (err instanceof ApiError) {
         const data = err.data as { detail?: string } | null;
-        setSaveError(typeof data?.detail === "string" ? data.detail : "Failed to save attendance.");
+        setSaveError(typeof data?.detail === "string" ? data.detail : t("attendance.saveErrorGeneric"));
       } else {
-        setSaveError("Network error. Please try again.");
+        setSaveError(t("attendance.networkErrorRetry"));
       }
       setSaving(false);
     }
@@ -870,7 +876,7 @@ export default function MarkAttendancePage() {
 
   return (
     <>
-      <title>Mark Attendance | LabourBook</title>
+      <title>{`${t("attendance.markPageTitle")} | LabourBook`}</title>
 
       {showAddPanel && (
         <AddPanel
@@ -896,7 +902,7 @@ export default function MarkAttendancePage() {
             onClick={() => router.push("/dashboard")}
             className="w-9 h-9 rounded-xl flex items-center justify-center hover:opacity-70 transition-opacity flex-shrink-0"
             style={{ color: "var(--color-on-surface-variant)", border: "1px solid var(--color-outline-variant)" }}
-            aria-label="Back to dashboard"
+            aria-label={t("attendance.backToDashboard")}
           >
             <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>arrow_back</span>
           </button>
@@ -905,18 +911,18 @@ export default function MarkAttendancePage() {
               {dateLabel.toUpperCase()}
             </p>
             <h1 className="text-body-lg md:text-headline-md font-semibold" style={{ color: "var(--color-primary)" }}>
-              Mark Today&apos;s Attendance
+              {t("attendance.markTodaysAttendance")}
             </h1>
           </div>
           {/* Summary pill */}
           {!loading && checklist.length > 0 && (
             <div className="flex items-center gap-3 flex-shrink-0">
               <div className="text-center">
-                <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Present</p>
+                <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("attendance.present")}</p>
                 <p className="text-body-md md:text-headline-md font-bold" style={{ color: "#2d7a4f" }}>{presentLabourCount + presentTeamCount}</p>
               </div>
               <div className="text-center hidden sm:block">
-                <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Cost</p>
+                <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("attendance.cost")}</p>
                 <p className="text-body-md md:text-headline-md font-bold" style={{ color: "var(--color-primary)" }}>{formatCurrency(totalWage)}</p>
               </div>
             </div>
@@ -929,7 +935,7 @@ export default function MarkAttendancePage() {
           {!loading && !error && checklist.length > 0 && (
             <p className="text-label-caps flex items-center gap-1.5" style={{ color: "var(--color-outline)" }}>
               <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>info</span>
-              Tap circle to mark present · tap notes icon for details · Remove to delete from list
+              {t("attendance.hint")}
             </p>
           )}
 
@@ -941,7 +947,7 @@ export default function MarkAttendancePage() {
                   className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
                   style={{ borderColor: "var(--color-primary)" }}
                 />
-                <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>Loading...</p>
+                <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("common.loading")}</p>
               </div>
             </div>
           )}
@@ -958,7 +964,7 @@ export default function MarkAttendancePage() {
                 className="px-5 py-2 rounded-lg text-body-md font-semibold"
                 style={{ backgroundColor: "var(--color-on-error-container)", color: "var(--color-error-container)" }}
               >
-                Try Again
+                {t("attendance.tryAgain")}
               </button>
             </div>
           )}
@@ -979,7 +985,7 @@ export default function MarkAttendancePage() {
                     groups
                   </span>
                   <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                    No one in today&apos;s list yet. Use the button below to add.
+                    {t("attendance.emptyChecklist")}
                   </p>
                 </div>
               )}
@@ -991,7 +997,7 @@ export default function MarkAttendancePage() {
                   style={{ backgroundColor: "var(--color-surface-container-low)", borderBottom: "1px solid var(--color-outline-variant)" }}
                 >
                   <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
-                    Labourers ({labourItems.length})
+                    {t("attendance.labourersFilter")} ({labourItems.length})
                   </p>
                 </div>
               )}
@@ -1016,7 +1022,7 @@ export default function MarkAttendancePage() {
                           backgroundColor: item.isPresent ? "#2d7a4f" : "transparent",
                           border: item.isPresent ? "2px solid #2d7a4f" : "2px solid var(--color-outline)",
                         }}
-                        aria-label={item.isPresent ? "Mark absent" : "Mark present"}
+                        aria-label={item.isPresent ? t("attendance.markAbsentAria") : t("attendance.markPresentAria")}
                       >
                         {item.isPresent && (
                           <span className="material-symbols-outlined" style={{ fontSize: "16px", color: "#fff" }}>
@@ -1047,7 +1053,7 @@ export default function MarkAttendancePage() {
                             {item.name}
                           </p>
                           <p className="text-label-caps" style={{ color: item.isPresent ? "#2d7a4f" : "var(--color-outline)" }}>
-                            {item.isPresent ? `Present · ${formatCurrency(item.daily_wage)}` : "Absent"}
+                            {item.isPresent ? `${t("attendance.present")} · ${formatCurrency(item.daily_wage)}` : t("attendance.absent")}
                           </p>
                         </div>
                       </button>
@@ -1060,7 +1066,7 @@ export default function MarkAttendancePage() {
                           color: item.expanded ? "var(--color-primary)" : "var(--color-on-surface-variant)",
                           border: "1px solid var(--color-outline-variant)",
                         }}
-                        aria-label="Add details"
+                        aria-label={t("attendance.addDetailsAria")}
                       >
                         <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>
                           {item.expanded ? "expand_less" : "notes"}
@@ -1076,11 +1082,11 @@ export default function MarkAttendancePage() {
                           border: "1px solid var(--color-error)",
                           fontSize: "12px",
                         }}
-                        aria-label="Remove from list"
-                        title="Remove from today's list"
+                        aria-label={t("attendance.removeFromListAria")}
+                        title={t("attendance.removeFromTodaysListTitle")}
                       >
                         <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>delete</span>
-                        <span className="text-label-caps">Remove</span>
+                        <span className="text-label-caps">{t("common.remove")}</span>
                       </button>
                     </div>
 
@@ -1091,13 +1097,13 @@ export default function MarkAttendancePage() {
                         style={{ borderTop: "1px solid var(--color-outline-variant)" }}
                       >
                         <p className="text-label-caps pt-3" style={{ color: "var(--color-on-surface-variant)" }}>
-                          Details (optional)
+                          {t("attendance.detailsOptional")}
                         </p>
                         <input
                           type="text"
                           value={item.task}
                           onChange={(e) => updateField(item.id, "task", e.target.value)}
-                          placeholder="Task / work done (e.g. Crop spraying)"
+                          placeholder={t("attendance.taskPlaceholderExample")}
                           className="w-full h-10 px-3 rounded-lg text-body-md"
                           style={{
                             border: "1px solid var(--color-outline-variant)",
@@ -1107,30 +1113,16 @@ export default function MarkAttendancePage() {
                           }}
                         />
                         <div className="flex items-center gap-3">
-                          <input
-                            type="time"
+                          <TimePicker
                             value={item.startTime}
-                            onChange={(e) => updateField(item.id, "startTime", e.target.value)}
-                            className="h-10 px-3 rounded-lg text-body-md flex-1"
-                            style={{
-                              border: "1px solid var(--color-outline-variant)",
-                              backgroundColor: "var(--color-surface-container)",
-                              color: "var(--color-on-surface)",
-                              outline: "none",
-                            }}
+                            onChange={(val) => updateField(item.id, "startTime", val)}
+                            className="flex-1"
                           />
-                          <span className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>to</span>
-                          <input
-                            type="time"
+                          <span className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("common.to")}</span>
+                          <TimePicker
                             value={item.endTime}
-                            onChange={(e) => updateField(item.id, "endTime", e.target.value)}
-                            className="h-10 px-3 rounded-lg text-body-md flex-1"
-                            style={{
-                              border: "1px solid var(--color-outline-variant)",
-                              backgroundColor: "var(--color-surface-container)",
-                              color: "var(--color-on-surface)",
-                              outline: "none",
-                            }}
+                            onChange={(val) => updateField(item.id, "endTime", val)}
+                            className="flex-1"
                           />
                         </div>
                       </div>
@@ -1146,7 +1138,7 @@ export default function MarkAttendancePage() {
                   style={{ backgroundColor: "#f3e8ff", borderBottom: "1px solid var(--color-outline-variant)" }}
                 >
                   <p className="text-label-caps" style={{ color: "#6b21a8" }}>
-                    Teams ({teamItems.length})
+                    {t("attendance.teamsFilter")} ({teamItems.length})
                   </p>
                 </div>
               )}
@@ -1171,7 +1163,7 @@ export default function MarkAttendancePage() {
                           backgroundColor: item.isPresent ? "#6b21a8" : "transparent",
                           border: item.isPresent ? "2px solid #6b21a8" : "2px solid var(--color-outline)",
                         }}
-                        aria-label={item.isPresent ? "Mark absent" : "Mark present"}
+                        aria-label={item.isPresent ? t("attendance.markAbsentAria") : t("attendance.markPresentAria")}
                       >
                         {item.isPresent && (
                           <span className="material-symbols-outlined" style={{ fontSize: "16px", color: "#fff" }}>
@@ -1203,8 +1195,8 @@ export default function MarkAttendancePage() {
                           </p>
                           <p className="text-label-caps" style={{ color: item.isPresent ? "#6b21a8" : "var(--color-outline)" }}>
                             {item.isPresent
-                              ? `Present${item.numLabourers ? ` · ${item.numLabourers} people · ${formatCurrency(wage)}` : ""}`
-                              : "Absent"}
+                              ? `${t("attendance.present")}${item.numLabourers ? ` · ${item.numLabourers} ${t("attendance.peopleLabel")} · ${formatCurrency(wage)}` : ""}`
+                              : t("attendance.absent")}
                           </p>
                         </div>
                       </button>
@@ -1226,7 +1218,7 @@ export default function MarkAttendancePage() {
                               outline: "none",
                             }}
                           />
-                          <span className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>people</span>
+                          <span className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("attendance.peopleLabel")}</span>
                         </div>
                       )}
 
@@ -1253,11 +1245,11 @@ export default function MarkAttendancePage() {
                           border: "1px solid var(--color-error)",
                           fontSize: "12px",
                         }}
-                        aria-label="Remove from list"
-                        title="Remove from today's list"
+                        aria-label={t("attendance.removeFromListAria")}
+                        title={t("attendance.removeFromTodaysListTitle")}
                       >
                         <span className="material-symbols-outlined" style={{ fontSize: "14px" }}>delete</span>
-                        <span className="text-label-caps">Remove</span>
+                        <span className="text-label-caps">{t("common.remove")}</span>
                       </button>
 
                     </div>
@@ -1269,13 +1261,13 @@ export default function MarkAttendancePage() {
                         style={{ borderTop: "1px solid var(--color-outline-variant)" }}
                       >
                         <p className="text-label-caps pt-3" style={{ color: "var(--color-on-surface-variant)" }}>
-                          Details (optional)
+                          {t("attendance.detailsOptional")}
                         </p>
                         <input
                           type="text"
                           value={item.task}
                           onChange={(e) => updateField(item.id, "task", e.target.value)}
-                          placeholder="Task / work done"
+                          placeholder={t("attendance.taskPlaceholder")}
                           className="w-full h-10 px-3 rounded-lg text-body-md"
                           style={{
                             border: "1px solid var(--color-outline-variant)",
@@ -1285,30 +1277,16 @@ export default function MarkAttendancePage() {
                           }}
                         />
                         <div className="flex items-center gap-3">
-                          <input
-                            type="time"
+                          <TimePicker
                             value={item.startTime}
-                            onChange={(e) => updateField(item.id, "startTime", e.target.value)}
-                            className="h-10 px-3 rounded-lg text-body-md flex-1"
-                            style={{
-                              border: "1px solid var(--color-outline-variant)",
-                              backgroundColor: "var(--color-surface-container)",
-                              color: "var(--color-on-surface)",
-                              outline: "none",
-                            }}
+                            onChange={(val) => updateField(item.id, "startTime", val)}
+                            className="flex-1"
                           />
-                          <span className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>to</span>
-                          <input
-                            type="time"
+                          <span className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("common.to")}</span>
+                          <TimePicker
                             value={item.endTime}
-                            onChange={(e) => updateField(item.id, "endTime", e.target.value)}
-                            className="h-10 px-3 rounded-lg text-body-md flex-1"
-                            style={{
-                              border: "1px solid var(--color-outline-variant)",
-                              backgroundColor: "var(--color-surface-container)",
-                              color: "var(--color-on-surface)",
-                              outline: "none",
-                            }}
+                            onChange={(val) => updateField(item.id, "endTime", val)}
+                            className="flex-1"
                           />
                         </div>
                         {/* Wage breakdown */}
@@ -1317,7 +1295,7 @@ export default function MarkAttendancePage() {
                             className="px-3 py-2 rounded-lg text-label-caps"
                             style={{ backgroundColor: "#f3e8ff", color: "#6b21a8" }}
                           >
-                            {item.numLabourers} × {formatCurrency(item.daily_wage)} + {formatCurrency(item.car_rent)} car + {formatCurrency(item.manager_fee)} mgr = <strong>{formatCurrency(wage)}</strong>
+                            {item.numLabourers} × {formatCurrency(item.daily_wage)} + {formatCurrency(item.car_rent)} {t("attendance.carSuffix")} + {formatCurrency(item.manager_fee)} {t("attendance.mgrSuffix")} = <strong>{formatCurrency(wage)}</strong>
                           </div>
                         )}
                       </div>
@@ -1342,7 +1320,7 @@ export default function MarkAttendancePage() {
                   }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>add</span>
-                  Add Labour or Team
+                  {t("attendance.addLabourOrTeam")}
                 </button>
               </div>
             </div>
@@ -1369,16 +1347,16 @@ export default function MarkAttendancePage() {
             >
               <div className="flex gap-4 sm:gap-6 flex-wrap">
                 <div>
-                  <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>In List</p>
+                  <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("attendance.inList")}</p>
                   <p className="text-headline-md font-bold" style={{ color: "var(--color-on-surface)" }}>{checklist.length}</p>
                 </div>
                 <div>
-                  <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Present</p>
+                  <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("attendance.present")}</p>
                   <p className="text-headline-md font-bold" style={{ color: "#2d7a4f" }}>{presentLabourCount + presentTeamCount}</p>
                 </div>
                 {totalWage > 0 && (
                   <div>
-                    <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Today&apos;s Cost</p>
+                    <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("attendance.todaysCost")}</p>
                     <p className="text-headline-md font-bold" style={{ color: "var(--color-primary)" }}>
                       {formatCurrency(totalWage)}
                     </p>
@@ -1395,12 +1373,12 @@ export default function MarkAttendancePage() {
                 {saving ? (
                   <>
                     <span className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "white" }} />
-                    Saving…
+                    {t("attendance.saving")}
                   </>
                 ) : (
                   <>
                     <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>save</span>
-                    Save Attendance
+                    {t("attendance.saveAttendance")}
                   </>
                 )}
               </button>

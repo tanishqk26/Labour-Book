@@ -10,5 +10,8 @@ from app.models.labour import Labour  # noqa: F401
 from app.models.attendance import Attendance  # noqa: F401
 from app.models.team import Team  # noqa: F401
 from app.models.contract import Contract  # noqa: F401
+from app.models.plot import Plot  # noqa: F401
+from app.models.payment import Payment  # noqa: F401
+from app.models.user import User  # noqa: F401
 
-__all__ = ["Base", "Labour", "Attendance", "Team", "Contract"]
+__all__ = ["Base", "Labour", "Attendance", "Team", "Contract", "Plot", "Payment", "User"]

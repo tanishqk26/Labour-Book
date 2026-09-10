@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLanguage } from "@/context/LanguageContext";
 
 const MOBILE_NAV_ITEMS = [
-  { href: "/dashboard", label: "Home", icon: "dashboard" },
-  { href: "/labours", label: "Labour", icon: "groups" },
-  { href: "/attendance", label: "Attendance", icon: "checklist" },
-  { href: "/contracts", label: "Contracts", icon: "description" },
-  { href: "/teams", label: "Teams", icon: "group_work" },
+  { href: "/dashboard", labelKey: "sidebar.home", icon: "dashboard" },
+  { href: "/labours", labelKey: "sidebar.labour", icon: "groups" },
+  { href: "/attendance", labelKey: "sidebar.attendance", icon: "checklist" },
+  { href: "/contracts", labelKey: "sidebar.contracts", icon: "description" },
+  { href: "/teams", labelKey: "sidebar.teams", icon: "group_work" },
 ];
 
 export default function MobileNav() {
   const pathname = usePathname();
+  const { t } = useLanguage();
 
   return (
     <nav
@@ -51,7 +53,7 @@ export default function MobileNav() {
                 letterSpacing: "0.02em",
               }}
             >
-              {item.label}
+              {t(item.labelKey)}
             </span>
           </Link>
         );

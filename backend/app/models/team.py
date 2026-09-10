@@ -47,6 +47,12 @@ class Team(Base):
     __tablename__ = "teams"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     name = Column(String(100), nullable=False, index=True)
     description = Column(String(255), nullable=True)
     hometown = Column(String(100), nullable=True)   # village / origin of the team

@@ -6,12 +6,14 @@ import { apiGet } from "@/lib/api";
 import { Labour, PaginatedResponse, EntityPaymentSummary } from "@/types";
 import LabourCard from "@/components/LabourCard";
 import LabourModal from "@/components/LabourModal";
+import { useLanguage } from "@/context/LanguageContext";
 
 // Note: metadata is static — dynamic metadata requires a separate server component
 // The page title is set statically here
 const PAGE_TITLE = "Labours | LabourBook";
 
 export default function LaboursPage() {
+  const { t } = useLanguage();
   const [labours, setLabours] = useState<Labour[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -54,7 +56,7 @@ export default function LaboursPage() {
       }
       setPaymentMap(map);
     } catch {
-      setError("Failed to load labours. Please try again.");
+      setError(t("labours.loadFailedMessage"));
     } finally {
       setLoading(false);
     }
@@ -85,10 +87,10 @@ export default function LaboursPage() {
       >
         <div>
           <h1 className="text-headline-lg" style={{ color: "var(--color-primary)" }}>
-            Labour
+            {t("labours.pageTitle")}
           </h1>
           <p className="text-body-lg mt-1" style={{ color: "var(--color-on-surface-variant)" }}>
-            Manage individual labourers and their wage information.
+            {t("labours.pageSubtitle")}
           </p>
         </div>
         <button
@@ -101,7 +103,7 @@ export default function LaboursPage() {
           }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>add</span>
-          Add Labour
+          {t("labours.addLabour")}
         </button>
       </header>
 
@@ -121,7 +123,7 @@ export default function LaboursPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name or hometown..."
+              placeholder={t("labours.searchPlaceholder")}
               className="w-full h-12 pl-12 pr-4 rounded-lg text-body-md transition-colors"
               style={{
                 backgroundColor: "var(--color-surface-container-lowest)",
@@ -142,7 +144,7 @@ export default function LaboursPage() {
                 style={{ borderColor: "var(--color-primary)" }}
               />
               <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                Loading labours…
+                {t("labours.loadingLabours")}
               </p>
             </div>
           </div>
@@ -157,7 +159,7 @@ export default function LaboursPage() {
             }}
           >
             <span className="material-symbols-outlined text-4xl mb-2 block">error_outline</span>
-            <p className="text-body-lg font-semibold mb-2">Failed to load labours</p>
+            <p className="text-body-lg font-semibold mb-2">{t("labours.loadFailedTitle")}</p>
             <p className="text-body-md mb-4">{error}</p>
             <button
               onClick={fetchLabours}
@@ -167,7 +169,7 @@ export default function LaboursPage() {
                 color: "var(--color-error-container)",
               }}
             >
-              Try Again
+              {t("labours.tryAgain")}
             </button>
           </div>
         )}
@@ -182,12 +184,12 @@ export default function LaboursPage() {
             </span>
             <div className="text-center">
               <p className="text-headline-md mb-1" style={{ color: "var(--color-on-surface)" }}>
-                {debouncedSearch ? "No results found" : "No labourers yet"}
+                {debouncedSearch ? t("labours.noResultsFound") : t("labours.noLabourersYet")}
               </p>
               <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
                 {debouncedSearch
-                  ? `No labourers match "${debouncedSearch}"`
-                  : "Add your first labourer to get started."}
+                  ? `${t("labours.noResultsMatchPrefix")} "${debouncedSearch}"`
+                  : t("labours.addFirstLabourer")}
               </p>
             </div>
             {!debouncedSearch && (
@@ -199,7 +201,7 @@ export default function LaboursPage() {
                   color: "var(--color-on-primary)",
                 }}
               >
-                Add Labour
+                {t("labours.addLabour")}
               </button>
             )}
           </div>
@@ -224,7 +226,7 @@ export default function LaboursPage() {
             {total > PAGE_SIZE && (
               <div className="flex items-center justify-between mt-8">
                 <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                  Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+                  {t("labours.showing")} {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} {t("labours.of")} {total}
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -236,7 +238,7 @@ export default function LaboursPage() {
                       color: "var(--color-on-surface-variant)",
                     }}
                   >
-                    Previous
+                    {t("labours.previous")}
                   </button>
                   <button
                     onClick={() => setPage((p) => p + 1)}
@@ -247,7 +249,7 @@ export default function LaboursPage() {
                       color: "var(--color-on-surface-variant)",
                     }}
                   >
-                    Next
+                    {t("common.next")}
                   </button>
                 </div>
               </div>
