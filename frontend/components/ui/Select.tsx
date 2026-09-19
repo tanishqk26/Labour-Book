@@ -17,6 +17,10 @@ interface SelectProps {
   disabled?: boolean;
   hasError?: boolean;
   className?: string;
+  /** When provided, renders a "+ Add new…" action at the bottom of the dropdown */
+  onAddNew?: () => void;
+  /** Label for the add-new action row. Defaults to "Add new…" */
+  addNewLabel?: string;
 }
 
 /**
@@ -32,6 +36,8 @@ export default function Select({
   disabled = false,
   hasError = false,
   className = "",
+  onAddNew,
+  addNewLabel = "Add new…",
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -126,6 +132,26 @@ export default function Select({
                 {opt.label}
               </div>
             ))
+          )}
+          {/* Add-new action */}
+          {onAddNew && (
+            <div
+              role="option"
+              aria-selected={false}
+              onClick={() => { onAddNew(); setOpen(false); }}
+              className="px-3 py-2.5 text-body-md flex items-center gap-2 transition-colors"
+              style={{
+                cursor: "pointer",
+                color: "var(--color-primary)",
+                fontWeight: 600,
+                borderTop: options.length > 0 ? "1px dashed var(--color-outline-variant)" : "none",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--color-primary-fixed)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>add_circle</span>
+              {addNewLabel}
+            </div>
           )}
         </div>
       )}

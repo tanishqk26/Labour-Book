@@ -141,8 +141,30 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Local mutable copies of entity lists (so quick-create additions are reflected)
+  const [localLabours, setLocalLabours] = useState<Labour[]>(labours);
+  const [localTeams, setLocalTeams] = useState<TeamSummary[]>(teams);
+  const [localPlots, setLocalPlots] = useState<PlotSummary[]>(plots);
+
+  // Quick-create state
+  const [quickCreate, setQuickCreate] = useState<null | "labour" | "team" | "plot">(null);
+  const [qcName, setQcName] = useState("");
+  const [qcWage, setQcWage] = useState("");
+  const [qcCarRent, setQcCarRent] = useState("0");
+  const [qcManagerFee, setQcManagerFee] = useState("0");
+  const [qcAcres, setQcAcres] = useState("");
+  const [qcCrop, setQcCrop] = useState("");
+  const [qcSubmitting, setQcSubmitting] = useState(false);
+  const [qcError, setQcError] = useState<string | null>(null);
+
+  function openQuickCreate(type: "labour" | "team" | "plot") {
+    setQuickCreate(type);
+    setQcName(""); setQcWage(""); setQcCarRent("0"); setQcManagerFee("0");
+    setQcAcres(""); setQcCrop(""); setQcError(null);
+  }
+
   // Auto-calculate amount when plot + rate per acre changes
-  const selectedPlot = plots.find(p => p.id === plotId);
+  const selectedPlot = localPlots.find(p => p.id === plotId);
   const calculatedAmount = selectedPlot && amountPerAcre && Number(amountPerAcre) > 0
     ? Number(amountPerAcre) * selectedPlot.size_acres
     : null;
@@ -321,8 +343,53 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
                   value={labourId}
                   onChange={setLabourId}
                   placeholder={t("contracts.selectLabourerPlaceholder")}
-                  options={labours.map((l) => ({ value: l.id, label: l.name }))}
+                  options={localLabours.map((l) => ({ value: l.id, label: l.name }))}
+                  onAddNew={() => openQuickCreate("labour")}
+                  addNewLabel="Add new labour"
                 />
+                {/* Quick-create labour */}
+                {quickCreate === "labour" && (
+                  <div className="mt-2 p-4 rounded-xl flex flex-col gap-3"
+                    style={{ backgroundColor: "var(--color-primary-fixed)", border: "1px solid var(--color-primary-fixed-dim)" }}>
+                    <p className="text-label-caps font-semibold" style={{ color: "var(--color-primary)" }}>Create new labour</p>
+                    {qcError && <p className="text-label-caps" style={{ color: "var(--color-error)" }}>{qcError}</p>}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Full name</label>
+                      <input type="text" value={qcName} onChange={(e) => setQcName(e.target.value)} placeholder="e.g. Ramesh Kumar" autoFocus
+                        className="h-10 px-3 rounded-lg text-body-md w-full"
+                        style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Daily wage (₹)</label>
+                      <input type="number" value={qcWage} onChange={(e) => setQcWage(e.target.value)} placeholder="e.g. 500" min={1}
+                        className="h-10 px-3 rounded-lg text-body-md w-full"
+                        style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }} />
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setQuickCreate(null)}
+                        className="flex-1 h-9 rounded-lg text-body-md font-semibold"
+                        style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}>Cancel</button>
+                      <button type="button" disabled={qcSubmitting}
+                        onClick={async () => {
+                          if (!qcName.trim() || !qcWage || Number(qcWage) <= 0) { setQcError("Name and daily wage required."); return; }
+                          setQcSubmitting(true); setQcError(null);
+                          try {
+                            const created = await apiPost<Labour>("/api/v1/labours", { name: qcName.trim(), daily_wage: Number(qcWage) });
+                            setLocalLabours((p) => [...p, created]);
+                            setLabourId(created.id);
+                            setQuickCreate(null);
+                          } catch (err) {
+                            const data = (err instanceof ApiError ? err.data : null) as { detail?: string } | null;
+                            setQcError(typeof data?.detail === "string" ? data.detail : "Failed to create.");
+                          } finally { setQcSubmitting(false); }
+                        }}
+                        className="flex-1 h-9 rounded-lg text-body-md font-semibold transition-opacity"
+                        style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)", opacity: qcSubmitting ? 0.6 : 1 }}>
+                        {qcSubmitting ? "Creating…" : "Create & select"}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -335,8 +402,70 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
                   value={teamId}
                   onChange={setTeamId}
                   placeholder={t("contracts.selectTeamPlaceholder")}
-                  options={teams.map((tm) => ({ value: tm.id, label: tm.name }))}
+                  options={localTeams.map((tm) => ({ value: tm.id, label: tm.name }))}
+                  onAddNew={() => openQuickCreate("team")}
+                  addNewLabel="Add new team"
                 />
+                {/* Quick-create team */}
+                {quickCreate === "team" && (
+                  <div className="mt-2 p-4 rounded-xl flex flex-col gap-3"
+                    style={{ backgroundColor: "#f3e8ff", border: "1px solid #d8b4fe" }}>
+                    <p className="text-label-caps font-semibold" style={{ color: "#6b21a8" }}>Create new team</p>
+                    {qcError && <p className="text-label-caps" style={{ color: "var(--color-error)" }}>{qcError}</p>}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-label-caps" style={{ color: "#6b21a8" }}>Team name</label>
+                      <input type="text" value={qcName} onChange={(e) => setQcName(e.target.value)} placeholder="e.g. North Field Team" autoFocus
+                        className="h-10 px-3 rounded-lg text-body-md w-full"
+                        style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-label-caps" style={{ color: "#6b21a8" }}>Wage / labour (₹)</label>
+                      <input type="number" value={qcWage} onChange={(e) => setQcWage(e.target.value)} placeholder="e.g. 500" min={1}
+                        className="h-10 px-3 rounded-lg text-body-md w-full"
+                        style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-label-caps" style={{ color: "#6b21a8" }}>Car rent (₹)</label>
+                        <input type="number" value={qcCarRent} onChange={(e) => setQcCarRent(e.target.value)} placeholder="0" min={0}
+                          className="h-10 px-3 rounded-lg text-body-md w-full"
+                          style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }} />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-label-caps" style={{ color: "#6b21a8" }}>Manager fee (₹)</label>
+                        <input type="number" value={qcManagerFee} onChange={(e) => setQcManagerFee(e.target.value)} placeholder="0" min={0}
+                          className="h-10 px-3 rounded-lg text-body-md w-full"
+                          style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }} />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setQuickCreate(null)}
+                        className="flex-1 h-9 rounded-lg text-body-md font-semibold"
+                        style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}>Cancel</button>
+                      <button type="button" disabled={qcSubmitting}
+                        onClick={async () => {
+                          if (!qcName.trim() || !qcWage || Number(qcWage) <= 0) { setQcError("Team name and wage required."); return; }
+                          setQcSubmitting(true); setQcError(null);
+                          try {
+                            const created = await apiPost<TeamSummary>("/api/v1/teams", {
+                              name: qcName.trim(), daily_wage: Number(qcWage),
+                              car_rent: Number(qcCarRent) || 0, manager_fee: Number(qcManagerFee) || 0,
+                            });
+                            setLocalTeams((p) => [...p, created]);
+                            setTeamId(created.id);
+                            setQuickCreate(null);
+                          } catch (err) {
+                            const data = (err instanceof ApiError ? err.data : null) as { detail?: string } | null;
+                            setQcError(typeof data?.detail === "string" ? data.detail : "Failed to create.");
+                          } finally { setQcSubmitting(false); }
+                        }}
+                        className="flex-1 h-9 rounded-lg text-body-md font-semibold transition-opacity"
+                        style={{ backgroundColor: "#6b21a8", color: "#fff", opacity: qcSubmitting ? 0.6 : 1 }}>
+                        {qcSubmitting ? "Creating…" : "Create & select"}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -350,11 +479,70 @@ function ContractForm({ labours, teams, plots, contract, onSaved, onClose }: Con
                   value={plotId}
                   onChange={(v) => { setPlotId(v); if (!v) { setAmountPerAcre(""); } }}
                   placeholder={t("contracts.noPlotSelected")}
-                  options={plots.map((p) => ({
+                  options={localPlots.map((p) => ({
                     value: p.id,
                     label: `${p.name} — ${p.size_acres} ${t("contracts.acresUnit")}${p.crop_name ? ` (${p.crop_name})` : ""}`,
                   }))}
+                  onAddNew={() => openQuickCreate("plot")}
+                  addNewLabel="Add new plot"
                 />
+
+                {/* Quick-create plot */}
+                {quickCreate === "plot" && (
+                  <div className="mt-2 p-4 rounded-xl flex flex-col gap-3"
+                    style={{ backgroundColor: "#fef9c3", border: "1px solid #fde68a" }}>
+                    <p className="text-label-caps font-semibold" style={{ color: "#92400e" }}>Create new plot</p>
+                    {qcError && <p className="text-label-caps" style={{ color: "var(--color-error)" }}>{qcError}</p>}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-label-caps" style={{ color: "#92400e" }}>Plot name</label>
+                      <input type="text" value={qcName} onChange={(e) => setQcName(e.target.value)} placeholder="e.g. North Field" autoFocus
+                        className="h-10 px-3 rounded-lg text-body-md w-full"
+                        style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-label-caps" style={{ color: "#92400e" }}>Size (acres)</label>
+                        <input type="number" value={qcAcres} onChange={(e) => setQcAcres(e.target.value)} placeholder="e.g. 2.5" min={0.01} step={0.01}
+                          className="h-10 px-3 rounded-lg text-body-md w-full"
+                          style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }} />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-label-caps" style={{ color: "#92400e" }}>Crop (optional)</label>
+                        <input type="text" value={qcCrop} onChange={(e) => setQcCrop(e.target.value)} placeholder="e.g. Wheat"
+                          className="h-10 px-3 rounded-lg text-body-md w-full"
+                          style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }} />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setQuickCreate(null)}
+                        className="flex-1 h-9 rounded-lg text-body-md font-semibold"
+                        style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}>Cancel</button>
+                      <button type="button" disabled={qcSubmitting}
+                        onClick={async () => {
+                          if (!qcName.trim() || !qcAcres || Number(qcAcres) <= 0) { setQcError("Plot name and size required."); return; }
+                          setQcSubmitting(true); setQcError(null);
+                          try {
+                            const created = await apiPost<PlotSummary>("/api/v1/plots", {
+                              name: qcName.trim(),
+                              size_acres: Number(qcAcres),
+                              crop_name: qcCrop.trim() || undefined,
+                            });
+                            setLocalPlots((p) => [...p, created]);
+                            setPlotId(created.id);
+                            setAmountPerAcre("");
+                            setQuickCreate(null);
+                          } catch (err) {
+                            const data = (err instanceof ApiError ? err.data : null) as { detail?: string } | null;
+                            setQcError(typeof data?.detail === "string" ? data.detail : "Failed to create.");
+                          } finally { setQcSubmitting(false); }
+                        }}
+                        className="flex-1 h-9 rounded-lg text-body-md font-semibold transition-opacity"
+                        style={{ backgroundColor: "#92400e", color: "#fff", opacity: qcSubmitting ? 0.6 : 1 }}>
+                        {qcSubmitting ? "Creating…" : "Create & select"}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Rate per acre — only shows when a plot is selected */}
                 {plotId && (
@@ -657,7 +845,6 @@ function ContractCard({
                   color: isActive ? sc.text : "var(--color-on-surface-variant)",
                   border: `1px solid ${isActive ? sc.bg : "var(--color-outline-variant)"}`,
                   fontWeight: isActive ? 700 : 500,
-                  transform: isActive ? "scale(1.02)" : "scale(1)",
                 }}
               >
                 {isLoading ? (

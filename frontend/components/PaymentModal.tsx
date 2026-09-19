@@ -56,6 +56,15 @@ export default function PaymentModal({
   const [teams, setTeams] = useState<TeamSummary[]>([]);
   const [loadingEntities, setLoadingEntities] = useState(false);
 
+  // Quick-create state
+  const [quickCreate, setQuickCreate] = useState<null | "labour" | "team">(null);
+  const [qcName, setQcName] = useState("");
+  const [qcWage, setQcWage] = useState("");
+  const [qcCarRent, setQcCarRent] = useState("0");
+  const [qcManagerFee, setQcManagerFee] = useState("0");
+  const [qcSubmitting, setQcSubmitting] = useState(false);
+  const [qcError, setQcError] = useState<string | null>(null);
+
   // Entity KPI (fetched when entity is selected)
   const [entitySummary, setEntitySummary] = useState<EntityPaymentSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -78,6 +87,12 @@ export default function PaymentModal({
     setDate(todayISO());
     setErrors({});
     setServerError(null);
+    setQuickCreate(null);
+    setQcName("");
+    setQcWage("");
+    setQcCarRent("0");
+    setQcManagerFee("0");
+    setQcError(null);
 
     async function loadEntities() {
       setLoadingEntities(true);
@@ -283,6 +298,12 @@ export default function PaymentModal({
                       setEntityType(et);
                       setEntityId("");
                       setEntitySummary(null);
+                      setQuickCreate(null);
+                      setQcName("");
+                      setQcWage("");
+                      setQcCarRent("0");
+                      setQcManagerFee("0");
+                      setQcError(null);
                       setErrors((prev) => {
                         const next = { ...prev };
                         delete next.entity;
@@ -347,12 +368,168 @@ export default function PaymentModal({
                   hasError={!!errors.entity}
                   placeholder={entityType === "individual" ? t("payments.chooseLabourPlaceholder") : t("payments.chooseTeamPlaceholder")}
                   options={entityOptions.map((opt) => ({ value: opt.id, label: opt.name }))}
+                  onAddNew={() => {
+                    setQuickCreate(entityType === "individual" ? "labour" : "team");
+                    setQcName("");
+                    setQcWage("");
+                    setQcCarRent("0");
+                    setQcManagerFee("0");
+                    setQcError(null);
+                  }}
+                  addNewLabel={entityType === "individual" ? "Add new labour" : "Add new team"}
                 />
               )}
               {errors.entity && (
                 <p className="text-label-caps" style={{ color: "var(--color-error)" }}>
                   {errors.entity}
                 </p>
+              )}
+
+              {/* ── Inline quick-create labour ── */}
+              {quickCreate === "labour" && (
+                <div
+                  className="mt-2 p-4 rounded-xl flex flex-col gap-3"
+                  style={{ backgroundColor: "var(--color-primary-fixed)", border: "1px solid var(--color-primary-fixed-dim)" }}
+                >
+                  <p className="text-label-caps font-semibold" style={{ color: "var(--color-primary)" }}>Create new labour</p>
+                  {qcError && <p className="text-label-caps" style={{ color: "var(--color-error)" }}>{qcError}</p>}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Full name</label>
+                    <input
+                      type="text"
+                      value={qcName}
+                      onChange={(e) => setQcName(e.target.value)}
+                      placeholder="e.g. Ramesh Kumar"
+                      autoFocus
+                      className="h-10 px-3 rounded-lg text-body-md w-full"
+                      style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>Daily wage (₹)</label>
+                    <input
+                      type="number"
+                      value={qcWage}
+                      onChange={(e) => setQcWage(e.target.value)}
+                      placeholder="e.g. 500"
+                      min={1}
+                      className="h-10 px-3 rounded-lg text-body-md w-full"
+                      style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setQuickCreate(null)}
+                      className="flex-1 h-9 rounded-lg text-body-md font-semibold"
+                      style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}>
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={qcSubmitting}
+                      onClick={async () => {
+                        if (!qcName.trim() || !qcWage || Number(qcWage) <= 0) {
+                          setQcError("Name and daily wage are required.");
+                          return;
+                        }
+                        setQcSubmitting(true);
+                        setQcError(null);
+                        try {
+                          const created = await apiPost<Labour>("/api/v1/labours", { name: qcName.trim(), daily_wage: Number(qcWage) });
+                          setLabours((prev) => [...prev, created]);
+                          setEntityId(created.id);
+                          setEntitySummary(null);
+                          setErrors((prev) => { const n = { ...prev }; delete n.entity; return n; });
+                          setQuickCreate(null);
+                        } catch (err) {
+                          const data = (err instanceof ApiError ? err.data : null) as { detail?: string } | null;
+                          setQcError(typeof data?.detail === "string" ? data.detail : "Failed to create labour.");
+                        } finally {
+                          setQcSubmitting(false);
+                        }
+                      }}
+                      className="flex-1 h-9 rounded-lg text-body-md font-semibold transition-opacity"
+                      style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)", opacity: qcSubmitting ? 0.6 : 1 }}>
+                      {qcSubmitting ? "Creating…" : "Create & select"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Inline quick-create team ── */}
+              {quickCreate === "team" && (
+                <div
+                  className="mt-2 p-4 rounded-xl flex flex-col gap-3"
+                  style={{ backgroundColor: "#f3e8ff", border: "1px solid #d8b4fe" }}
+                >
+                  <p className="text-label-caps font-semibold" style={{ color: "#6b21a8" }}>Create new team</p>
+                  {qcError && <p className="text-label-caps" style={{ color: "var(--color-error)" }}>{qcError}</p>}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-label-caps" style={{ color: "#6b21a8" }}>Team name</label>
+                    <input type="text" value={qcName} onChange={(e) => setQcName(e.target.value)} placeholder="e.g. North Field Team" autoFocus
+                      className="h-10 px-3 rounded-lg text-body-md w-full"
+                      style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-label-caps" style={{ color: "#6b21a8" }}>Wage / labour (₹)</label>
+                    <input type="number" value={qcWage} onChange={(e) => setQcWage(e.target.value)} placeholder="e.g. 500" min={1}
+                      className="h-10 px-3 rounded-lg text-body-md w-full"
+                      style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-label-caps" style={{ color: "#6b21a8" }}>Car rent (₹)</label>
+                      <input type="number" value={qcCarRent} onChange={(e) => setQcCarRent(e.target.value)} placeholder="0" min={0}
+                        className="h-10 px-3 rounded-lg text-body-md w-full"
+                        style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-label-caps" style={{ color: "#6b21a8" }}>Manager fee (₹)</label>
+                      <input type="number" value={qcManagerFee} onChange={(e) => setQcManagerFee(e.target.value)} placeholder="0" min={0}
+                        className="h-10 px-3 rounded-lg text-body-md w-full"
+                        style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface)", color: "var(--color-on-surface)", outline: "none" }} />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setQuickCreate(null)}
+                      className="flex-1 h-9 rounded-lg text-body-md font-semibold"
+                      style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}>
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={qcSubmitting}
+                      onClick={async () => {
+                        if (!qcName.trim() || !qcWage || Number(qcWage) <= 0) {
+                          setQcError("Team name and wage are required.");
+                          return;
+                        }
+                        setQcSubmitting(true);
+                        setQcError(null);
+                        try {
+                          const created = await apiPost<TeamSummary>("/api/v1/teams", {
+                            name: qcName.trim(),
+                            daily_wage: Number(qcWage),
+                            car_rent: Number(qcCarRent) || 0,
+                            manager_fee: Number(qcManagerFee) || 0,
+                          });
+                          setTeams((prev) => [...prev, created]);
+                          setEntityId(created.id);
+                          setEntitySummary(null);
+                          setErrors((prev) => { const n = { ...prev }; delete n.entity; return n; });
+                          setQuickCreate(null);
+                        } catch (err) {
+                          const data = (err instanceof ApiError ? err.data : null) as { detail?: string } | null;
+                          setQcError(typeof data?.detail === "string" ? data.detail : "Failed to create team.");
+                        } finally {
+                          setQcSubmitting(false);
+                        }
+                      }}
+                      className="flex-1 h-9 rounded-lg text-body-md font-semibold transition-opacity"
+                      style={{ backgroundColor: "#6b21a8", color: "#fff", opacity: qcSubmitting ? 0.6 : 1 }}>
+                      {qcSubmitting ? "Creating…" : "Create & select"}
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 

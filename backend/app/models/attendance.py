@@ -17,6 +17,7 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 
+
 class Attendance(Base):
     __tablename__ = "attendances"
 
@@ -72,6 +73,17 @@ class Attendance(Base):
     # Computed wage for this attendance record (snapshot at time of recording)
     wage_earned = Column(Numeric(10, 2), nullable=False, default=0)
 
+    # Wage type: "daily" (computed from daily_wage) or "contract" (linked to a contract)
+    wage_type = Column(String(20), nullable=False, default="daily", server_default="daily")
+
+    # Optional link to a contract when wage_type = "contract"
+    contract_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("contracts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
@@ -83,6 +95,7 @@ class Attendance(Base):
     # Relationships
     labour = relationship("Labour", back_populates="attendances", foreign_keys=[labour_id])
     team   = relationship("Team",   back_populates="attendances", foreign_keys=[team_id])
+    contract = relationship("Contract", foreign_keys=[contract_id])
 
     def __repr__(self) -> str:
         entity = f"labour_id={self.labour_id}" if self.labour_id else f"team_id={self.team_id}"

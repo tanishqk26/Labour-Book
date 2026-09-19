@@ -45,6 +45,8 @@ class AttendanceCreate(AttendanceBase):
     team_id: Optional[uuid.UUID] = None
     date: date
     num_labourers: Optional[int] = Field(None, ge=0, description="Number of team labourers (teams only)")
+    wage_type: str = Field("daily", description="daily | contract")
+    contract_id: Optional[uuid.UUID] = None
 
 
 class AttendanceBulkItem(AttendanceBase):
@@ -53,6 +55,8 @@ class AttendanceBulkItem(AttendanceBase):
     team_id: Optional[uuid.UUID] = None
     date: date
     num_labourers: Optional[int] = Field(None, ge=0)
+    wage_type: str = Field("daily", description="daily | contract")
+    contract_id: Optional[uuid.UUID] = None
 
 
 class AttendanceBulkCreate(BaseModel):
@@ -106,6 +110,15 @@ class AttendanceTeamInfo(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ContractInfo(BaseModel):
+    """Minimal contract info nested in attendance responses."""
+    id: uuid.UUID
+    title: str
+    amount: float
+
+    model_config = {"from_attributes": True}
+
+
 class AttendanceRead(AttendanceBase):
     id: uuid.UUID
     labour_id: Optional[uuid.UUID] = None
@@ -113,10 +126,13 @@ class AttendanceRead(AttendanceBase):
     date: date
     num_labourers: Optional[int] = None
     wage_earned: float
+    wage_type: str = "daily"
+    contract_id: Optional[uuid.UUID] = None
     created_at: datetime
     updated_at: datetime
     labour: Optional[AttendanceLabourInfo] = None
     team: Optional[AttendanceTeamInfo] = None
+    contract: Optional[ContractInfo] = None
 
     model_config = {"from_attributes": True}
 
@@ -151,6 +167,9 @@ class LabourAttendanceStatus(BaseModel):
     work_start_time: Optional[str] = None
     work_end_time: Optional[str] = None
     wage_earned: Optional[float] = None
+    wage_type: str = "daily"
+    contract_id: Optional[uuid.UUID] = None
+    contract_title: Optional[str] = None
 
 
 class TeamAttendanceStatus(BaseModel):
@@ -168,6 +187,9 @@ class TeamAttendanceStatus(BaseModel):
     work_start_time: Optional[str] = None
     work_end_time: Optional[str] = None
     wage_earned: Optional[float] = None
+    wage_type: str = "daily"
+    contract_id: Optional[uuid.UUID] = None
+    contract_title: Optional[str] = None
 
 
 class DailyAttendanceView(BaseModel):

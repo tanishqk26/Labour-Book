@@ -24,6 +24,8 @@ interface AttendanceRecord {
   work_start_time: string | null;
   work_end_time: string | null;
   wage_earned: number;
+  wage_type?: string;
+  contract?: { id: string; title: string; amount: number } | null;
 }
 
 interface ContractRecord {
@@ -93,6 +95,9 @@ export default function LabourDetailPage({ params }: PageProps) {
   const [paymentSummary, setPaymentSummary] = useState<EntityPaymentSummary | null>(null);
   const [payments, setPayments] = useState<PaymentRead[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
+
+  // History tab
+  const [activeTab, setActiveTab] = useState<"attendance" | "contracts" | "payments">("attendance");
 
   // Settle
   const [confirmSettle, setConfirmSettle] = useState(false);
@@ -596,299 +601,330 @@ export default function LabourDetailPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Attendance History */}
-        <section>
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("labours.attendanceHistory")}</h2>
-            {history.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <DatePicker
-                  value={historyFrom}
-                  onChange={setHistoryFrom}
-                />
-                <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>{t("common.to")}</span>
-                <DatePicker
-                  value={historyTo}
-                  onChange={setHistoryTo}
-                />
-                {(historyFrom || historyTo) && (
-                  <button onClick={() => { setHistoryFrom(""); setHistoryTo(""); }}
-                    className="h-8 px-2 rounded-lg text-label-caps flex items-center gap-1"
-                    style={{ color: "var(--color-error)", border: "1px solid var(--color-error)" }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: "13px" }}>close</span>
-                    {t("common.clear")}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+        {/* Tabbed History Section */}
+        <div className="rounded-xl overflow-hidden"
+          style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface-container-lowest)" }}>
 
-          {historyLoading ? (
-            <div className="flex justify-center py-10">
-              <div className="w-7 h-7 rounded-full border-2 border-t-transparent animate-spin"
-                style={{ borderColor: "var(--color-primary)" }} />
-            </div>
-          ) : history.length === 0 ? (
-            <div className="rounded-xl p-8 flex flex-col items-center gap-3"
-              style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-              <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>history</span>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noAttendanceRecords")}</p>
-            </div>
-          ) : filteredHistory.length === 0 ? (
-            <div className="rounded-xl p-6 text-center"
-              style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noRecordsInRange")}</p>
-            </div>
-          ) : (
-            <div className="rounded-xl overflow-hidden"
-              style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface-container-lowest)" }}>
-              {/* Header */}
-              <div className="grid px-5 py-3"
-                style={{
-                  gridTemplateColumns: "120px 90px 1fr 80px 90px",
-                  borderBottom: "1px solid var(--color-outline-variant)",
-                  backgroundColor: "var(--color-surface-container-low)",
-                }}>
-                {[t("common.date"), t("common.status"), t("labours.taskLabel"), t("labours.timeLabel"), t("labours.wageLabel")].map(h => (
-                  <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
-                ))}
-              </div>
-              {filteredHistory.map((rec, idx) => (
-                <div key={rec.id} className="grid items-center px-5 py-3"
-                  style={{
-                    gridTemplateColumns: "120px 90px 1fr 80px 90px",
-                    borderBottom: idx < filteredHistory.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
-                  }}>
-                  <p className="text-body-md" style={{ color: "var(--color-on-surface)" }}>
-                    {new Date(rec.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                  </p>
-                  <span className="text-label-caps font-semibold"
-                    style={{ color: STATUS_COLORS[rec.status] ?? "var(--color-on-surface-variant)" }}>
-                    {STATUS_LABELS[rec.status] ?? rec.status}
-                  </span>
-                  <p className="text-body-md truncate pr-3" style={{ color: "var(--color-on-surface-variant)" }}>
-                    {rec.task || "—"}
-                  </p>
-                  <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                    {rec.hours_worked ? `${rec.hours_worked}h` : "—"}
-                  </p>
-                  <p className="text-body-md font-medium" style={{ color: "var(--color-on-surface)" }}>
-                    {rec.wage_earned > 0 ? formatCurrency(rec.wage_earned) : "—"}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Contract History */}
-        <section>
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("labours.contractHistory")}</h2>
-            {contracts.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <DatePicker
-                  value={contractFrom}
-                  onChange={setContractFrom}
-                />
-                <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>{t("common.to")}</span>
-                <DatePicker
-                  value={contractTo}
-                  onChange={setContractTo}
-                />
-                {(contractFrom || contractTo) && (
-                  <button onClick={() => { setContractFrom(""); setContractTo(""); }}
-                    className="h-8 px-2 rounded-lg text-label-caps flex items-center gap-1"
-                    style={{ color: "var(--color-error)", border: "1px solid var(--color-error)" }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: "13px" }}>close</span>
-                    {t("common.clear")}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {contractsLoading ? (
-            <div className="flex justify-center py-10">
-              <div className="w-7 h-7 rounded-full border-2 border-t-transparent animate-spin"
-                style={{ borderColor: "var(--color-primary)" }} />
-            </div>
-          ) : contracts.length === 0 ? (
-            <div className="rounded-xl p-8 flex flex-col items-center gap-3"
-              style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-              <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>description</span>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noContractsAssigned")}</p>
-            </div>
-          ) : filteredContracts.length === 0 ? (
-            <div className="rounded-xl p-6 text-center"
-              style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noContractsInRange")}</p>
-            </div>
-          ) : (
-            <div className="rounded-xl overflow-hidden"
-              style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface-container-lowest)" }}>
-              <div style={{ overflowX: "auto" }}>
-                {/* Header */}
-                <div className="grid px-5 py-3"
-                  style={{
-                    gridTemplateColumns: "minmax(160px,2fr) 110px minmax(90px,1fr) 80px",
-                    borderBottom: "1px solid var(--color-outline-variant)",
-                    backgroundColor: "var(--color-surface-container-low)",
-                    minWidth: "400px",
-                  }}>
-                  {[t("labours.workTitle"), t("labours.assigned"), t("common.amount"), t("common.status")].map(h => (
-                    <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
-                  ))}
-                </div>
-                {filteredContracts.map((c, idx) => {
-                  const sc = contractStatusColor(c.status);
-                  return (
-                    <div key={c.id} className="grid items-center px-5 py-3"
+          {/* Tab Bar */}
+          <div className="flex"
+            style={{ borderBottom: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface-container-low)" }}>
+            {(
+              [
+                { key: "attendance", icon: "history",      label: t("labours.attendanceHistory"), count: history.length },
+                { key: "contracts",  icon: "description",  label: t("labours.contractHistory"),   count: contracts.length },
+                { key: "payments",   icon: "receipt_long", label: t("labours.paymentHistory"),    count: payments.length },
+              ] as { key: "attendance" | "contracts" | "payments"; icon: string; label: string; count: number }[]
+            ).map(tab => {
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 text-label-caps transition-colors relative"
+                  style={{ color: isActive ? "var(--color-primary)" : "var(--color-on-surface-variant)" }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>{tab.icon}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  {tab.count > 0 && (
+                    <span
+                      className="text-label-caps px-1.5 py-0.5 rounded-full"
                       style={{
-                        gridTemplateColumns: "minmax(160px,2fr) 110px minmax(90px,1fr) 80px",
-                        borderBottom: idx < filteredContracts.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
-                        minWidth: "400px",
+                        backgroundColor: isActive ? "var(--color-primary-container)" : "var(--color-surface-container)",
+                        color: isActive ? "var(--color-on-primary-container)" : "var(--color-on-surface-variant)",
+                        fontSize: "10px",
+                      }}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
+                  {isActive && (
+                    <span
+                      className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
+                      style={{ backgroundColor: "var(--color-primary)" }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Tab Panels */}
+          <div className="p-5 overflow-y-auto" style={{ height: "22rem" }}>
+
+            {/* ── Attendance ── */}
+            {activeTab === "attendance" && (
+              <div key="attendance" className="tab-panel-enter">
+                {history.length > 0 && (
+                  <div className="flex items-center justify-end gap-2 flex-wrap mb-4">
+                    <DatePicker value={historyFrom} onChange={setHistoryFrom} />
+                    <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>{t("common.to")}</span>
+                    <DatePicker value={historyTo} onChange={setHistoryTo} />
+                    {(historyFrom || historyTo) && (
+                      <button onClick={() => { setHistoryFrom(""); setHistoryTo(""); }}
+                        className="h-8 px-2 rounded-lg text-label-caps flex items-center gap-1"
+                        style={{ color: "var(--color-error)", border: "1px solid var(--color-error)" }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: "13px" }}>close</span>
+                        {t("common.clear")}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {historyLoading ? (
+                  <div className="flex justify-center py-10">
+                    <div className="w-7 h-7 rounded-full border-2 border-t-transparent animate-spin"
+                      style={{ borderColor: "var(--color-primary)" }} />
+                  </div>
+                ) : history.length === 0 ? (
+                  <div className="py-10 flex flex-col items-center gap-3">
+                    <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>history</span>
+                    <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noAttendanceRecords")}</p>
+                  </div>
+                ) : filteredHistory.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noRecordsInRange")}</p>
+                  </div>
+                ) : (
+                  <div className="rounded-xl overflow-hidden"
+                    style={{ border: "1px solid var(--color-outline-variant)" }}>
+                    <div className="grid px-5 py-3"
+                      style={{
+                        gridTemplateColumns: "120px 90px 1fr 80px 90px",
+                        borderBottom: "1px solid var(--color-outline-variant)",
+                        backgroundColor: "var(--color-surface-container-low)",
                       }}>
-                      <div className="min-w-0 pr-3">
-                        <p className="text-body-md font-semibold truncate" style={{ color: "var(--color-on-surface)" }}>{c.title}</p>
-                        {c.description && (
-                          <p className="text-label-caps truncate" style={{ color: "var(--color-on-surface-variant)" }}>{c.description}</p>
+                      {[t("common.date"), t("common.status"), t("labours.taskLabel"), t("labours.timeLabel"), t("labours.wageLabel")].map(h => (
+                        <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
+                      ))}
+                    </div>
+                    {filteredHistory.map((rec, idx) => (
+                      <div key={rec.id} className="grid items-center px-5 py-3"
+                        style={{
+                          gridTemplateColumns: "120px 90px 1fr 80px 90px",
+                          borderBottom: idx < filteredHistory.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
+                        }}>
+                        <p className="text-body-md" style={{ color: "var(--color-on-surface)" }}>
+                          {new Date(rec.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                        </p>
+                        <span className="text-label-caps font-semibold"
+                          style={{ color: STATUS_COLORS[rec.status] ?? "var(--color-on-surface-variant)" }}>
+                          {STATUS_LABELS[rec.status] ?? rec.status}
+                        </span>
+                        <p className="text-body-md truncate pr-3" style={{ color: "var(--color-on-surface-variant)" }}>
+                          {rec.task || "—"}
+                        </p>
+                        <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
+                          {rec.hours_worked ? `${rec.hours_worked}h` : "—"}
+                        </p>
+                        {rec.wage_type === "contract" ? (
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className="px-1.5 py-0.5 rounded text-label-caps font-semibold" style={{ backgroundColor: "#fef9c3", color: "#92400e" }}>CONTRACT</span>
+                            {rec.contract && <p className="text-label-caps truncate max-w-[90px]" style={{ color: "#92400e" }}>{rec.contract.title}</p>}
+                          </div>
+                        ) : (
+                          <p className="text-body-md font-medium" style={{ color: "var(--color-on-surface)" }}>
+                            {rec.wage_earned > 0 ? formatCurrency(rec.wage_earned) : "—"}
+                          </p>
                         )}
                       </div>
-                      <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                        {new Date(c.assigned_date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                      </p>
-                      <p className="text-body-md font-semibold" style={{ color: "var(--color-primary)" }}>
-                        {formatCurrency(c.amount)}
-                      </p>
-                      <span className="text-label-caps px-2 py-1 rounded-full inline-block"
-                        style={{ backgroundColor: sc.bg, color: sc.text }}>
-                        {CONTRACT_STATUS_LABELS[c.status] ?? c.status}
-                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Contracts ── */}
+            {activeTab === "contracts" && (
+              <div key="contracts" className="tab-panel-enter">
+                {contracts.length > 0 && (
+                  <div className="flex items-center justify-end gap-2 flex-wrap mb-4">
+                    <DatePicker value={contractFrom} onChange={setContractFrom} />
+                    <span className="text-label-caps" style={{ color: "var(--color-outline)" }}>{t("common.to")}</span>
+                    <DatePicker value={contractTo} onChange={setContractTo} />
+                    {(contractFrom || contractTo) && (
+                      <button onClick={() => { setContractFrom(""); setContractTo(""); }}
+                        className="h-8 px-2 rounded-lg text-label-caps flex items-center gap-1"
+                        style={{ color: "var(--color-error)", border: "1px solid var(--color-error)" }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: "13px" }}>close</span>
+                        {t("common.clear")}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {contractsLoading ? (
+                  <div className="flex justify-center py-10">
+                    <div className="w-7 h-7 rounded-full border-2 border-t-transparent animate-spin"
+                      style={{ borderColor: "var(--color-primary)" }} />
+                  </div>
+                ) : contracts.length === 0 ? (
+                  <div className="py-10 flex flex-col items-center gap-3">
+                    <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>description</span>
+                    <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noContractsAssigned")}</p>
+                  </div>
+                ) : filteredContracts.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noContractsInRange")}</p>
+                  </div>
+                ) : (
+                  <div className="rounded-xl overflow-hidden"
+                    style={{ border: "1px solid var(--color-outline-variant)" }}>
+                    <div style={{ overflowX: "auto" }}>
+                      <div className="grid px-5 py-3"
+                        style={{
+                          gridTemplateColumns: "minmax(160px,2fr) 110px minmax(90px,1fr) 80px",
+                          borderBottom: "1px solid var(--color-outline-variant)",
+                          backgroundColor: "var(--color-surface-container-low)",
+                          minWidth: "400px",
+                        }}>
+                        {[t("labours.workTitle"), t("labours.assigned"), t("common.amount"), t("common.status")].map(h => (
+                          <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
+                        ))}
+                      </div>
+                      {filteredContracts.map((c, idx) => {
+                        const sc = contractStatusColor(c.status);
+                        return (
+                          <div key={c.id} className="grid items-center px-5 py-3"
+                            style={{
+                              gridTemplateColumns: "minmax(160px,2fr) 110px minmax(90px,1fr) 80px",
+                              borderBottom: idx < filteredContracts.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
+                              minWidth: "400px",
+                            }}>
+                            <div className="min-w-0 pr-3">
+                              <p className="text-body-md font-semibold truncate" style={{ color: "var(--color-on-surface)" }}>{c.title}</p>
+                              {c.description && (
+                                <p className="text-label-caps truncate" style={{ color: "var(--color-on-surface-variant)" }}>{c.description}</p>
+                              )}
+                            </div>
+                            <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
+                              {new Date(c.assigned_date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                            </p>
+                            <p className="text-body-md font-semibold" style={{ color: "var(--color-primary)" }}>
+                              {formatCurrency(c.amount)}
+                            </p>
+                            <span className="text-label-caps px-2 py-1 rounded-full inline-block"
+                              style={{ backgroundColor: sc.bg, color: sc.text }}>
+                              {CONTRACT_STATUS_LABELS[c.status] ?? c.status}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-        </section>
+            )}
 
-        {/* Payment History */}
-        <section>
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-headline-md" style={{ color: "var(--color-on-surface)" }}>{t("labours.paymentHistory")}</h2>
-            <div className="flex gap-2">
-              {paymentSummary && paymentSummary.pending > 0 && (
-                <button
-                  onClick={() => setConfirmSettle(true)}
-                  className="h-9 px-4 rounded-lg text-body-md font-semibold flex items-center gap-1.5 transition-opacity hover:opacity-80"
-                  style={{ border: "1px solid var(--color-primary)", color: "var(--color-primary)" }}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>check_circle</span>
-                  {t("labours.settle")} {formatCurrency(paymentSummary.pending)}
-                </button>
-              )}
-              <button
-                onClick={() => setPaymentModalOpen(true)}
-                className="h-9 px-4 rounded-lg text-body-md font-semibold flex items-center gap-1.5 transition-opacity hover:opacity-80"
-                style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>add</span>
-                {t("labours.notePayment")}
-              </button>
-            </div>
-          </div>
-
-          {/* Payment KPI strip */}
-          {paymentSummary && (
-            <div className="grid grid-cols-3 gap-3 mb-5">
-              <div
-                className="rounded-xl px-4 py-3"
-                style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}
-              >
-                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("labours.totalEarned")}</p>
-                <p className="text-body-lg font-bold" style={{ color: "var(--color-on-surface)" }}>
-                  {formatCurrency(paymentSummary.total_earned)}
-                </p>
-              </div>
-              <div
-                className="rounded-xl px-4 py-3"
-                style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}
-              >
-                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("labours.totalPaid")}</p>
-                <p className="text-body-lg font-bold" style={{ color: "#2d7a4f" }}>
-                  {formatCurrency(paymentSummary.total_paid)}
-                </p>
-              </div>
-              <div
-                className="rounded-xl px-4 py-3"
-                style={{
-                  backgroundColor: paymentSummary.pending > 0 ? "rgba(255,218,211,0.3)" : "rgba(193,236,212,0.3)",
-                  border: `1px solid ${paymentSummary.pending > 0 ? "rgba(220,53,69,0.2)" : "rgba(45,122,79,0.2)"}`,
-                }}
-              >
-                <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("labours.outstanding")}</p>
-                <p className="text-body-lg font-bold" style={{ color: paymentSummary.pending > 0 ? "var(--color-error)" : "#2d7a4f" }}>
-                  {formatCurrency(Math.max(0, paymentSummary.pending))}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {paymentsLoading ? (
-            <div className="flex justify-center py-10">
-              <div className="w-7 h-7 rounded-full border-2 border-t-transparent animate-spin"
-                style={{ borderColor: "var(--color-primary)" }} />
-            </div>
-          ) : payments.length === 0 ? (
-            <div className="rounded-xl p-8 flex flex-col items-center gap-3"
-              style={{ backgroundColor: "var(--color-surface-container-lowest)", border: "1px solid var(--color-outline-variant)" }}>
-              <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>receipt_long</span>
-              <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noPaymentsRecorded")}</p>
-              <button
-                onClick={() => setPaymentModalOpen(true)}
-                className="h-9 px-4 rounded-lg text-body-md font-semibold"
-                style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
-              >
-                {t("labours.recordFirstPayment")}
-              </button>
-            </div>
-          ) : (
-            <div className="rounded-xl overflow-hidden"
-              style={{ border: "1px solid var(--color-outline-variant)", backgroundColor: "var(--color-surface-container-lowest)" }}>
-              <div className="grid px-5 py-3"
-                style={{
-                  gridTemplateColumns: "110px 1fr 90px 100px",
-                  borderBottom: "1px solid var(--color-outline-variant)",
-                  backgroundColor: "var(--color-surface-container-low)",
-                }}>
-                {[t("common.date"), t("labours.methodNotesLabel"), t("labours.modeLabel"), t("common.amount")].map(h => (
-                  <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
-                ))}
-              </div>
-              {payments.map((p, idx) => (
-                <div key={p.id} className="grid items-center px-5 py-3"
-                  style={{
-                    gridTemplateColumns: "110px 1fr 90px 100px",
-                    borderBottom: idx < payments.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
-                  }}>
-                  <p className="text-body-md" style={{ color: "var(--color-on-surface)" }}>
-                    {formatMediumDate(p.date)}
-                  </p>
-                  <p className="text-body-md truncate pr-3" style={{ color: "var(--color-on-surface-variant)" }}>
-                    {p.notes || "—"}
-                  </p>
-                  <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
-                    {METHOD_LABELS[p.method] ?? p.method}
-                  </p>
-                  <p className="text-body-md font-semibold" style={{ color: "#2d7a4f" }}>
-                    {formatCurrency(p.amount)}
-                  </p>
+            {/* ── Payments ── */}
+            {activeTab === "payments" && (
+              <div key="payments" className="tab-panel-enter">
+                <div className="flex items-center justify-end gap-2 flex-wrap mb-4">
+                  {paymentSummary && paymentSummary.pending > 0 && (
+                    <button
+                      onClick={() => setConfirmSettle(true)}
+                      className="h-9 px-4 rounded-lg text-body-md font-semibold flex items-center gap-1.5 transition-opacity hover:opacity-80"
+                      style={{ border: "1px solid var(--color-primary)", color: "var(--color-primary)" }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>check_circle</span>
+                      {t("labours.settle")} {formatCurrency(paymentSummary.pending)}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setPaymentModalOpen(true)}
+                    className="h-9 px-4 rounded-lg text-body-md font-semibold flex items-center gap-1.5 transition-opacity hover:opacity-80"
+                    style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>add</span>
+                    {t("labours.notePayment")}
+                  </button>
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
+
+                {paymentSummary && (
+                  <div className="grid grid-cols-3 gap-3 mb-5">
+                    <div className="rounded-xl px-4 py-3"
+                      style={{ backgroundColor: "var(--color-surface-container-low)", border: "1px solid var(--color-outline-variant)" }}>
+                      <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("labours.totalEarned")}</p>
+                      <p className="text-body-lg font-bold" style={{ color: "var(--color-on-surface)" }}>
+                        {formatCurrency(paymentSummary.total_earned)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl px-4 py-3"
+                      style={{ backgroundColor: "var(--color-surface-container-low)", border: "1px solid var(--color-outline-variant)" }}>
+                      <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("labours.totalPaid")}</p>
+                      <p className="text-body-lg font-bold" style={{ color: "#2d7a4f" }}>
+                        {formatCurrency(paymentSummary.total_paid)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl px-4 py-3"
+                      style={{
+                        backgroundColor: paymentSummary.pending > 0 ? "rgba(255,218,211,0.3)" : "rgba(193,236,212,0.3)",
+                        border: `1px solid ${paymentSummary.pending > 0 ? "rgba(220,53,69,0.2)" : "rgba(45,122,79,0.2)"}`,
+                      }}>
+                      <p className="text-label-caps mb-1" style={{ color: "var(--color-outline)" }}>{t("labours.outstanding")}</p>
+                      <p className="text-body-lg font-bold" style={{ color: paymentSummary.pending > 0 ? "var(--color-error)" : "#2d7a4f" }}>
+                        {formatCurrency(Math.max(0, paymentSummary.pending))}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {paymentsLoading ? (
+                  <div className="flex justify-center py-10">
+                    <div className="w-7 h-7 rounded-full border-2 border-t-transparent animate-spin"
+                      style={{ borderColor: "var(--color-primary)" }} />
+                  </div>
+                ) : payments.length === 0 ? (
+                  <div className="py-10 flex flex-col items-center gap-3">
+                    <span className="material-symbols-outlined" style={{ fontSize: "40px", color: "var(--color-outline)" }}>receipt_long</span>
+                    <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>{t("labours.noPaymentsRecorded")}</p>
+                    <button
+                      onClick={() => setPaymentModalOpen(true)}
+                      className="h-9 px-4 rounded-lg text-body-md font-semibold"
+                      style={{ backgroundColor: "var(--color-primary)", color: "var(--color-on-primary)" }}
+                    >
+                      {t("labours.recordFirstPayment")}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="rounded-xl overflow-hidden"
+                    style={{ border: "1px solid var(--color-outline-variant)" }}>
+                    <div className="grid px-5 py-3"
+                      style={{
+                        gridTemplateColumns: "110px 1fr 90px 100px",
+                        borderBottom: "1px solid var(--color-outline-variant)",
+                        backgroundColor: "var(--color-surface-container-low)",
+                      }}>
+                      {[t("common.date"), t("labours.methodNotesLabel"), t("labours.modeLabel"), t("common.amount")].map(h => (
+                        <p key={h} className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{h}</p>
+                      ))}
+                    </div>
+                    {payments.map((p, idx) => (
+                      <div key={p.id} className="grid items-center px-5 py-3"
+                        style={{
+                          gridTemplateColumns: "110px 1fr 90px 100px",
+                          borderBottom: idx < payments.length - 1 ? "1px solid var(--color-outline-variant)" : "none",
+                        }}>
+                        <p className="text-body-md" style={{ color: "var(--color-on-surface)" }}>
+                          {formatMediumDate(p.date)}
+                        </p>
+                        <p className="text-body-md truncate pr-3" style={{ color: "var(--color-on-surface-variant)" }}>
+                          {p.notes || "—"}
+                        </p>
+                        <p className="text-body-md" style={{ color: "var(--color-on-surface-variant)" }}>
+                          {METHOD_LABELS[p.method] ?? p.method}
+                        </p>
+                        <p className="text-body-md font-semibold" style={{ color: "#2d7a4f" }}>
+                          {formatCurrency(p.amount)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+          </div>
+        </div>
       </div>
     </>
   );

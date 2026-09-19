@@ -34,7 +34,7 @@ function teamToForm(t: Team): FormState {
   return {
     name: t.name,
     description: t.description ?? "",
-    hometown: (t as unknown as { hometown?: string }).hometown ?? "",
+    hometown: t.hometown ?? "",
     daily_wage: String(t.daily_wage ?? 0),
     car_rent: String(t.car_rent ?? 0),
     manager_fee: String(t.manager_fee ?? 0),

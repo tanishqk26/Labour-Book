@@ -74,6 +74,7 @@ export interface TeamCreate {
 export interface TeamUpdate {
   name?: string;
   description?: string;
+  hometown?: string;
   daily_wage?: number;
   car_rent?: number;
   manager_fee?: number;

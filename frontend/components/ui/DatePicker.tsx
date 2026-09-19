@@ -53,6 +53,7 @@ export default function DatePicker({
   className = "",
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
+  const [popupSide, setPopupSide] = useState<"left" | "right">("left");
   const parsed = parseISO(value);
   const today = new Date();
   const [viewYear, setViewYear] = useState(parsed?.y ?? today.getFullYear());
@@ -123,7 +124,14 @@ export default function DatePicker({
         id={id}
         type="button"
         disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (!open && rootRef.current) {
+            const rect = rootRef.current.getBoundingClientRect();
+            // Flip to right-aligned if there isn't 300px of space to the right
+            setPopupSide(window.innerWidth - rect.left < 316 ? "right" : "left");
+          }
+          setOpen((v) => !v);
+        }}
         className="w-full h-11 px-3 rounded-lg text-body-md transition-colors flex items-center justify-between gap-2 text-left"
         style={{
           border: hasError ? "1px solid var(--color-error)" : "1px solid var(--color-outline-variant)",
@@ -142,7 +150,7 @@ export default function DatePicker({
 
       {open && (
         <div
-          className="absolute left-0 mt-1.5 rounded-xl overflow-hidden z-50"
+          className={`absolute ${popupSide === "left" ? "left-0" : "right-0"} mt-1.5 rounded-xl overflow-hidden z-50`}
           style={{
             backgroundColor: "var(--color-surface-container-lowest)",
             border: "1px solid var(--color-outline-variant)",

@@ -57,6 +57,7 @@ def team_to_read(team: Team) -> TeamRead:
         id=team.id,
         name=team.name,
         description=team.description,
+        hometown=team.hometown,
         daily_wage=float(team.daily_wage),
         car_rent=float(team.car_rent),
         manager_fee=float(team.manager_fee),
@@ -74,6 +75,7 @@ def team_to_summary(team: Team) -> TeamSummary:
         id=team.id,
         name=team.name,
         description=team.description,
+        hometown=team.hometown,
         daily_wage=float(team.daily_wage),
         car_rent=float(team.car_rent),
         manager_fee=float(team.manager_fee),
@@ -100,6 +102,17 @@ async def _get_team_or_404(db: AsyncSession, team_id: uuid.UUID, owner_id: uuid.
     return team
 
 
+async def _refresh_team(db: AsyncSession, team: Team) -> None:
+    """Reload expired columns (e.g. updated_at) and the members collection.
+
+    After flush, onupdate columns are expired. Refreshing only ``members``
+    leaves those scalars unloaded, and reading them later raises
+    MissingGreenlet in async SQLAlchemy.
+    """
+    await db.refresh(team)
+    await db.refresh(team, attribute_names=["members"])
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -119,6 +132,7 @@ async def create_team(
     team = Team(
         name=payload.name,
         description=payload.description,
+        hometown=payload.hometown,
         daily_wage=payload.daily_wage,
         car_rent=payload.car_rent,
         manager_fee=payload.manager_fee,
@@ -126,7 +140,7 @@ async def create_team(
     )
     db.add(team)
     await db.flush()
-    await db.refresh(team, attribute_names=["members"])
+    await _refresh_team(db, team)
     return team_to_read(team)
 
 
@@ -207,7 +221,7 @@ async def update_team(
         setattr(team, field, value)
 
     await db.flush()
-    await db.refresh(team, attribute_names=["members"])
+    await _refresh_team(db, team)
     return team_to_read(team)
 
 
@@ -283,7 +297,7 @@ async def add_members(
             team.members.append(labour)
 
     await db.flush()
-    await db.refresh(team, attribute_names=["members"])
+    await _refresh_team(db, team)
     return team_to_read(team)
 
 
@@ -305,5 +319,5 @@ async def remove_members(
     team.members = [m for m in team.members if m.id not in remove_ids]
 
     await db.flush()
-    await db.refresh(team, attribute_names=["members"])
+    await _refresh_team(db, team)
     return team_to_read(team)

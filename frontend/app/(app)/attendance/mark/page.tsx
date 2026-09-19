@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiGet, apiPost, ApiError } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
 import TimePicker from "@/components/ui/TimePicker";
+import Select from "@/components/ui/Select";
 import { useLanguage } from "@/context/LanguageContext";
 
 // ---------------------------------------------------------------------------
@@ -23,6 +24,9 @@ interface LabourAttendanceStatus {
   work_start_time: string | null;
   work_end_time: string | null;
   wage_earned: number | null;
+  wage_type: string;
+  contract_id: string | null;
+  contract_title: string | null;
 }
 
 interface TeamAttendanceStatus {
@@ -39,6 +43,9 @@ interface TeamAttendanceStatus {
   work_start_time: string | null;
   work_end_time: string | null;
   wage_earned: number | null;
+  wage_type: string;
+  contract_id: string | null;
+  contract_title: string | null;
 }
 
 interface DailyAttendanceView {
@@ -63,6 +70,19 @@ interface AllTeam {
   manager_fee: number;
 }
 
+interface ContractOption {
+  id: string;
+  title: string;
+  amount: number;
+}
+
+interface PlotOption {
+  id: string;
+  name: string;
+  size_acres: number;
+  crop_name?: string | null;
+}
+
 // Local checklist items
 interface LabourChecklistItem {
   type: "labour";
@@ -75,6 +95,8 @@ interface LabourChecklistItem {
   startTime: string;
   endTime: string;
   expanded: boolean;
+  wageType: "daily" | "contract";
+  contractId: string;
 }
 
 interface TeamChecklistItem {
@@ -91,6 +113,8 @@ interface TeamChecklistItem {
   startTime: string;
   endTime: string;
   expanded: boolean;
+  wageType: "daily" | "contract";
+  contractId: string;
 }
 
 type ChecklistItem = LabourChecklistItem | TeamChecklistItem;
@@ -393,6 +417,193 @@ function QuickCreateTeam({ defaultName, onCreated, onCancel }: QuickCreateTeamPr
 }
 
 // ---------------------------------------------------------------------------
+// Quick Create Contract — minimal inline form for a specific entity
+// ---------------------------------------------------------------------------
+
+interface QuickCreateContractProps {
+  entityType: "labour" | "team";
+  entityId: string;
+  onCreated: (contract: ContractOption) => void;
+  onCancel: () => void;
+}
+
+function QuickCreateContract({ entityType, entityId, onCreated, onCancel }: QuickCreateContractProps) {
+  const { t } = useLanguage();
+  const [title, setTitle] = useState("");
+  const [amount, setAmount] = useState("");
+  const [plotId, setPlotId] = useState("");
+  const [ratePerAcre, setRatePerAcre] = useState("");
+  const [assignedDate] = useState(todayISO());
+  const [plots, setPlots] = useState<PlotOption[]>([]);
+  const [plotsLoading, setPlotsLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load active plots on mount
+  useEffect(() => {
+    apiGet<{ items: PlotOption[] }>("/api/v1/plots?status=active&page_size=100")
+      .then((d) => setPlots(d.items))
+      .catch(() => {})
+      .finally(() => setPlotsLoading(false));
+  }, []);
+
+  const selectedPlot = plots.find((p) => p.id === plotId) ?? null;
+  const calculatedAmount =
+    selectedPlot && ratePerAcre && Number(ratePerAcre) > 0
+      ? Number(ratePerAcre) * selectedPlot.size_acres
+      : null;
+
+  // Auto-fill amount when rate × acres resolves
+  useEffect(() => {
+    if (calculatedAmount !== null) setAmount(String(calculatedAmount));
+  }, [calculatedAmount]);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim() || !amount || Number(amount) <= 0) {
+      setError("Work description and amount are required.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const payload: Record<string, unknown> = {
+        title: title.trim(),
+        amount: Number(amount),
+        entity_type: entityType === "labour" ? "individual" : "team",
+        assigned_date: assignedDate,
+        status: "active",
+        plot_id: plotId || undefined,
+        amount_per_acre: plotId && ratePerAcre ? Number(ratePerAcre) : undefined,
+      };
+      if (entityType === "labour") payload.labour_id = entityId;
+      else payload.team_id = entityId;
+
+      const created = await apiPost<ContractOption & { title: string; amount: number }>("/api/v1/contracts", payload);
+      onCreated({ id: created.id, title: created.title, amount: created.amount });
+    } catch (err) {
+      if (err instanceof ApiError) {
+        const data = err.data as { detail?: string } | null;
+        setError(typeof data?.detail === "string" ? data.detail : t("attendance.failedCreateLabour"));
+      } else {
+        setError(t("attendance.networkErrorTryAgain"));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const inputStyle = {
+    border: "1px solid var(--color-outline-variant)",
+    backgroundColor: "var(--color-surface)",
+    color: "var(--color-on-surface)",
+    outline: "none",
+  };
+
+  return (
+    <form
+      onSubmit={handleCreate}
+      className="mx-0 my-2 p-4 rounded-xl flex flex-col gap-3"
+      style={{ backgroundColor: "#fef9c3", border: "1px solid #fde68a" }}
+    >
+      <p className="text-label-caps font-semibold" style={{ color: "#92400e" }}>Create new contract</p>
+      {error && <p className="text-label-caps" style={{ color: "var(--color-error)" }}>{error}</p>}
+
+      {/* Work description */}
+      <div className="flex flex-col gap-1">
+        <label className="text-label-caps" style={{ color: "#92400e" }}>Work description *</label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="e.g. Harvest North Field"
+          autoFocus
+          className="h-10 px-3 rounded-lg text-body-md w-full"
+          style={inputStyle}
+        />
+      </div>
+
+      {/* Plot (optional) */}
+      <div className="flex flex-col gap-1">
+        <label className="text-label-caps" style={{ color: "#92400e" }}>Plot <span style={{ fontWeight: 400, opacity: 0.7 }}>(optional)</span></label>
+        {plotsLoading ? (
+          <div className="h-10 flex items-center gap-2 px-3 rounded-lg" style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}>
+            <div className="w-3 h-3 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#92400e" }} />
+            <span className="text-body-md">Loading plots…</span>
+          </div>
+        ) : (
+          <Select
+            value={plotId}
+            onChange={(v) => { setPlotId(v); if (!v) { setRatePerAcre(""); } }}
+            placeholder="No plot — enter amount directly"
+            options={plots.map((p) => ({
+              value: p.id,
+              label: `${p.name} — ${p.size_acres} acres${p.crop_name ? ` (${p.crop_name})` : ""}`,
+            }))}
+          />
+        )}
+      </div>
+
+      {/* Rate per acre — only when plot selected */}
+      {plotId && (
+        <div className="flex flex-col gap-1">
+          <label className="text-label-caps" style={{ color: "#92400e" }}>Rate per acre (₹)</label>
+          <input
+            type="number"
+            value={ratePerAcre}
+            onChange={(e) => setRatePerAcre(e.target.value)}
+            placeholder="e.g. 2000"
+            min={1}
+            className="h-10 px-3 rounded-lg text-body-md w-full"
+            style={inputStyle}
+          />
+          {calculatedAmount !== null && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+              style={{ backgroundColor: "#fde68a", border: "1px solid #fbbf24" }}>
+              <span className="material-symbols-outlined" style={{ fontSize: "14px", color: "#92400e" }}>calculate</span>
+              <p className="text-label-caps" style={{ color: "#92400e" }}>
+                {ratePerAcre} × {selectedPlot?.size_acres} acres = <strong>₹{calculatedAmount.toLocaleString("en-IN")}</strong>
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Agreed amount */}
+      <div className="flex flex-col gap-1">
+        <label className="text-label-caps" style={{ color: "#92400e" }}>
+          {plotId ? "Total amount (₹, auto-calculated)" : "Agreed amount (₹) *"}
+        </label>
+        <input
+          type="number"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="e.g. 5000"
+          min={1}
+          readOnly={calculatedAmount !== null}
+          className="h-10 px-3 rounded-lg text-body-md w-full"
+          style={{ ...inputStyle, opacity: calculatedAmount !== null ? 0.75 : 1, cursor: calculatedAmount !== null ? "not-allowed" : "text" }}
+        />
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <button type="button" onClick={onCancel}
+          className="flex-1 h-9 rounded-lg text-body-md font-semibold"
+          style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}>
+          Cancel
+        </button>
+        <button type="submit" disabled={submitting}
+          className="flex-1 h-9 rounded-lg text-body-md font-semibold transition-opacity"
+          style={{ backgroundColor: "#92400e", color: "#fff", opacity: submitting ? 0.6 : 1 }}>
+          {submitting ? "Creating…" : "Create & select"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Add Panel — combined picker for labours + teams
 // ---------------------------------------------------------------------------
 
@@ -633,6 +844,11 @@ export default function MarkAttendancePage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showAddPanel, setShowAddPanel] = useState(false);
 
+  // Contract support: cache loaded contracts per entity ID
+  const [contractsCache, setContractsCache] = useState<Record<string, ContractOption[]>>({});
+  const [contractsLoadingIds, setContractsLoadingIds] = useState<Set<string>>(new Set());
+  const [showContractCreate, setShowContractCreate] = useState<string | null>(null);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -662,6 +878,8 @@ export default function MarkAttendancePage() {
           startTime: r.work_start_time ?? labourFull?.work_start_time ?? "",
           endTime: r.work_end_time ?? labourFull?.work_end_time ?? "",
           expanded: false,
+          wageType: (r.wage_type === "contract" ? "contract" : "daily") as "daily" | "contract",
+          contractId: r.contract_id ?? "",
         });
       }
 
@@ -681,6 +899,8 @@ export default function MarkAttendancePage() {
           startTime: r.work_start_time ?? "",
           endTime: r.work_end_time ?? "",
           expanded: false,
+          wageType: (r.wage_type === "contract" ? "contract" : "daily") as "daily" | "contract",
+          contractId: r.contract_id ?? "",
         });
       }
 
@@ -728,6 +948,45 @@ export default function MarkAttendancePage() {
     setChecklist((prev) => prev.filter((item) => item.id !== itemId));
   }
 
+  // ---------------------------------------------------------------------------
+  // Contract support
+  // ---------------------------------------------------------------------------
+
+  async function loadContractsForEntity(entityId: string, entityType: "labour" | "team") {
+    if (contractsCache[entityId] !== undefined) return; // already loaded
+    setContractsLoadingIds((prev) => { const s = new Set(prev); s.add(entityId); return s; });
+    try {
+      const param = entityType === "labour" ? "labour_id" : "team_id";
+      const data = await apiGet<{ items: ContractOption[] }>(`/api/v1/contracts?${param}=${entityId}&status=active&page_size=100`);
+      setContractsCache((prev) => ({ ...prev, [entityId]: data.items }));
+    } catch {
+      setContractsCache((prev) => ({ ...prev, [entityId]: [] }));
+    } finally {
+      setContractsLoadingIds((prev) => { const s = new Set(prev); s.delete(entityId); return s; });
+    }
+  }
+
+  function setWageTypeForItem(itemId: string, wageType: "daily" | "contract") {
+    setChecklist((prev) =>
+      prev.map((item) => {
+        if (item.id !== itemId) return item;
+        // When switching to contract, auto-expand so user can select contract
+        if (wageType === "contract") {
+          const entityType = item.type === "labour" ? "labour" : "team";
+          loadContractsForEntity(item.id, entityType);
+          return { ...item, wageType, contractId: "", expanded: true };
+        }
+        return { ...item, wageType, contractId: "" };
+      })
+    );
+  }
+
+  function setContractForItem(itemId: string, contractId: string) {
+    setChecklist((prev) =>
+      prev.map((item) => item.id === itemId ? { ...item, contractId } : item)
+    );
+  }
+
   function addLabourToList(labour: AllLabour) {
     if (checklist.some((item) => item.type === "labour" && item.id === labour.id)) return;
     setChecklist((prev) => [
@@ -745,6 +1004,8 @@ export default function MarkAttendancePage() {
         endTime: labour.work_end_time ?? "",
         // Auto-expand if there are default times so user can see/confirm them
         expanded: !!(labour.work_start_time || labour.work_end_time),
+        wageType: "daily",
+        contractId: "",
       },
     ]);
   }
@@ -767,6 +1028,8 @@ export default function MarkAttendancePage() {
         startTime: "",
         endTime: "",
         expanded: true, // auto-expand to prompt for headcount
+        wageType: "daily",
+        contractId: "",
       },
     ]);
   }
@@ -807,6 +1070,8 @@ export default function MarkAttendancePage() {
           hours_worked,
           work_start_time: item.startTime || null,
           work_end_time: item.endTime || null,
+          wage_type: item.wageType,
+          contract_id: item.wageType === "contract" && item.contractId ? item.contractId : null,
         });
       } else {
         records.push({
@@ -818,6 +1083,8 @@ export default function MarkAttendancePage() {
           hours_worked,
           work_start_time: item.startTime || null,
           work_end_time: item.endTime || null,
+          wage_type: item.wageType,
+          contract_id: item.wageType === "contract" && item.contractId ? item.contractId : null,
         });
       }
     }
@@ -1058,6 +1325,33 @@ export default function MarkAttendancePage() {
                         </div>
                       </button>
 
+                      {/* Wage type toggle — Daily | Contract */}
+                      <div className="flex items-center rounded-lg overflow-hidden flex-shrink-0" style={{ border: "1px solid var(--color-outline-variant)" }}>
+                        <button
+                          type="button"
+                          onClick={() => setWageTypeForItem(item.id, "daily")}
+                          className="h-7 px-2 text-label-caps font-semibold transition-colors"
+                          style={{
+                            backgroundColor: item.wageType === "daily" ? "#2d7a4f" : "transparent",
+                            color: item.wageType === "daily" ? "#fff" : "var(--color-on-surface-variant)",
+                          }}
+                        >
+                          Daily
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWageTypeForItem(item.id, "contract")}
+                          className="h-7 px-2 text-label-caps font-semibold transition-colors"
+                          style={{
+                            backgroundColor: item.wageType === "contract" ? "#6b21a8" : "transparent",
+                            color: item.wageType === "contract" ? "#fff" : "var(--color-on-surface-variant)",
+                            borderLeft: "1px solid var(--color-outline-variant)",
+                          }}
+                        >
+                          Contract
+                        </button>
+                      </div>
+
                       {/* Expand button */}
                       <button
                         onClick={() => toggleExpand(item.id)}
@@ -1099,6 +1393,46 @@ export default function MarkAttendancePage() {
                         <p className="text-label-caps pt-3" style={{ color: "var(--color-on-surface-variant)" }}>
                           {t("attendance.detailsOptional")}
                         </p>
+
+                        {/* Contract selector (shown when wageType === "contract") */}
+                        {item.wageType === "contract" && (
+                          <div className="flex flex-col gap-2">
+                            <label className="text-label-caps" style={{ color: "#6b21a8" }}>
+                              Linked contract
+                            </label>
+                            {contractsLoadingIds.has(item.id) ? (
+                              <div className="h-11 flex items-center gap-2 px-3 rounded-lg" style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}>
+                                <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#6b21a8" }} />
+                                <span className="text-body-md">Loading contracts…</span>
+                              </div>
+                            ) : (
+                              <Select
+                                value={item.contractId}
+                                onChange={(v) => setContractForItem(item.id, v)}
+                                placeholder="Select a contract…"
+                                options={(contractsCache[item.id] ?? []).map((c) => ({ value: c.id, label: `${c.title} — ₹${c.amount.toLocaleString("en-IN")}` }))}
+                                onAddNew={() => setShowContractCreate(item.id)}
+                                addNewLabel="Add new contract"
+                              />
+                            )}
+                            {showContractCreate === item.id && (
+                              <QuickCreateContract
+                                entityType="labour"
+                                entityId={item.id}
+                                onCreated={(contract) => {
+                                  setContractsCache((prev) => ({
+                                    ...prev,
+                                    [item.id]: [...(prev[item.id] ?? []), contract],
+                                  }));
+                                  setContractForItem(item.id, contract.id);
+                                  setShowContractCreate(null);
+                                }}
+                                onCancel={() => setShowContractCreate(null)}
+                              />
+                            )}
+                          </div>
+                        )}
+
                         <input
                           type="text"
                           value={item.task}
@@ -1236,6 +1570,33 @@ export default function MarkAttendancePage() {
                         </span>
                       </button>
 
+                      {/* Wage type toggle — Daily | Contract */}
+                      <div className="flex items-center rounded-lg overflow-hidden flex-shrink-0" style={{ border: "1px solid var(--color-outline-variant)" }}>
+                        <button
+                          type="button"
+                          onClick={() => setWageTypeForItem(item.id, "daily")}
+                          className="h-7 px-2 text-label-caps font-semibold transition-colors"
+                          style={{
+                            backgroundColor: item.wageType === "daily" ? "#6b21a8" : "transparent",
+                            color: item.wageType === "daily" ? "#fff" : "var(--color-on-surface-variant)",
+                          }}
+                        >
+                          Daily
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWageTypeForItem(item.id, "contract")}
+                          className="h-7 px-2 text-label-caps font-semibold transition-colors"
+                          style={{
+                            backgroundColor: item.wageType === "contract" ? "#92400e" : "transparent",
+                            color: item.wageType === "contract" ? "#fff" : "var(--color-on-surface-variant)",
+                            borderLeft: "1px solid var(--color-outline-variant)",
+                          }}
+                        >
+                          Contract
+                        </button>
+                      </div>
+
                       {/* Remove — clearly distinct from present toggle */}
                       <button
                         onClick={() => removeFromList(item.id)}
@@ -1263,6 +1624,44 @@ export default function MarkAttendancePage() {
                         <p className="text-label-caps pt-3" style={{ color: "var(--color-on-surface-variant)" }}>
                           {t("attendance.detailsOptional")}
                         </p>
+
+                        {/* Contract selector for teams */}
+                        {item.wageType === "contract" && (
+                          <div className="flex flex-col gap-2">
+                            <label className="text-label-caps" style={{ color: "#92400e" }}>Linked contract</label>
+                            {contractsLoadingIds.has(item.id) ? (
+                              <div className="h-11 flex items-center gap-2 px-3 rounded-lg" style={{ border: "1px solid var(--color-outline-variant)", color: "var(--color-on-surface-variant)" }}>
+                                <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#92400e" }} />
+                                <span className="text-body-md">Loading contracts…</span>
+                              </div>
+                            ) : (
+                              <Select
+                                value={item.contractId}
+                                onChange={(v) => setContractForItem(item.id, v)}
+                                placeholder="Select a contract…"
+                                options={(contractsCache[item.id] ?? []).map((c) => ({ value: c.id, label: `${c.title} — ₹${c.amount.toLocaleString("en-IN")}` }))}
+                                onAddNew={() => setShowContractCreate(item.id)}
+                                addNewLabel="Add new contract"
+                              />
+                            )}
+                            {showContractCreate === item.id && (
+                              <QuickCreateContract
+                                entityType="team"
+                                entityId={item.id}
+                                onCreated={(contract) => {
+                                  setContractsCache((prev) => ({
+                                    ...prev,
+                                    [item.id]: [...(prev[item.id] ?? []), contract],
+                                  }));
+                                  setContractForItem(item.id, contract.id);
+                                  setShowContractCreate(null);
+                                }}
+                                onCancel={() => setShowContractCreate(null)}
+                              />
+                            )}
+                          </div>
+                        )}
+
                         <input
                           type="text"
                           value={item.task}
@@ -1290,12 +1689,18 @@ export default function MarkAttendancePage() {
                           />
                         </div>
                         {/* Wage breakdown */}
-                        {item.isPresent && Number(item.numLabourers) > 0 && (
+                        {item.wageType === "daily" && item.isPresent && Number(item.numLabourers) > 0 && (
                           <div
                             className="px-3 py-2 rounded-lg text-label-caps"
                             style={{ backgroundColor: "#f3e8ff", color: "#6b21a8" }}
                           >
                             {item.numLabourers} × {formatCurrency(item.daily_wage)} + {formatCurrency(item.car_rent)} {t("attendance.carSuffix")} + {formatCurrency(item.manager_fee)} {t("attendance.mgrSuffix")} = <strong>{formatCurrency(wage)}</strong>
+                          </div>
+                        )}
+                        {item.wageType === "contract" && item.contractId && (
+                          <div className="px-3 py-2 rounded-lg text-label-caps" style={{ backgroundColor: "#fef9c3", color: "#92400e" }}>
+                            <span className="material-symbols-outlined align-middle" style={{ fontSize: "14px" }}>description</span>
+                            {" "}Contract: {contractsCache[item.id]?.find((c) => c.id === item.contractId)?.title ?? "Selected"} — wage tracked via contract
                           </div>
                         )}
                       </div>
@@ -1384,6 +1789,7 @@ export default function MarkAttendancePage() {
               </button>
             </div>
           )}
+
         </div>
       </div>
     </>

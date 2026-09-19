@@ -24,6 +24,7 @@ from app.database import get_db
 from app.models.attendance import Attendance
 from app.models.labour import Labour
 from app.models.team import Team
+from app.models.contract import Contract
 from app.models.user import User
 from app.schemas.attendance import (
     AttendanceCreate,
@@ -66,7 +67,7 @@ def _compute_wage_team(team: Team, att_status: str, num_labourers: Optional[int]
 async def _get_or_404(db: AsyncSession, attendance_id: uuid.UUID, owner_id: uuid.UUID) -> Attendance:
     result = await db.execute(
         select(Attendance)
-        .options(selectinload(Attendance.labour), selectinload(Attendance.team))
+        .options(selectinload(Attendance.labour), selectinload(Attendance.team), selectinload(Attendance.contract))
         .where(Attendance.id == attendance_id, Attendance.owner_id == owner_id)
     )
     att = result.scalar_one_or_none()
@@ -108,7 +109,7 @@ async def get_daily_attendance(
 
     # Fetch today's labour attendance records
     today_att_result = await db.execute(
-        select(Attendance).where(
+        select(Attendance).options(selectinload(Attendance.contract)).where(
             Attendance.labour_id.isnot(None),
             Attendance.date == target_date,
             Attendance.owner_id == current_user.id,
@@ -157,6 +158,9 @@ async def get_daily_attendance(
                 work_start_time=att.work_start_time if att else None,
                 work_end_time=att.work_end_time if att else None,
                 wage_earned=float(att.wage_earned) if att else None,
+                wage_type=att.wage_type if att else "daily",
+                contract_id=att.contract_id if att else None,
+                contract_title=att.contract.title if att and att.contract else None,
             )
         )
     labour_rows.sort(key=lambda r: r.labour_name)
@@ -171,7 +175,7 @@ async def get_daily_attendance(
     team_map: dict[uuid.UUID, Team] = {t.id: t for t in all_teams}
 
     today_team_att_result = await db.execute(
-        select(Attendance).where(
+        select(Attendance).options(selectinload(Attendance.contract)).where(
             Attendance.team_id.isnot(None),
             Attendance.date == target_date,
             Attendance.owner_id == current_user.id,
@@ -201,6 +205,9 @@ async def get_daily_attendance(
                 work_start_time=att.work_start_time if att else None,
                 work_end_time=att.work_end_time if att else None,
                 wage_earned=float(att.wage_earned) if att else None,
+                wage_type=att.wage_type if att else "daily",
+                contract_id=att.contract_id if att else None,
+                contract_title=att.contract.title if att and att.contract else None,
             )
         )
 
@@ -318,7 +325,11 @@ async def bulk_upsert_attendance(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Labour '{item.labour_id}' not found",
             )
-        wage = _compute_wage_labour(labour, item.status, item.hours_worked)
+        # Contract attendance earns 0 daily wage (paid via contract/payments system)
+        if item.wage_type == "contract":
+            wage = 0.0
+        else:
+            wage = _compute_wage_labour(labour, item.status, item.hours_worked)
         existing = existing_labour_map.get(item.labour_id)
 
         if existing:
@@ -328,6 +339,8 @@ async def bulk_upsert_attendance(
             existing.work_start_time = item.work_start_time
             existing.work_end_time = item.work_end_time
             existing.wage_earned = wage
+            existing.wage_type = item.wage_type
+            existing.contract_id = item.contract_id
             result_ids.append(existing.id)
         else:
             att = Attendance(
@@ -339,6 +352,8 @@ async def bulk_upsert_attendance(
                 work_start_time=item.work_start_time,
                 work_end_time=item.work_end_time,
                 wage_earned=wage,
+                wage_type=item.wage_type,
+                contract_id=item.contract_id,
                 owner_id=current_user.id,
             )
             db.add(att)
@@ -353,7 +368,10 @@ async def bulk_upsert_attendance(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Team '{item.team_id}' not found",
             )
-        wage = _compute_wage_team(team, item.status, item.num_labourers)
+        if item.wage_type == "contract":
+            wage = 0.0
+        else:
+            wage = _compute_wage_team(team, item.status, item.num_labourers)
         existing = existing_team_map.get(item.team_id)
 
         if existing:
@@ -364,6 +382,8 @@ async def bulk_upsert_attendance(
             existing.work_start_time = item.work_start_time
             existing.work_end_time = item.work_end_time
             existing.wage_earned = wage
+            existing.wage_type = item.wage_type
+            existing.contract_id = item.contract_id
             result_ids.append(existing.id)
         else:
             att = Attendance(
@@ -376,6 +396,8 @@ async def bulk_upsert_attendance(
                 work_start_time=item.work_start_time,
                 work_end_time=item.work_end_time,
                 wage_earned=wage,
+                wage_type=item.wage_type,
+                contract_id=item.contract_id,
                 owner_id=current_user.id,
             )
             db.add(att)
@@ -387,7 +409,7 @@ async def bulk_upsert_attendance(
     # Reload all with relationships
     reloaded_result = await db.execute(
         select(Attendance)
-        .options(selectinload(Attendance.labour), selectinload(Attendance.team))
+        .options(selectinload(Attendance.labour), selectinload(Attendance.team), selectinload(Attendance.contract))
         .where(Attendance.id.in_(result_ids), Attendance.owner_id == current_user.id)
     )
     return [AttendanceRead.model_validate(a) for a in reloaded_result.scalars().all()]
@@ -507,7 +529,11 @@ async def get_attendance_history(
     from sqlalchemy import func as sqlfunc
     query = (
         select(Attendance)
-        .options(selectinload(Attendance.labour), selectinload(Attendance.team))
+        .options(
+            selectinload(Attendance.labour),
+            selectinload(Attendance.team),
+            selectinload(Attendance.contract),
+        )
         .where(Attendance.owner_id == current_user.id)
     )
     if entity_type == "labour":
@@ -546,7 +572,7 @@ async def get_labour_attendance_history(
     """Returns all attendance records for a specific labourer, newest first."""
     result = await db.execute(
         select(Attendance)
-        .options(selectinload(Attendance.labour), selectinload(Attendance.team))
+        .options(selectinload(Attendance.labour), selectinload(Attendance.team), selectinload(Attendance.contract))
         .where(Attendance.labour_id == labour_id, Attendance.owner_id == current_user.id)
         .order_by(Attendance.date.desc())
         .limit(limit)
@@ -568,7 +594,7 @@ async def get_team_attendance_history(
     """Returns all attendance records for a specific team, newest first."""
     result = await db.execute(
         select(Attendance)
-        .options(selectinload(Attendance.labour), selectinload(Attendance.team))
+        .options(selectinload(Attendance.labour), selectinload(Attendance.team), selectinload(Attendance.contract))
         .where(Attendance.team_id == team_id, Attendance.owner_id == current_user.id)
         .order_by(Attendance.date.desc())
         .limit(limit)
