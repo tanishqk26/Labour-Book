@@ -8,6 +8,7 @@ const MOBILE_NAV_ITEMS = [
   { href: "/dashboard", labelKey: "sidebar.home", icon: "dashboard" },
   { href: "/labours", labelKey: "sidebar.labour", icon: "groups" },
   { href: "/attendance", labelKey: "sidebar.attendance", icon: "checklist" },
+  { href: "/operations", labelKey: "sidebar.operations", icon: "agriculture" },
   { href: "/contracts", labelKey: "sidebar.contracts", icon: "description" },
   { href: "/teams", labelKey: "sidebar.teams", icon: "group_work" },
 ];

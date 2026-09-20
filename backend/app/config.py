@@ -29,6 +29,20 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
 
+    # --- Supabase Storage ---
+    # Required for farm operation photo uploads.
+    # Set these in your .env file:
+    #   SUPABASE_URL=https://your-project.supabase.co
+    #   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+    #   SUPABASE_STORAGE_BUCKET=farm-media
+    supabase_url: str = ""
+    supabase_service_role_key: str = ""
+    supabase_storage_bucket: str = "farm-media"
+
+    @property
+    def supabase_enabled(self) -> bool:
+        return bool(self.supabase_url and self.supabase_service_role_key)
+
     @property
     def is_dev(self) -> bool:
         return self.app_env == "development"

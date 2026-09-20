@@ -13,5 +13,16 @@ from app.models.contract import Contract  # noqa: F401
 from app.models.plot import Plot  # noqa: F401
 from app.models.payment import Payment  # noqa: F401
 from app.models.user import User  # noqa: F401
+from app.models.farm_year import FarmYear  # noqa: F401
+from app.models.plot_farm_year import PlotFarmYear, PlotLifecycle  # noqa: F401
+from app.models.plot_operation import PlotOperation  # noqa: F401
+from app.models.plot_operation_photo import PlotOperationPhoto  # noqa: F401
+from app.models.plot_operation_worker import PlotOperationWorker  # noqa: F401
 
-__all__ = ["Base", "Labour", "Attendance", "Team", "Contract", "Plot", "Payment", "User"]
+__all__ = [
+    "Base",
+    "Labour", "Attendance", "Team", "Contract",
+    "Plot", "Payment", "User",
+    "FarmYear", "PlotFarmYear", "PlotLifecycle",
+    "PlotOperation", "PlotOperationPhoto", "PlotOperationWorker",
+]

@@ -15,6 +15,7 @@ export const sidebar: Namespace = {
     settings: "Settings",
     home: "Home",
     labour: "Labour",
+    operations: "Operations",
   },
   hi: {
     brand: "LabourBook",
@@ -30,6 +31,7 @@ export const sidebar: Namespace = {
     settings: "सेटिंग्स",
     home: "होम",
     labour: "मजदूर",
+    operations: "खेत कार्य",
   },
   mr: {
     brand: "LabourBook",
@@ -45,5 +47,6 @@ export const sidebar: Namespace = {
     settings: "सेटिंग्ज",
     home: "होम",
     labour: "मजूर",
+    operations: "शेत कार्य",
   },
 };

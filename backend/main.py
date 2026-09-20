@@ -22,6 +22,10 @@ from app.routers.plots import router as plots_router
 from app.routers.payments import router as payments_router
 from app.routers.statements import router as statements_router
 from app.routers.settings import router as settings_router
+from app.routers.farm_years import router as farm_years_router
+from app.routers.plot_operations import router as plot_operations_router
+from app.routers.operation_photos import router as operation_photos_router
+from app.routers.operation_workers import router as operation_workers_router
 
 
 # ---------------------------------------------------------------------------
@@ -77,6 +81,10 @@ app.include_router(plots_router, dependencies=_auth_guard)
 app.include_router(payments_router, dependencies=_auth_guard)
 app.include_router(statements_router, dependencies=_auth_guard)
 app.include_router(settings_router, dependencies=_auth_guard)
+app.include_router(farm_years_router, dependencies=_auth_guard)
+app.include_router(plot_operations_router, dependencies=_auth_guard)
+app.include_router(operation_photos_router, dependencies=_auth_guard)
+app.include_router(operation_workers_router, dependencies=_auth_guard)
 
 
 # ---------------------------------------------------------------------------

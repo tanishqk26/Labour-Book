@@ -10,6 +10,7 @@ import { attendance } from "./attendance";
 import { contracts } from "./contracts";
 import { payments } from "./payments";
 import { statements } from "./statements";
+import { operations } from "./operations";
 
 export type { Locale };
 export { LOCALES } from "./types";
@@ -26,6 +27,7 @@ const NAMESPACES = {
   contracts,
   payments,
   statements,
+  operations,
 };
 
 type NamespaceKey = keyof typeof NAMESPACES;

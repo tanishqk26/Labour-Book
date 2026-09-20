@@ -18,6 +18,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/labours", labelKey: "sidebar.labours", icon: "groups" },
   { href: "/teams", labelKey: "sidebar.teams", icon: "group_work" },
   { href: "/plots", labelKey: "sidebar.plots", icon: "landscape" },
+  { href: "/operations", labelKey: "sidebar.operations", icon: "agriculture" },
   { href: "/attendance", labelKey: "sidebar.attendance", icon: "checklist" },
   { href: "/contracts", labelKey: "sidebar.contracts", icon: "description" },
   { href: "/payments", labelKey: "sidebar.payments", icon: "payments" },
