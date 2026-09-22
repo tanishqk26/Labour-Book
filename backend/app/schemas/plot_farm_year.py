@@ -20,14 +20,14 @@ LIFECYCLE_TYPES = {"vegetative", "fruit_production"}
 class PlotLifecycleCreate(BaseModel):
     lifecycle_type: str = Field(..., description="vegetative | fruit_production")
     name: str = Field(..., min_length=1, max_length=100)
-    start_date: date
+    start_date: Optional[date] = None
     end_date: Optional[date] = None
 
     @model_validator(mode="after")
     def validate_lifecycle(self) -> "PlotLifecycleCreate":
         if self.lifecycle_type not in LIFECYCLE_TYPES:
             raise ValueError(f"lifecycle_type must be one of: {', '.join(sorted(LIFECYCLE_TYPES))}")
-        if self.end_date is not None and self.end_date <= self.start_date:
+        if self.start_date is not None and self.end_date is not None and self.end_date <= self.start_date:
             raise ValueError("end_date must be after start_date")
         return self
 
@@ -44,7 +44,7 @@ class PlotLifecycleRead(BaseModel):
     plot_farm_year_id: uuid.UUID
     lifecycle_type: str
     name: str
-    start_date: date
+    start_date: Optional[date] = None
     end_date: Optional[date] = None
     created_at: datetime
     updated_at: datetime

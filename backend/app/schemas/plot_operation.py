@@ -10,8 +10,6 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.models.plot_operation import OPERATION_TYPES
-
 
 # ---------------------------------------------------------------------------
 # Create
@@ -21,15 +19,14 @@ class PlotOperationCreate(BaseModel):
     plot_id: uuid.UUID
     plot_lifecycle_id: Optional[uuid.UUID] = None
     operation_date: date
-    operation_type: str = Field(..., description=f"One of: {', '.join(sorted(OPERATION_TYPES))}")
+    operation_type: str = Field(..., min_length=1, max_length=200)
     notes: Optional[str] = None
 
     @model_validator(mode="after")
-    def validate_operation_type(self) -> "PlotOperationCreate":
-        if self.operation_type not in OPERATION_TYPES:
-            raise ValueError(
-                f"operation_type must be one of: {', '.join(sorted(OPERATION_TYPES))}"
-            )
+    def strip_operation_type(self) -> "PlotOperationCreate":
+        self.operation_type = self.operation_type.strip()
+        if not self.operation_type:
+            raise ValueError("operation_type is required")
         return self
 
 
@@ -44,11 +41,11 @@ class PlotOperationUpdate(BaseModel):
     plot_lifecycle_id: Optional[uuid.UUID] = None
 
     @model_validator(mode="after")
-    def validate_operation_type(self) -> "PlotOperationUpdate":
-        if self.operation_type is not None and self.operation_type not in OPERATION_TYPES:
-            raise ValueError(
-                f"operation_type must be one of: {', '.join(sorted(OPERATION_TYPES))}"
-            )
+    def strip_operation_type(self) -> "PlotOperationUpdate":
+        if self.operation_type is not None:
+            self.operation_type = self.operation_type.strip()
+            if not self.operation_type:
+                raise ValueError("operation_type cannot be empty")
         return self
 
 
@@ -60,7 +57,7 @@ class LifecycleSummary(BaseModel):
     id: uuid.UUID
     lifecycle_type: str
     name: str
-    start_date: date
+    start_date: Optional[date] = None
     end_date: Optional[date] = None
 
     model_config = {"from_attributes": True}

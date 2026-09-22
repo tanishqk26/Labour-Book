@@ -106,6 +106,26 @@ async def test_create_operation_with_lifecycle(client: AsyncClient, test_plot, f
     assert op["notes"] == "Applied drip irrigation"
 
 
+async def test_first_operation_sets_stage_start_date(client: AsyncClient, test_plot, farm_setup):
+    """The first operation in a stage becomes that stage's start date."""
+    await _create_op(
+        client,
+        str(test_plot.id),
+        lifecycle_id=farm_setup["veg_id"],
+        operation_date="2026-05-12",
+    )
+    r = await client.get(f"/api/v1/farm-years/{farm_setup['farm_year']['id']}")
+    assert r.status_code == 200
+    lcs = {
+        lc["lifecycle_type"]: lc
+        for pfy in r.json()["plot_farm_years"]
+        for lc in pfy["lifecycles"]
+    }
+    assert lcs["vegetative"]["start_date"] == "2026-05-12"
+    assert lcs["vegetative"]["end_date"] is None
+    assert lcs["fruit_production"]["start_date"] is None
+
+
 async def test_create_all_operation_types(client: AsyncClient, test_plot):
     """Every valid operation_type should be accepted."""
     from app.models.plot_operation import OPERATION_TYPES
@@ -115,14 +135,27 @@ async def test_create_all_operation_types(client: AsyncClient, test_plot):
         assert op["operation_type"] == op_type
 
 
-async def test_create_invalid_operation_type(client: AsyncClient, test_plot):
-    """Unknown operation_type is rejected with 422."""
+async def test_create_free_text_operation_type(client: AsyncClient, test_plot):
+    """Any non-empty operation name is accepted."""
     r = await client.post(
         "/api/v1/plot-operations",
         json={
             "plot_id": str(test_plot.id),
             "operation_date": "2026-06-15",
-            "operation_type": "unknown_type",
+            "operation_type": "Dipping after rain",
+        },
+    )
+    assert r.status_code == 201
+    assert r.json()["operation_type"] == "Dipping after rain"
+
+
+async def test_create_blank_operation_type_rejected(client: AsyncClient, test_plot):
+    r = await client.post(
+        "/api/v1/plot-operations",
+        json={
+            "plot_id": str(test_plot.id),
+            "operation_date": "2026-06-15",
+            "operation_type": "   ",
         },
     )
     assert r.status_code == 422
@@ -287,13 +320,14 @@ async def test_update_operation_type(client: AsyncClient, test_plot):
     assert r.json()["operation_type"] == "weeding"
 
 
-async def test_update_invalid_type_rejected(client: AsyncClient, test_plot):
-    op = await _create_op(client, str(test_plot.id))
+async def test_update_free_text_operation_type(client: AsyncClient, test_plot):
+    op = await _create_op(client, str(test_plot.id), operation_type="irrigation")
     r = await client.patch(
         f"/api/v1/plot-operations/{op['id']}",
-        json={"operation_type": "bad_type"},
+        json={"operation_type": "Dipping after rain"},
     )
-    assert r.status_code == 422
+    assert r.status_code == 200
+    assert r.json()["operation_type"] == "Dipping after rain"
 
 
 async def test_update_lifecycle(client: AsyncClient, test_plot, farm_setup):

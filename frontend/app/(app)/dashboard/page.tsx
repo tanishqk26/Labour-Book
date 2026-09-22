@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
@@ -95,7 +95,7 @@ export default function DashboardPage() {
   const totalWage = totalLabourWage + totalTeamWage;
   const totalEntities = labourRecords.length + teamRecords.length;
   const totalMarked = labourMarkedCount + teamMarkedCount;
-  const isAttendanceCompleted = totalEntities > 0 && totalMarked === totalEntities;
+  const isAttendanceCompleted = totalMarked > 0;
 
   const dateLabel = new Date()
     .toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })

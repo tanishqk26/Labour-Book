@@ -99,7 +99,7 @@ class PlotLifecycle(Base):
     # Human-readable label — e.g. "Shoot Development", "Harvest Season"
     name = Column(String(100), nullable=False)
 
-    start_date = Column(Date, nullable=False)
+    start_date = Column(Date, nullable=True)   # NULL until first operation in this stage
     end_date   = Column(Date, nullable=True)   # NULL = ongoing / not yet set
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

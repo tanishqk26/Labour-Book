@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
+import Select from "@/components/ui/Select";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,7 +25,7 @@ interface PaginatedFarmYears { items: FarmYear[]; }
 
 interface PlotLifecycle {
   id: string; lifecycle_type: string; name: string;
-  start_date: string; end_date: string | null;
+  start_date: string | null; end_date: string | null;
 }
 interface PlotFarmYearRead {
   id: string; plot_id: string; farm_year_id: string;
@@ -130,7 +131,7 @@ function LifecycleCard({
       }}>
       <div className="text-2xl mb-1">{emoji}</div>
       <h3 className="text-body-md font-bold leading-tight" style={{ color:"var(--color-on-surface)" }}>
-        {isVeg ? "Shoot Development" : "Fruit Production"}
+        {isVeg ? "Vegetative growth" : "Fruit production"}
       </h3>
       <p className="text-label-caps mt-0.5" style={{ color:"var(--color-on-surface-variant)" }}>
         {start} → {end}
@@ -341,13 +342,14 @@ export default function FarmYearOverviewPage() {
 
         // Fetch all operations for this plot within the farm year date range (paginate if needed)
         const allOps: PlotOperation[] = [];
+        const lcIds = new Set((found.lifecycles ?? []).map(lc => lc.id));
         let page = 1;
         while (true) {
           const opsData = await apiGet<PaginatedOps>(
-            `/api/v1/plot-operations?plot_id=${selectedPlotId}&date_from=${detail.start_date}&date_to=${detail.end_date}&page_size=100&page=${page}`
+            `/api/v1/plot-operations?plot_id=${selectedPlotId}&page_size=100&page=${page}`
           );
           if (cancelled) return;
-          allOps.push(...opsData.items);
+          allOps.push(...opsData.items.filter(op => op.plot_lifecycle_id && lcIds.has(op.plot_lifecycle_id)));
           if (!opsData.has_more) break;
           page++;
         }
@@ -456,27 +458,20 @@ export default function FarmYearOverviewPage() {
 
         {/* Selectors */}
         <div className="flex gap-2 mt-3 flex-wrap">
-          <select
-            className="flex-1 min-w-0 h-10 px-3 rounded-xl text-body-md"
-            style={inputStyle}
+          <Select
+            className="flex-1 min-w-[140px]"
             value={selectedPlotId}
-            onChange={e => handlePlotChange(e.target.value)}
-          >
-            <option value="">Select Plot…</option>
-            {plots.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-
-          <select
-            className="flex-1 min-w-0 h-10 px-3 rounded-xl text-body-md"
-            style={inputStyle}
+            onChange={handlePlotChange}
+            placeholder="Select Plot…"
+            options={plots.map(p => ({ value: p.id, label: p.name }))}
+          />
+          <Select
+            className="flex-1 min-w-[140px]"
             value={selectedYearId}
-            onChange={e => handleYearChange(e.target.value)}
-          >
-            <option value="">Select Year…</option>
-            {farmYears.map(y => (
-              <option key={y.id} value={y.id}>{y.year} Grape Year</option>
-            ))}
-          </select>
+            onChange={handleYearChange}
+            placeholder="Select Year…"
+            options={farmYears.map(y => ({ value: y.id, label: `${y.year} Grape Year` }))}
+          />
         </div>
       </div>
 
@@ -589,25 +584,27 @@ export default function FarmYearOverviewPage() {
               </div>
 
               <div className="flex gap-2 flex-wrap">
-                {/* Lifecycle filter */}
-                <select className="flex-1 min-w-[130px] h-9 px-3 rounded-lg text-body-md" style={inputStyle}
-                  value={filterLifecycle} onChange={e => setFilterLifecycle(e.target.value)}>
-                  <option value="">All Stages</option>
-                  {enrollment.lifecycles.map(lc => (
-                    <option key={lc.id} value={lc.id}>
-                      {lc.lifecycle_type === "vegetative" ? "🌱 Shoot Dev." : "🍇 Fruit Prod."}
-                    </option>
-                  ))}
-                </select>
-
-                {/* Operation type filter */}
-                <select className="flex-1 min-w-[130px] h-9 px-3 rounded-lg text-body-md" style={inputStyle}
-                  value={filterType} onChange={e => setFilterType(e.target.value)}>
-                  <option value="">All Types</option>
-                  {opTypes.map(ot => (
-                    <option key={ot} value={ot}>{ot.replace(/_/g," ")}</option>
-                  ))}
-                </select>
+                <Select
+                  className="flex-1 min-w-[130px]"
+                  value={filterLifecycle}
+                  onChange={setFilterLifecycle}
+                  options={[
+                    { value: "", label: "All Stages" },
+                    ...enrollment.lifecycles.map(lc => ({
+                      value: lc.id,
+                      label: lc.lifecycle_type === "vegetative" ? "Shoot Dev." : "Fruit Prod.",
+                    })),
+                  ]}
+                />
+                <Select
+                  className="flex-1 min-w-[130px]"
+                  value={filterType}
+                  onChange={setFilterType}
+                  options={[
+                    { value: "", label: "All Types" },
+                    ...opTypes.map(ot => ({ value: ot, label: ot.replace(/_/g, " ") })),
+                  ]}
+                />
               </div>
 
               <div className="flex gap-2 flex-wrap">

@@ -4,8 +4,13 @@ import { useEffect, useState, useCallback } from "react";
 import type { Metadata } from "next";
 import { apiGet } from "@/lib/api";
 import { Labour, PaginatedResponse, EntityPaymentSummary } from "@/types";
+import Link from "next/link";
 import LabourCard from "@/components/LabourCard";
 import LabourModal from "@/components/LabourModal";
+import ListViewToggle from "@/components/ListViewToggle";
+import { SheetTable, SheetTh, SheetTd } from "@/components/SheetTable";
+import { useListView } from "@/hooks/useListView";
+import { formatCurrency } from "@/lib/utils";
 import { useLanguage } from "@/context/LanguageContext";
 
 // Note: metadata is static — dynamic metadata requires a separate server component
@@ -23,6 +28,7 @@ export default function LaboursPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [paymentMap, setPaymentMap] = useState<Record<string, EntityPaymentSummary>>({});
+  const [listView, setListView] = useListView("lb:view:labours");
 
   const PAGE_SIZE = 20;
 
@@ -110,7 +116,7 @@ export default function LaboursPage() {
       {/* Content */}
       <div className="px-4 md:px-[var(--spacing-container-margin)] pb-12 flex-1 flex flex-col">
         {/* Search & Filter toolbar */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
           <div className="relative flex-1 max-w-md">
             <span
               className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2"
@@ -133,6 +139,7 @@ export default function LaboursPage() {
               }}
             />
           </div>
+          <ListViewToggle value={listView} onChange={setListView} />
         </div>
 
         {/* States */}
@@ -209,7 +216,7 @@ export default function LaboursPage() {
 
         {!loading && !error && labours.length > 0 && (
           <>
-            {/* Grid */}
+            {listView === "cards" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {labours.map((labour) => (
                 <LabourCard
@@ -221,6 +228,56 @@ export default function LaboursPage() {
                 />
               ))}
             </div>
+            ) : (
+            <SheetTable>
+              <thead>
+                <tr>
+                  <SheetTh>{t("common.name")}</SheetTh>
+                  <SheetTh>{t("labours.hometown")}</SheetTh>
+                  <SheetTh>{t("labours.dailyWage")}</SheetTh>
+                  <SheetTh>{t("labours.timing")}</SheetTh>
+                  <SheetTh>{t("labours.balance")}</SheetTh>
+                  <SheetTh>{t("common.actions")}</SheetTh>
+                </tr>
+              </thead>
+              <tbody>
+                {labours.map((labour) => {
+                  const summary = paymentMap[labour.id];
+                  const outstanding = summary ? Math.max(0, summary.pending) : 0;
+                  const timing =
+                    labour.work_start_time && labour.work_end_time
+                      ? `${parseInt(labour.work_start_time)}–${parseInt(labour.work_end_time)}`
+                      : "—";
+                  return (
+                    <tr key={labour.id}>
+                      <SheetTd className="font-semibold whitespace-nowrap">{labour.name}</SheetTd>
+                      <SheetTd>{labour.hometown || "—"}</SheetTd>
+                      <SheetTd className="whitespace-nowrap">{formatCurrency(labour.daily_wage)}{t("labours.perDay")}</SheetTd>
+                      <SheetTd className="whitespace-nowrap">{timing}</SheetTd>
+                      <SheetTd className="whitespace-nowrap">
+                        {summary ? (
+                          <span style={{ color: outstanding > 0 ? "var(--color-error)" : "#2d7a4f", fontWeight: 600 }}>
+                            {outstanding > 0 ? `${formatCurrency(outstanding)} ${t("labours.due")}` : t("labours.settled")}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </SheetTd>
+                      <SheetTd>
+                        <Link
+                          href={`/labours/${labour.id}`}
+                          className="text-body-md font-semibold whitespace-nowrap"
+                          style={{ color: "var(--color-primary)" }}
+                        >
+                          {t("labours.viewProfile")}
+                        </Link>
+                      </SheetTd>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </SheetTable>
+            )}
 
             {/* Pagination */}
             {total > PAGE_SIZE && (

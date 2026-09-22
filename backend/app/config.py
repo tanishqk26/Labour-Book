@@ -1,5 +1,7 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
+
+from pydantic import model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -30,14 +32,23 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
 
     # --- Supabase Storage ---
-    # Required for farm operation photo uploads.
-    # Set these in your .env file:
-    #   SUPABASE_URL=https://your-project.supabase.co
-    #   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-    #   SUPABASE_STORAGE_BUCKET=farm-media
+    # Dashboard API keys (new names) and the legacy service-role name are both accepted.
     supabase_url: str = ""
+    supabase_publishable_key: str = ""
+    supabase_secret_key: str = ""
     supabase_service_role_key: str = ""
     supabase_storage_bucket: str = "farm-media"
+
+    @model_validator(mode="after")
+    def _normalize_supabase_keys(self):
+        secret = (self.supabase_secret_key or "").strip()
+        role = (self.supabase_service_role_key or "").strip()
+        if not role and secret:
+            role = secret
+        self.supabase_secret_key = secret
+        self.supabase_service_role_key = role
+        self.supabase_publishable_key = (self.supabase_publishable_key or "").strip()
+        return self
 
     @property
     def supabase_enabled(self) -> bool:

@@ -26,6 +26,7 @@ export const teams: Namespace = {
     dailyRate: "Daily Rate",
     perPerson: "/person",
     viewTeam: "View Team",
+    members: "Members",
 
     // Detail page
     loadingTeam: "Loading team…",
@@ -125,6 +126,7 @@ export const teams: Namespace = {
     dailyRate: "दैनिक दर",
     perPerson: "/व्यक्ति",
     viewTeam: "टीम देखें",
+    members: "सदस्य",
 
     loadingTeam: "टीम लोड हो रही है…",
     teamNotFound: "टीम नहीं मिली",
@@ -222,6 +224,7 @@ export const teams: Namespace = {
     dailyRate: "दैनिक दर",
     perPerson: "/व्यक्ती",
     viewTeam: "टीम पहा",
+    members: "सदस्य",
 
     loadingTeam: "टीम लोड होत आहे…",
     teamNotFound: "टीम सापडली नाही",

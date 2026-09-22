@@ -4,13 +4,7 @@ PlotOperation ORM Model
 Records a single farm operation performed on a plot on a given day.
 Belongs to exactly one plot and optionally one lifecycle stage.
 
-operation_type is a constrained string (not a separate table) so the list
-can be extended with a migration or a schema change without extra joins.
-
-Valid operation_type values:
-  irrigation, fertilizer, pesticide, fungicide, insecticide,
-  leaf_removal, shoot_management, weeding, bunch_management,
-  harvest, other
+operation_type is free text (what was done on the plot that day).
 """
 
 import uuid
@@ -65,8 +59,8 @@ class PlotOperation(Base):
 
     operation_date = Column(Date, nullable=False, index=True)
 
-    # One of the values in OPERATION_TYPES
-    operation_type = Column(String(30), nullable=False, index=True)
+    # Free-text description of the work done
+    operation_type = Column(String(200), nullable=False, index=True)
 
     notes = Column(Text, nullable=True)
 

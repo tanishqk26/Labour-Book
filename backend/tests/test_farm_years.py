@@ -121,36 +121,16 @@ async def test_enroll_plot_creates_two_lifecycles(client: AsyncClient, test_plot
     assert set(lcs.keys()) == {"vegetative", "fruit_production"}
 
 
-async def test_lifecycle_dates_default_transition(client: AsyncClient, test_plot):
-    """
-    Default transition = Oct 1.
-    vegetative   : 2026-04-01 → 2026-09-30
-    production   : 2026-10-01 → 2027-03-31
-    """
+async def test_lifecycle_dates_unset_until_operations(client: AsyncClient, test_plot):
+    """New stages have no dates until the first operation is recorded."""
     fy = await _create_farm_year(client, year=2026)
     pfy = await _enroll_plot(client, fy["id"], str(test_plot.id))
 
     lcs = {lc["lifecycle_type"]: lc for lc in pfy["lifecycles"]}
-
-    assert lcs["vegetative"]["start_date"]    == "2026-04-01"
-    assert lcs["vegetative"]["end_date"]      == "2026-09-30"   # Oct 1 - 1 day
-    assert lcs["fruit_production"]["start_date"] == "2026-10-01"
-    assert lcs["fruit_production"]["end_date"]   == "2027-03-31"
-
-
-async def test_lifecycle_dates_custom_transition(client: AsyncClient, test_plot):
-    """
-    Custom transition = Sep 15 2026.
-    vegetative   : 2026-04-01 → 2026-09-14
-    production   : 2026-09-15 → 2027-03-31
-    """
-    fy = await _create_farm_year(client, year=2026, transition_date=date(2026, 9, 15))
-    pfy = await _enroll_plot(client, fy["id"], str(test_plot.id))
-
-    lcs = {lc["lifecycle_type"]: lc for lc in pfy["lifecycles"]}
-
-    assert lcs["vegetative"]["end_date"]         == "2026-09-14"
-    assert lcs["fruit_production"]["start_date"] == "2026-09-15"
+    assert lcs["vegetative"]["start_date"] is None
+    assert lcs["vegetative"]["end_date"] is None
+    assert lcs["fruit_production"]["start_date"] is None
+    assert lcs["fruit_production"]["end_date"] is None
 
 
 async def test_enroll_same_plot_twice_rejected(client: AsyncClient, test_plot):
@@ -184,14 +164,11 @@ async def test_enroll_foreign_plot_rejected(client: AsyncClient, test_user, othe
 # UPDATE — TRANSITION DATE RECALCULATION
 # ===========================================================================
 
-async def test_update_transition_date_recalculates_lifecycles(client: AsyncClient, test_plot):
-    """
-    After patching transition_date, existing lifecycle rows update automatically.
-    """
-    fy = await _create_farm_year(client, year=2026)          # default Oct 1
+async def test_update_transition_date_does_not_rewrite_stage_dates(client: AsyncClient, test_plot):
+    """Stage dates come from operations, not from transition_date."""
+    fy = await _create_farm_year(client, year=2026)
     await _enroll_plot(client, fy["id"], str(test_plot.id))
 
-    # Move transition to Nov 1
     r = await client.patch(
         f"/api/v1/farm-years/{fy['id']}",
         json={"transition_date": "2026-11-01"},
@@ -200,27 +177,8 @@ async def test_update_transition_date_recalculates_lifecycles(client: AsyncClien
     detail = r.json()
 
     lcs = {lc["lifecycle_type"]: lc for lc in detail["plot_farm_years"][0]["lifecycles"]}
-    assert lcs["vegetative"]["end_date"]         == "2026-10-31"   # Nov 1 - 1 day
-    assert lcs["fruit_production"]["start_date"] == "2026-11-01"
-
-
-async def test_clear_transition_date_reverts_to_default(client: AsyncClient, test_plot):
-    """
-    Patching transition_date=null reverts effective date back to Oct 1.
-    """
-    fy = await _create_farm_year(client, year=2026, transition_date=date(2026, 9, 15))
-    await _enroll_plot(client, fy["id"], str(test_plot.id))
-
-    r = await client.patch(
-        f"/api/v1/farm-years/{fy['id']}",
-        json={"transition_date": None},
-    )
-    assert r.status_code == 200
-    detail = r.json()
-
-    lcs = {lc["lifecycle_type"]: lc for lc in detail["plot_farm_years"][0]["lifecycles"]}
-    # Back to Oct 1 default
-    assert lcs["fruit_production"]["start_date"] == "2026-10-01"
+    assert lcs["vegetative"]["start_date"] is None
+    assert lcs["fruit_production"]["start_date"] is None
 
 
 # ===========================================================================

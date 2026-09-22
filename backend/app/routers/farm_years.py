@@ -18,7 +18,7 @@ URL layout:
 """
 
 import uuid
-from datetime import date, timedelta
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -103,33 +103,28 @@ async def _get_plot_farm_year_or_404(
 
 def _build_lifecycles(
     pfy: PlotFarmYear,
-    farm_year: FarmYear,
+    _farm_year: FarmYear,
     owner_id: uuid.UUID,
 ) -> list[PlotLifecycle]:
     """
-    Derive the two canonical lifecycle rows from a farm year's dates.
-
-    Vegetative  : farm_year.start_date  → transition_date - 1 day
-    Production  : transition_date       → farm_year.end_date
+    Create the two stage rows. Dates stay empty until the first operation
+    in that stage sets the start date.
     """
-    transition = _effective_transition(farm_year)
-    veg_end = transition - timedelta(days=1)
-
     vegetative = PlotLifecycle(
         owner_id=owner_id,
         plot_farm_year_id=pfy.id,
         lifecycle_type="vegetative",
-        name="Vegetative / Shoot Development",
-        start_date=farm_year.start_date,
-        end_date=veg_end,
+        name="Vegetative growth",
+        start_date=None,
+        end_date=None,
     )
     production = PlotLifecycle(
         owner_id=owner_id,
         plot_farm_year_id=pfy.id,
         lifecycle_type="fruit_production",
-        name="Fruit Production",
-        start_date=transition,
-        end_date=farm_year.end_date,
+        name="Fruit production",
+        start_date=None,
+        end_date=None,
     )
     return [vegetative, production]
 
@@ -257,22 +252,9 @@ async def update_farm_year(
     """
     fy = await _get_farm_year_or_404(db, farm_year_id, current_user.id, load_plots=True)
 
-    old_transition = _effective_transition(fy)
     fy.transition_date = payload.transition_date
-    new_transition = _effective_transition(fy)
-
-    # Recalculate lifecycles for all enrolled plots if transition changed
-    if old_transition != new_transition:
-        for pfy in fy.plot_farm_years:
-            for lc in pfy.lifecycles:
-                if lc.lifecycle_type == "vegetative":
-                    lc.end_date = new_transition - timedelta(days=1)
-                elif lc.lifecycle_type == "fruit_production":
-                    lc.start_date = new_transition
-
     await db.flush()
 
-    # Reload with fresh data
     fy = await _get_farm_year_or_404(db, farm_year_id, current_user.id, load_plots=True)
     return FarmYearDetailRead.from_orm_obj(fy)
 
@@ -331,9 +313,8 @@ async def enroll_plot(
     current_user: User = Depends(get_current_user),
 ) -> PlotFarmYearRead:
     """
-    Attach a plot to a farm year.  Automatically creates two lifecycle rows:
-      · vegetative      (farm_year.start_date → transition_date - 1 day)
-      · fruit_production (transition_date     → farm_year.end_date)
+    Attach a plot to a farm year.  Automatically creates two lifecycle rows
+    (vegetative growth, fruit production) with dates unset until work is recorded.
     """
     fy = await _get_farm_year_or_404(db, farm_year_id, current_user.id)
 

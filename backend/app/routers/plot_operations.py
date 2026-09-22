@@ -107,6 +107,36 @@ async def _get_operation_or_404(
     return op
 
 
+async def _sync_lifecycle_bounds(
+    db: AsyncSession,
+    lifecycle_id: Optional[uuid.UUID],
+    owner_id: uuid.UUID,
+) -> None:
+    """Set stage start/end from the earliest and latest operations in that stage."""
+    if lifecycle_id is None:
+        return
+    result = await db.execute(
+        select(PlotLifecycle).where(
+            PlotLifecycle.id == lifecycle_id,
+            PlotLifecycle.owner_id == owner_id,
+        )
+    )
+    lc = result.scalar_one_or_none()
+    if lc is None:
+        return
+    bounds = (
+        await db.execute(
+            select(
+                func.min(PlotOperation.operation_date),
+                func.max(PlotOperation.operation_date),
+            ).where(PlotOperation.plot_lifecycle_id == lifecycle_id)
+        )
+    ).one()
+    earliest, latest = bounds
+    lc.start_date = earliest
+    lc.end_date = latest if latest is not None and earliest is not None and latest != earliest else None
+
+
 # ---------------------------------------------------------------------------
 # Create
 # ---------------------------------------------------------------------------
@@ -143,6 +173,7 @@ async def create_operation(
     )
     db.add(op)
     await db.flush()
+    await _sync_lifecycle_bounds(db, payload.plot_lifecycle_id, current_user.id)
     op = await _get_operation_or_404(db, op.id, current_user.id)
     return PlotOperationRead.from_orm_obj(op)
 
@@ -248,6 +279,7 @@ async def update_operation(
     re-validated against the operation's existing plot_id.
     """
     op = await _get_operation_or_404(db, operation_id, current_user.id)
+    old_lifecycle_id = op.plot_lifecycle_id
 
     update_data = payload.model_dump(exclude_unset=True)
 
@@ -263,7 +295,9 @@ async def update_operation(
         setattr(op, field, value)
 
     await db.flush()
-    op = await _get_operation_or_404(db, operation_id, current_user.id)
+    await _sync_lifecycle_bounds(db, old_lifecycle_id, current_user.id)
+    await _sync_lifecycle_bounds(db, op.plot_lifecycle_id, current_user.id)
+    op = await _get_operation_or_404(db, op.id, current_user.id)
     return PlotOperationRead.from_orm_obj(op)
 
 
@@ -282,6 +316,7 @@ async def delete_operation(
     current_user: User = Depends(get_current_user),
 ) -> None:
     op = await _get_operation_or_404(db, operation_id, current_user.id)
+    lifecycle_id = op.plot_lifecycle_id
 
     # Collect storage paths before cascade removes the DB rows
     if settings.supabase_enabled:
@@ -296,6 +331,7 @@ async def delete_operation(
 
     await db.delete(op)
     await db.flush()
+    await _sync_lifecycle_bounds(db, lifecycle_id, current_user.id)
 
     # Best-effort cleanup of Supabase Storage files
     for path in storage_paths:

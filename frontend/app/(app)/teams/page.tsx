@@ -6,6 +6,9 @@ import { apiGet, apiDelete } from "@/lib/api";
 import { TeamSummary, PaginatedResponse } from "@/types";
 import { getInitials } from "@/lib/utils";
 import TeamModal from "@/components/TeamModal";
+import ListViewToggle from "@/components/ListViewToggle";
+import { SheetTable, SheetTh, SheetTd } from "@/components/SheetTable";
+import { useListView } from "@/hooks/useListView";
 import { formatCurrency } from "@/lib/utils";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -22,6 +25,7 @@ export default function TeamsPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [listView, setListView] = useListView("lb:view:teams");
 
   // Debounce search
   useEffect(() => {
@@ -95,7 +99,7 @@ export default function TeamsPage() {
       {/* Content */}
       <div className="px-4 md:px-[var(--spacing-container-margin)] pb-12 flex-1 flex flex-col">
         {/* Search toolbar */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
           <div className="relative flex-1 max-w-md">
             <span
               className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2"
@@ -118,6 +122,7 @@ export default function TeamsPage() {
               }}
             />
           </div>
+          <ListViewToggle value={listView} onChange={setListView} />
         </div>
 
         {/* Loading */}
@@ -197,11 +202,44 @@ export default function TeamsPage() {
         {/* Grid */}
         {!loading && !error && teams.length > 0 && (
           <>
+            {listView === "cards" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {teams.map((team) => (
                 <TeamCard key={team.id} team={team} onUpdate={fetchTeams} />
               ))}
             </div>
+            ) : (
+            <SheetTable>
+              <thead>
+                <tr>
+                  <SheetTh>{t("common.name")}</SheetTh>
+                  <SheetTh>{t("teams.hometown")}</SheetTh>
+                  <SheetTh>{t("teams.members")}</SheetTh>
+                  <SheetTh>{t("teams.dailyRate")}</SheetTh>
+                  <SheetTh>{t("common.actions")}</SheetTh>
+                </tr>
+              </thead>
+              <tbody>
+                {teams.map((team) => (
+                  <tr key={team.id}>
+                    <SheetTd className="font-semibold whitespace-nowrap">{team.name}</SheetTd>
+                    <SheetTd>{team.hometown || "—"}</SheetTd>
+                    <SheetTd>{team.member_count}</SheetTd>
+                    <SheetTd className="whitespace-nowrap">{formatCurrency(team.daily_wage)}{t("teams.perPerson")}</SheetTd>
+                    <SheetTd>
+                      <Link
+                        href={`/teams/${team.id}`}
+                        className="text-body-md font-semibold whitespace-nowrap"
+                        style={{ color: "var(--color-primary)" }}
+                      >
+                        {t("teams.viewTeam")}
+                      </Link>
+                    </SheetTd>
+                  </tr>
+                ))}
+              </tbody>
+            </SheetTable>
+            )}
 
             {/* Pagination */}
             {total > PAGE_SIZE && (

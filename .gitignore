@@ -5,6 +5,9 @@ Prompting Guide.txt
 notes.txt
 TODO.txt
 
+# Database dumps with live data
+backend/supabase_manual_restore.sql
+
 # Environment variables
 .env
 .env.local

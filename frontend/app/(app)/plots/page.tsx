@@ -4,6 +4,9 @@ import { useEffect, useState, useCallback } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete, ApiError } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
 import { useLanguage } from "@/context/LanguageContext";
+import ListViewToggle from "@/components/ListViewToggle";
+import { SheetTable, SheetTh, SheetTd } from "@/components/SheetTable";
+import { useListView } from "@/hooks/useListView";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -224,6 +227,7 @@ export default function PlotsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingPlot, setEditingPlot] = useState<Plot | undefined>(undefined);
+  const [listView, setListView] = useListView("lb:view:plots");
 
   const fetchPlots = useCallback(async () => {
     setLoading(true);
@@ -270,7 +274,8 @@ export default function PlotsPage() {
         <div className="px-4 md:px-8 pb-12 flex flex-col gap-6">
           {/* Summary */}
           {!loading && plots.length > 0 && (
-            <div className="px-5 py-4 rounded-xl flex items-center gap-6 flex-wrap" style={{ backgroundColor: "var(--color-surface-container-low)", border: "1px solid var(--color-outline-variant)" }}>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="px-5 py-4 rounded-xl flex items-center gap-6 flex-wrap flex-1" style={{ backgroundColor: "var(--color-surface-container-low)", border: "1px solid var(--color-outline-variant)" }}>
               <div>
                 <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("plots.totalPlots")}</p>
                 <p className="text-headline-md font-bold" style={{ color: "var(--color-on-surface)" }}>{total}</p>
@@ -280,6 +285,8 @@ export default function PlotsPage() {
                 <p className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>{t("plots.totalArea")}</p>
                 <p className="text-headline-md font-bold" style={{ color: "var(--color-primary)" }}>{totalAcres.toFixed(2)} <span className="text-body-md font-normal">{t("plots.acres")}</span></p>
               </div>
+            </div>
+            <ListViewToggle value={listView} onChange={setListView} />
             </div>
           )}
 
@@ -314,11 +321,47 @@ export default function PlotsPage() {
 
           {/* Grid */}
           {!loading && !error && plots.length > 0 && (
+            listView === "cards" ? (
             <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
               {plots.map(p => (
                 <PlotCard key={p.id} plot={p} onEdit={() => openEdit(p)} onDeleted={fetchPlots} />
               ))}
             </div>
+            ) : (
+            <SheetTable>
+              <thead>
+                <tr>
+                  <SheetTh>{t("common.name")}</SheetTh>
+                  <SheetTh>{t("plots.crop")}</SheetTh>
+                  <SheetTh>{t("plots.size")}</SheetTh>
+                  <SheetTh>{t("plots.notes")}</SheetTh>
+                  <SheetTh>{t("common.actions")}</SheetTh>
+                </tr>
+              </thead>
+              <tbody>
+                {plots.map((p) => (
+                  <tr key={p.id}>
+                    <SheetTd className="font-semibold whitespace-nowrap">{p.name}</SheetTd>
+                    <SheetTd>{p.crop_name || "—"}</SheetTd>
+                    <SheetTd className="whitespace-nowrap">{p.size_acres} {t("plots.acres")}</SheetTd>
+                    <SheetTd className="max-w-[240px] truncate">{p.notes || "—"}</SheetTd>
+                    <SheetTd>
+                      <div className="flex items-center gap-2 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(p)}
+                          className="text-body-md font-semibold"
+                          style={{ color: "var(--color-primary)" }}
+                        >
+                          {t("common.edit")}
+                        </button>
+                      </div>
+                    </SheetTd>
+                  </tr>
+                ))}
+              </tbody>
+            </SheetTable>
+            )
           )}
         </div>
       </div>

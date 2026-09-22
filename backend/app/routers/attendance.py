@@ -520,8 +520,10 @@ async def upsert_attendance(
 )
 async def get_attendance_history(
     page: int = Query(1, ge=1),
-    page_size: int = Query(30, ge=1, le=100),
+    page_size: int = Query(30, ge=1, le=500),
     entity_type: Optional[str] = Query(None, description="labour | team"),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
@@ -540,6 +542,10 @@ async def get_attendance_history(
         query = query.where(Attendance.labour_id.isnot(None))
     elif entity_type == "team":
         query = query.where(Attendance.team_id.isnot(None))
+    if date_from is not None:
+        query = query.where(Attendance.date >= date_from)
+    if date_to is not None:
+        query = query.where(Attendance.date <= date_to)
 
     count_q = select(sqlfunc.count()).select_from(query.subquery())
     total = (await db.execute(count_q)).scalar_one()
@@ -618,6 +624,21 @@ async def get_attendance(
 ) -> AttendanceRead:
     att = await _get_or_404(db, attendance_id, current_user.id)
     return AttendanceRead.model_validate(att)
+
+
+@router.delete(
+    "/{attendance_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an attendance record",
+)
+async def delete_attendance(
+    attendance_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    att = await _get_or_404(db, attendance_id, current_user.id)
+    await db.delete(att)
+    await db.flush()
 
 
 # ---------------------------------------------------------------------------
