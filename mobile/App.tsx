@@ -13,10 +13,24 @@ import PeopleScreen from './screens/tabs/PeopleScreen';
 import AttendanceScreen from './screens/tabs/AttendanceScreen';
 import OperationsScreen from './screens/tabs/OperationsScreen';
 import MoreScreen from './screens/tabs/MoreScreen';
+import LabourDetailScreen from './screens/details/LabourDetailScreen';
+import TeamDetailScreen from './screens/details/TeamDetailScreen';
+import { PeopleStackParamList } from './screens/details/types';
 import { C, R } from './lib/theme';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+const PeopleStack = createNativeStackNavigator<PeopleStackParamList>();
+
+function PeopleStackScreen() {
+  return (
+    <PeopleStack.Navigator screenOptions={{ headerShown: false }}>
+      <PeopleStack.Screen name="PeopleList" component={PeopleScreen} />
+      <PeopleStack.Screen name="LabourDetail" component={LabourDetailScreen} />
+      <PeopleStack.Screen name="TeamDetail" component={TeamDetailScreen} />
+    </PeopleStack.Navigator>
+  );
+}
 
 // ─── Tab Icons ────────────────────────────────────────────────────────────────
 
@@ -32,6 +46,11 @@ const TAB_ICONS: Record<string, { default: string; active: string }> = {
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
+  const current = state.routes[state.index];
+  const nestedName = current.state?.routes?.[current.state.index ?? 0]?.name;
+  if (current.name === 'People' && nestedName && nestedName !== 'PeopleList') {
+    return null;
+  }
   return (
     <View style={[tabStyles.bar, { paddingBottom: insets.bottom || 8 }]}>
       {state.routes.map((route: any, index: number) => {
@@ -71,7 +90,7 @@ function MainTabs() {
       screenOptions={{ headerShown: false }}
     >
       <Tab.Screen name="Home" component={DashboardScreen} options={{ tabBarLabel: 'Dashboard' }} />
-      <Tab.Screen name="People" component={PeopleScreen} options={{ tabBarLabel: 'People' }} />
+      <Tab.Screen name="People" component={PeopleStackScreen} options={{ tabBarLabel: 'People' }} />
       <Tab.Screen name="Attendance" component={AttendanceScreen} options={{ tabBarLabel: 'Attendance' }} />
       <Tab.Screen name="Operations" component={OperationsScreen} options={{ tabBarLabel: 'Operations' }} />
       <Tab.Screen name="More" component={MoreScreen} options={{ tabBarLabel: 'More' }} />

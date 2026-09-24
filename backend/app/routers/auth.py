@@ -111,7 +111,9 @@ async def login_with_google(
     token = create_access_token(user.id)
     _set_session_cookie(response, token)
 
-    return UserRead.model_validate(user)
+    user_data = UserRead.model_validate(user)
+    user_data.access_token = token
+    return user_data
 
 
 @router.post("/signup", response_model=UserRead, status_code=status.HTTP_201_CREATED)
@@ -142,7 +144,9 @@ async def signup(
     token = create_access_token(user.id)
     _set_session_cookie(response, token)
 
-    return UserRead.model_validate(user)
+    user_data = UserRead.model_validate(user)
+    user_data.access_token = token
+    return user_data
 
 
 @router.post("/login", response_model=UserRead)
@@ -176,7 +180,9 @@ async def login(
     token = create_access_token(user.id)
     _set_session_cookie(response, token)
 
-    return UserRead.model_validate(user)
+    user_data = UserRead.model_validate(user)
+    user_data.access_token = token
+    return user_data
 
 
 @router.get("/me", response_model=UserRead)

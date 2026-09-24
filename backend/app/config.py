@@ -25,7 +25,14 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-to-a-random-32-char-string"
 
     # --- CORS ---
-    cors_origins: List[str] = ["http://localhost:3000"]
+    cors_origins: List[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+        "http://localhost:8082",
+        "http://127.0.0.1:8082",
+    ]
 
     # --- Auth (Google Sign-In) ---
     google_client_id: str = ""
@@ -38,6 +45,25 @@ class Settings(BaseSettings):
     supabase_secret_key: str = ""
     supabase_service_role_key: str = ""
     supabase_storage_bucket: str = "farm-media"
+
+    @model_validator(mode="after")
+    def _ensure_local_cors(self):
+        """Keep Expo web and the Next app allowed in development even if .env lists one origin."""
+        if self.app_env == "development":
+            extras = [
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:8081",
+                "http://127.0.0.1:8081",
+                "http://localhost:8082",
+                "http://127.0.0.1:8082",
+            ]
+            origins = list(self.cors_origins or [])
+            for origin in extras:
+                if origin not in origins:
+                    origins.append(origin)
+            self.cors_origins = origins
+        return self
 
     @model_validator(mode="after")
     def _normalize_supabase_keys(self):

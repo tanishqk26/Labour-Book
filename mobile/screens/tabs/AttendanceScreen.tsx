@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import AppHeader from '../../components/AppHeader';
-import { apiGet, apiPost, apiDelete, apiPatch } from '../../lib/api';
+import { apiGet, apiPost, apiDelete } from '../../lib/api';
 import { C, R, AVATAR_COLORS, initials } from '../../lib/theme';
 
 type AttStatus = 'present' | 'absent' | 'half_day';
@@ -40,19 +40,19 @@ const DAY_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 // ─── Mark Tab — single-day attendance ─────────────────────────────────────────
 
-function MarkTab({ today, labours, teams, records, onToggle }: {
-  today: string; labours: Labour[]; teams: Team[];
-  records: AttRecord[]; onToggle: (id: string, kind: 'labour' | 'team', s: AttStatus) => void;
+function MarkTab({ markDate, labours, teams, records, onToggle }: {
+  markDate: string; labours: Labour[]; teams: Team[];
+  records: AttRecord[]; onToggle: (id: string, kind: 'labour' | 'team', s: AttStatus, date: string) => void;
 }) {
   const all = [
     ...labours.map((l) => ({ id: l.id, name: l.name, kind: 'labour' as const })),
     ...teams.map((t) => ({ id: t.id, name: t.name, kind: 'team' as const, count: t.member_count })),
   ];
 
-  const dateLabel = new Date(today).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+  const dateLabel = new Date(`${markDate}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
 
   function statusOf(id: string, kind: string) {
-    return records.find((r) => r.date === today && (kind === 'labour' ? r.labour_id === id : r.team_id === id))?.status ?? null;
+    return records.find((r) => r.date === markDate && (kind === 'labour' ? r.labour_id === id : r.team_id === id))?.status ?? null;
   }
 
   return (
@@ -91,7 +91,7 @@ function MarkTab({ today, labours, teams, records, onToggle }: {
                 return (
                   <TouchableOpacity
                     key={st}
-                    onPress={() => onToggle(e.id, e.kind, st)}
+                    onPress={() => onToggle(e.id, e.kind, st, markDate)}
                     style={[s.statusBtn, active && { backgroundColor: col.bg, borderColor: col.fg }]}
                   >
                     <Text style={[s.statusBtnText, active && { color: col.fg }]}>{STATUS_LABEL[st]}</Text>
@@ -108,8 +108,9 @@ function MarkTab({ today, labours, teams, records, onToggle }: {
 
 // ─── History Tab — weekly grid (NO horizontal scroll) ─────────────────────────
 
-function HistoryTab({ weekDates, labours, teams, records }: {
+function HistoryTab({ weekDates, labours, teams, records, onCycle }: {
   weekDates: string[]; labours: Labour[]; teams: Team[]; records: AttRecord[];
+  onCycle: (id: string, kind: 'labour' | 'team', date: string) => void;
 }) {
   // Only entities with at least one record this week
   const presentIds = new Set(records.map((r) => r.labour_id ?? r.team_id));
@@ -135,15 +136,15 @@ function HistoryTab({ weekDates, labours, teams, records }: {
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
       {/* Column header */}
-      <View style={h.headerRow}>
+      <View style={[h.row, h.headerRow]}>
         <View style={h.nameCol}><Text style={h.headerLabel}>Name</Text></View>
         {DAY_SHORT.map((d, i) => (
-          <View key={i} style={h.dayCol}>
+          <View key={i} style={[h.dayCol, h.dayCell]}>
             <Text style={h.headerLabel}>{d}</Text>
-            <Text style={h.headerDate}>{new Date(weekDates[i]).getDate()}</Text>
+            <Text style={h.headerDate}>{new Date(`${weekDates[i]}T00:00:00`).getDate()}</Text>
           </View>
         ))}
-        <View style={h.totalCol}><Text style={h.headerLabel}>Days</Text></View>
+        <View style={[h.totalCol, h.dayCell]}><Text style={h.headerLabel}>Days</Text></View>
       </View>
 
       {/* Labour rows */}
@@ -161,9 +162,13 @@ function HistoryTab({ weekDates, labours, teams, records }: {
               const st = statusOf(l.id, 'labour', d);
               const col = st ? STATUS_STYLE[st] : null;
               return (
-                <View key={di} style={[h.dayCol, h.dayCell, col ? { backgroundColor: col.bg } : {}]}>
+                <TouchableOpacity
+                  key={di}
+                  style={[h.dayCol, h.dayCell, col ? { backgroundColor: col.bg } : {}]}
+                  onPress={() => onCycle(l.id, 'labour', d)}
+                >
                   <Text style={[h.statusLabel, col ? { color: col.fg } : {}]}>{st ? STATUS_LABEL[st] : '–'}</Text>
-                </View>
+                </TouchableOpacity>
               );
             })}
             <View style={[h.totalCol, h.dayCell]}>
@@ -186,9 +191,13 @@ function HistoryTab({ weekDates, labours, teams, records }: {
             const st = statusOf(t.id, 'team', d);
             const col = st ? STATUS_STYLE[st] : null;
             return (
-              <View key={di} style={[h.dayCol, h.dayCell, col ? { backgroundColor: col.bg } : {}]}>
+              <TouchableOpacity
+                key={di}
+                style={[h.dayCol, h.dayCell, col ? { backgroundColor: col.bg } : {}]}
+                onPress={() => onCycle(t.id, 'team', d)}
+              >
                 <Text style={[h.statusLabel, col ? { color: col.fg } : {}]}>{st ? STATUS_LABEL[st] : '–'}</Text>
-              </View>
+              </TouchableOpacity>
             );
           })}
           <View style={[h.totalCol, h.dayCell]}>
@@ -205,6 +214,7 @@ function HistoryTab({ weekDates, labours, teams, records }: {
 export default function AttendanceScreen() {
   const today = todayISO();
   const [weekStart, setWeekStart] = useState(mondayOf(today));
+  const [markDate, setMarkDate] = useState(today);
   const [activeTab, setActiveTab] = useState<'mark' | 'history'>('mark');
   const [labours, setLabours] = useState<Labour[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -213,46 +223,88 @@ export default function AttendanceScreen() {
 
   const weekDates = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const isCurrentWeek = weekStart === mondayOf(today);
-  const weekLabel = `${new Date(weekStart).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${new Date(addDays(weekStart, 6)).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const weekLabel = `${new Date(`${weekStart}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${new Date(`${addDays(weekStart, 6)}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [ls, ts, rs] = await Promise.all([
-        apiGet<{ items: Labour[] }>('/api/v1/labours?page=1&page_size=100&status=active'),
-        apiGet<{ items: Team[] }>('/api/v1/teams?page=1&page_size=100&status=active'),
-        apiGet<AttRecord[]>(`/api/v1/attendance?date_from=${weekStart}&date_to=${addDays(weekStart, 6)}`),
+        apiGet<{ items: Labour[] }>('/api/v1/labours', { page: 1, page_size: 100, status: 'active' }),
+        apiGet<{ items: Team[] }>('/api/v1/teams', { page: 1, page_size: 100, status: 'active' }),
+        apiGet<{ items: AttRecord[] }>('/api/v1/attendance/history', {
+          date_from: weekStart,
+          date_to: addDays(weekStart, 6),
+          page: 1,
+          page_size: 100,
+        }),
       ]);
-      setLabours(ls.items);
-      setTeams(ts.items);
-      setRecords(rs);
-    } catch { Alert.alert('Error', 'Failed to load attendance.'); }
-    finally { setLoading(false); }
+      setLabours(ls.items ?? []);
+      setTeams(ts.items ?? []);
+      setRecords(rs.items ?? []);
+    } catch {
+      Alert.alert('Error', 'Failed to load attendance.');
+    } finally {
+      setLoading(false);
+    }
   }, [weekStart]);
 
   useEffect(() => { load(); }, [load]);
 
-  async function handleToggle(entityId: string, kind: 'labour' | 'team', status: AttStatus) {
-    const existing = records.find((r) => r.date === today && (kind === 'labour' ? r.labour_id === entityId : r.team_id === entityId));
-    try {
-      if (existing) {
-        if (existing.status === status) {
-          await apiDelete(`/api/v1/attendance/${existing.id}`);
-          setRecords((prev) => prev.filter((r) => r.id !== existing.id));
-        } else {
-          const updated = await apiPatch<AttRecord>(`/api/v1/attendance/${existing.id}`, { status });
-          setRecords((prev) => prev.map((r) => r.id === existing.id ? updated : r));
-        }
-      } else {
-        const payload: Record<string, unknown> = { date: today, status };
-        if (kind === 'labour') payload.labour_id = entityId; else payload.team_id = entityId;
-        const created = await apiPost<AttRecord>('/api/v1/attendance', payload);
-        setRecords((prev) => [...prev, created]);
-      }
-    } catch { Alert.alert('Error', 'Failed to update attendance.'); }
+  useEffect(() => {
+    if (!weekDates.includes(markDate)) {
+      setMarkDate(weekDates.includes(today) ? today : weekStart);
+    }
+  }, [weekDates, weekStart, markDate, today]);
+
+  function upsertLocal(next: AttRecord) {
+    setRecords((prev) => {
+      const without = prev.filter((r) => r.id !== next.id);
+      return [...without, next];
+    });
   }
 
-  const todayHasMarks = records.some((r) => r.date === today);
+  async function handleToggle(entityId: string, kind: 'labour' | 'team', status: AttStatus, date: string) {
+    const existing = records.find((r) => r.date === date && (kind === 'labour' ? r.labour_id === entityId : r.team_id === entityId));
+    try {
+      if (existing && existing.status === status) {
+        await apiDelete(`/api/v1/attendance/${existing.id}`);
+        setRecords((prev) => prev.filter((r) => r.id !== existing.id));
+        return;
+      }
+
+      const team = kind === 'team' ? teams.find((t) => t.id === entityId) : undefined;
+      const payload: Record<string, unknown> = {
+        date,
+        status,
+        wage_type: 'daily',
+        labour_id: kind === 'labour' ? entityId : null,
+        team_id: kind === 'team' ? entityId : null,
+      };
+      if (kind === 'team') payload.num_labourers = team?.member_count || 1;
+
+      const saved = await apiPost<AttRecord>('/api/v1/attendance', payload);
+      upsertLocal(saved);
+    } catch {
+      Alert.alert('Error', 'Failed to update attendance.');
+    }
+  }
+
+  function handleCycle(entityId: string, kind: 'labour' | 'team', date: string) {
+    const existing = records.find((r) => r.date === date && (kind === 'labour' ? r.labour_id === entityId : r.team_id === entityId));
+    const order: AttStatus[] = ['present', 'half_day', 'absent'];
+    if (!existing) {
+      handleToggle(entityId, kind, 'present', date);
+      return;
+    }
+    const idx = order.indexOf(existing.status);
+    if (idx === order.length - 1) {
+      handleToggle(entityId, kind, existing.status, date);
+      return;
+    }
+    handleToggle(entityId, kind, order[idx + 1], date);
+  }
+
+  const dateHasMarks = records.some((r) => r.date === markDate);
 
   return (
     <View style={s.root}>
@@ -273,7 +325,7 @@ export default function AttendanceScreen() {
       <View style={s.tabBar}>
         <TouchableOpacity style={[s.tabBtn, activeTab === 'mark' && s.tabBtnActive]} onPress={() => setActiveTab('mark')}>
           <Text style={[s.tabBtnText, activeTab === 'mark' && s.tabBtnTextActive]}>
-            {todayHasMarks ? 'Edit Today' : 'Mark Today'}
+            {dateHasMarks ? 'Edit Day' : 'Mark Day'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity style={[s.tabBtn, activeTab === 'history' && s.tabBtnActive]} onPress={() => setActiveTab('history')}>
@@ -281,12 +333,34 @@ export default function AttendanceScreen() {
         </TouchableOpacity>
       </View>
 
+      {activeTab === 'mark' && (
+        <View style={s.dayChips}>
+          {weekDates.map((d) => {
+            const selected = d === markDate;
+            return (
+              <TouchableOpacity
+                key={d}
+                style={[s.dayChip, selected && s.dayChipActive]}
+                onPress={() => setMarkDate(d)}
+              >
+                <Text style={[s.dayChipDow, selected && s.dayChipTextActive]}>
+                  {new Date(`${d}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'narrow' })}
+                </Text>
+                <Text style={[s.dayChipDate, selected && s.dayChipTextActive]}>
+                  {new Date(`${d}T00:00:00`).getDate()}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
       {loading ? (
         <View style={s.centred}><ActivityIndicator size="large" color={C.primary} /></View>
       ) : activeTab === 'mark' ? (
-        <MarkTab today={today} labours={labours} teams={teams} records={records} onToggle={handleToggle} />
+        <MarkTab markDate={markDate} labours={labours} teams={teams} records={records} onToggle={handleToggle} />
       ) : (
-        <HistoryTab weekDates={weekDates} labours={labours} teams={teams} records={records} />
+        <HistoryTab weekDates={weekDates} labours={labours} teams={teams} records={records} onCycle={handleCycle} />
       )}
     </View>
   );
@@ -308,38 +382,39 @@ const s = StyleSheet.create({
   centred: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyDesc: { fontSize: 14, color: C.onSurfaceVariant, textAlign: 'center' },
 
+  dayChips: { flexDirection: 'row', alignItems: 'stretch', gap: 6, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
+  dayChip: { flex: 1, minHeight: 48, borderRadius: R.md, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceHigh },
+  dayChipActive: { backgroundColor: C.primary },
+  dayChipDow: { fontSize: 10, fontWeight: '700', color: C.onSurfaceVariant, textAlign: 'center' },
+  dayChipDate: { fontSize: 13, fontWeight: '700', color: C.onSurface, textAlign: 'center', marginTop: 1 },
+  dayChipTextActive: { color: C.onPrimary },
   markHeader: { marginBottom: 12, gap: 4 },
   markDate: { fontSize: 15, fontWeight: '700', color: C.onSurface },
   markHint: { fontSize: 11, color: C.onSurfaceVariant },
 
-  entityRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceLowest, borderRadius: R.lg, padding: 12, borderWidth: 1, borderColor: C.outlineVariant, gap: 10 },
+  entityRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceLowest, borderRadius: R.lg, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: C.outlineVariant, gap: 10 },
   entityAvatar: { width: 40, height: 40, borderRadius: R.full, alignItems: 'center', justifyContent: 'center' },
   entityAvatarText: { fontSize: 13, fontWeight: '700' },
-  entityInfo: { flex: 1 },
+  entityInfo: { flex: 1, minWidth: 0, justifyContent: 'center' },
   entityName: { fontSize: 14, fontWeight: '600', color: C.onSurface },
   entityKind: { fontSize: 11, color: C.onSurfaceVariant, marginTop: 1 },
-  statusBtns: { flexDirection: 'row', gap: 6 },
-  statusBtn: { width: 34, height: 34, borderRadius: R.sm, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: C.outlineVariant, backgroundColor: C.surfaceHigh },
-  statusBtnText: { fontSize: 12, fontWeight: '800', color: C.onSurfaceVariant },
+  statusBtns: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statusBtn: { width: 36, height: 36, borderRadius: R.sm, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: C.outlineVariant, backgroundColor: C.surfaceHigh },
+  statusBtnText: { fontSize: 13, fontWeight: '800', color: C.onSurfaceVariant, textAlign: 'center' },
 });
 
-// Compact history grid — no scroll
-const NAME_W = 100;
-const DAY_W = 34;
-const TOTAL_W = 36;
-
 const h = StyleSheet.create({
-  headerRow: { flexDirection: 'row', backgroundColor: C.surfaceHigh, borderRadius: R.sm, marginBottom: 4, paddingVertical: 6, alignItems: 'center' },
-  row: { flexDirection: 'row', backgroundColor: C.surfaceLowest, borderRadius: R.sm, marginBottom: 3, borderWidth: 1, borderColor: C.outlineVariant, alignItems: 'center', minHeight: 44 },
-  nameCol: { width: NAME_W, paddingHorizontal: 6, flexDirection: 'row', alignItems: 'center', gap: 5 },
-  dayCol: { width: DAY_W, alignItems: 'center', justifyContent: 'center' },
-  dayCell: { borderLeftWidth: 1, borderLeftColor: C.outlineVariant, alignSelf: 'stretch', justifyContent: 'center' },
-  totalCol: { width: TOTAL_W, alignItems: 'center', justifyContent: 'center' },
-  headerLabel: { fontSize: 9, fontWeight: '700', color: C.onSurfaceVariant, textAlign: 'center' },
-  headerDate: { fontSize: 9, color: C.outline, textAlign: 'center' },
+  headerRow: { backgroundColor: C.surfaceHigh, borderWidth: 0, minHeight: 40 },
+  row: { flexDirection: 'row', alignItems: 'stretch', backgroundColor: C.surfaceLowest, borderRadius: R.sm, marginBottom: 4, borderWidth: 1, borderColor: C.outlineVariant, minHeight: 44, overflow: 'hidden' },
+  nameCol: { flex: 1.35, minWidth: 0, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dayCol: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  dayCell: { borderLeftWidth: 1, borderLeftColor: C.outlineVariant },
+  totalCol: { width: 40, alignItems: 'center', justifyContent: 'center' },
+  headerLabel: { fontSize: 10, fontWeight: '700', color: C.onSurfaceVariant, textAlign: 'center' },
+  headerDate: { fontSize: 10, color: C.outline, textAlign: 'center', marginTop: 1 },
   miniAvatar: { width: 22, height: 22, borderRadius: R.full, alignItems: 'center', justifyContent: 'center' },
-  miniAvatarText: { fontSize: 9, fontWeight: '700' },
-  nameText: { fontSize: 11, fontWeight: '600', color: C.onSurface, flex: 1 },
-  statusLabel: { fontSize: 11, fontWeight: '800', color: C.onSurfaceVariant },
-  totalText: { fontSize: 11, fontWeight: '700', color: C.onSurface },
+  miniAvatarText: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  nameText: { fontSize: 12, fontWeight: '600', color: C.onSurface, flex: 1 },
+  statusLabel: { fontSize: 12, fontWeight: '800', color: C.onSurfaceVariant, textAlign: 'center' },
+  totalText: { fontSize: 12, fontWeight: '700', color: C.onSurface, textAlign: 'center' },
 });

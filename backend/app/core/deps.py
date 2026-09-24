@@ -1,5 +1,8 @@
 """
-Auth dependency — protects routes behind a valid session cookie.
+Auth dependency — protects routes behind a valid session cookie OR Bearer token.
+
+Cookie is used by the web frontend.
+Authorization: Bearer <token> is used by the mobile app (React Native).
 """
 
 from fastapi import Depends, HTTPException, Request, status
@@ -20,7 +23,15 @@ async def get_current_user(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    # 1. Try session cookie (web)
     token = request.cookies.get(SESSION_COOKIE_NAME)
+
+    # 2. Fall back to Authorization: Bearer <token> (mobile)
+    if not token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[len("Bearer "):]
+
     if not token:
         raise UNAUTHORIZED
 

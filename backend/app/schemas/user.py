@@ -15,6 +15,9 @@ class UserRead(BaseModel):
     name: str
     picture_url: Optional[str] = None
     created_at: datetime
+    # Populated only on login/signup — lets mobile clients store the token
+    # without relying on HTTP-only cookies. Web clients can ignore this field.
+    access_token: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

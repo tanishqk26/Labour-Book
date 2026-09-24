@@ -22,13 +22,20 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function showError(title: string, msg: string) {
+    setError(msg);
+    if (Platform.OS !== 'web') Alert.alert(title, msg);
+  }
 
   async function handleLogin() {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
+      showError('Missing fields', 'Please enter your email and password.');
       return;
     }
     setLoading(true);
+    setError(null);
     try {
       await loginWithPassword(email.trim(), password);
     } catch (err) {
@@ -37,8 +44,8 @@ export default function LoginScreen() {
           ? err.status === 401
             ? 'Invalid email or password. Please try again.'
             : `Server error (${err.status}). Please try again.`
-          : 'Connection failed. Check your network and try again.';
-      Alert.alert('Sign in failed', msg);
+          : 'Connection failed. Is the backend running on port 8000?';
+      showError('Sign in failed', msg);
     } finally {
       setLoading(false);
     }
@@ -89,6 +96,8 @@ export default function LoginScreen() {
               placeholderTextColor={C.outline}
             />
           </View>
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable
             style={[styles.btn, loading && styles.btnDisabled]}
@@ -158,6 +167,7 @@ const styles = StyleSheet.create({
     color: C.onSurface,
     backgroundColor: C.surfaceLow,
   },
+  error: { color: C.error, fontSize: 13, marginBottom: 10 },
   btn: {
     height: 50,
     backgroundColor: C.primaryContainer,

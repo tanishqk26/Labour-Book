@@ -15,10 +15,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 import AppHeader from '../../components/AppHeader';
 import { apiGet, apiPost, apiPatch } from '../../lib/api';
 import { Labour, TeamSummary, PaginatedResponse } from '../../types';
 import { C, R, AVATAR_COLORS, initials, fmtCurrency } from '../../lib/theme';
+import { PeopleStackParamList } from '../details/types';
 
 // ─── Add Labour Modal ─────────────────────────────────────────────────────────
 
@@ -128,14 +131,14 @@ function AddTeamModal({ visible, onClose, onSuccess }: { visible: boolean; onClo
 
 // ─── Labour Card ──────────────────────────────────────────────────────────────
 
-function LabourCard({ labour, index, onDeactivate }: { labour: Labour; index: number; onDeactivate: (id: string, name: string) => void }) {
+function LabourCard({ labour, index, onPress, onDeactivate }: { labour: Labour; index: number; onPress: () => void; onDeactivate: (id: string, name: string) => void }) {
   const c = AVATAR_COLORS[index % AVATAR_COLORS.length];
   const timing = labour.work_start_time && labour.work_end_time
     ? `${labour.work_start_time} – ${labour.work_end_time}`
     : '—';
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
       <View style={styles.cardTop}>
         <View style={[styles.avatar, { backgroundColor: c.bg }]}>
           <Text style={[styles.avatarText, { color: c.fg }]}>{initials(labour.name)}</Text>
@@ -163,16 +166,16 @@ function LabourCard({ labour, index, onDeactivate }: { labour: Labour; index: nu
           <Text style={styles.gridValue}>{timing}</Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 // ─── Team Card ────────────────────────────────────────────────────────────────
 
-function TeamCard({ team, index }: { team: TeamSummary; index: number }) {
+function TeamCard({ team, index, onPress }: { team: TeamSummary; index: number; onPress: () => void }) {
   const c = AVATAR_COLORS[index % AVATAR_COLORS.length];
   return (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
       <View style={styles.cardTop}>
         <View style={[styles.avatar, { backgroundColor: c.bg }]}>
           <Text style={[styles.avatarText, { color: c.fg }]}>{initials(team.name)}</Text>
@@ -195,7 +198,7 @@ function TeamCard({ team, index }: { team: TeamSummary; index: number }) {
           <Text style={styles.gridValue}>👥 {team.member_count} workers</Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -204,6 +207,7 @@ function TeamCard({ team, index }: { team: TeamSummary; index: number }) {
 type Tab = 'individual' | 'team';
 
 export default function PeopleScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<PeopleStackParamList>>();
   const [tab, setTab] = useState<Tab>('individual');
   const [labours, setLabours] = useState<Labour[]>([]);
   const [teams, setTeams] = useState<TeamSummary[]>([]);
@@ -333,7 +337,12 @@ export default function PeopleScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={C.primary} />}
           showsVerticalScrollIndicator={false}
           renderItem={({ item, index }) => (
-            <LabourCard labour={item} index={index} onDeactivate={deactivate} />
+            <LabourCard
+              labour={item}
+              index={index}
+              onPress={() => navigation.navigate('LabourDetail', { id: item.id })}
+              onDeactivate={deactivate}
+            />
           )}
           ListFooterComponent={
             <Text style={styles.footerNote}>Showing {labours.length} registered agricultural workers</Text>
@@ -346,7 +355,13 @@ export default function PeopleScreen() {
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={C.primary} />}
           showsVerticalScrollIndicator={false}
-          renderItem={({ item, index }) => <TeamCard team={item} index={index} />}
+          renderItem={({ item, index }) => (
+            <TeamCard
+              team={item}
+              index={index}
+              onPress={() => navigation.navigate('TeamDetail', { id: item.id })}
+            />
+          )}
           ListFooterComponent={
             <Text style={styles.footerNote}>
               Daily settlement rates calculate automatically into your Daily Book at day end.

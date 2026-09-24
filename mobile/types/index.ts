@@ -99,6 +99,16 @@ export interface PaginatedResponse<T> {
   has_more: boolean;
 }
 
+export interface EntityPaymentSummary {
+  entity_id: string;
+  entity_type: string;
+  entity_name: string;
+  total_earned: number;
+  total_paid: number;
+  pending: number;
+  payment_status: string;
+}
+
 export interface AuthUser {
   id: string;
   email: string;

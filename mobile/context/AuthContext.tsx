@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { ApiError, apiGet, apiPost } from "../lib/api";
+import { ApiError, apiGet, apiPost, clearAuthToken, loadAuthToken, setAuthToken } from "../lib/api";
 import { AuthUser } from "../types";
 
 interface AuthContextValue {
@@ -18,6 +18,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
+      const token = await loadAuthToken();
+      if (!token) { setUser(null); setLoading(false); return; }
       const me = await apiGet<AuthUser>("/api/v1/auth/me");
       setUser(me);
     } catch (err) {
@@ -35,12 +37,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   const loginWithPassword = useCallback(async (email: string, password: string) => {
-    const me = await apiPost<AuthUser>("/api/v1/auth/login", { email, password });
+    const me = await apiPost<AuthUser & { access_token?: string }>("/api/v1/auth/login", { email, password });
+    if (me.access_token) await setAuthToken(me.access_token);
     setUser(me);
   }, []);
 
   const signup = useCallback(async (name: string, email: string, password: string) => {
-    const me = await apiPost<AuthUser>("/api/v1/auth/signup", { name, email, password });
+    const me = await apiPost<AuthUser & { access_token?: string }>("/api/v1/auth/signup", { name, email, password });
+    if (me.access_token) await setAuthToken(me.access_token);
     setUser(me);
   }, []);
 
@@ -48,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await apiPost("/api/v1/auth/logout", {});
     } finally {
+      await clearAuthToken();
       setUser(null);
     }
   }, []);
