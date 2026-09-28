@@ -15,12 +15,17 @@ import OperationsScreen from './screens/tabs/OperationsScreen';
 import MoreScreen from './screens/tabs/MoreScreen';
 import LabourDetailScreen from './screens/details/LabourDetailScreen';
 import TeamDetailScreen from './screens/details/TeamDetailScreen';
-import { PeopleStackParamList } from './screens/details/types';
+import OperationDetailScreen from './screens/details/OperationDetailScreen';
+import ContractsScreen from './screens/contracts/ContractsScreen';
+import { StatementsListScreen, StatementDetailScreen } from './screens/statements/StatementsScreen';
+import { MoreStackParamList, OperationsStackParamList, PeopleStackParamList } from './screens/details/types';
 import { C, R } from './lib/theme';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 const PeopleStack = createNativeStackNavigator<PeopleStackParamList>();
+const OperationsStack = createNativeStackNavigator<OperationsStackParamList>();
+const MoreStack = createNativeStackNavigator<MoreStackParamList>();
 
 function PeopleStackScreen() {
   return (
@@ -29,6 +34,26 @@ function PeopleStackScreen() {
       <PeopleStack.Screen name="LabourDetail" component={LabourDetailScreen} />
       <PeopleStack.Screen name="TeamDetail" component={TeamDetailScreen} />
     </PeopleStack.Navigator>
+  );
+}
+
+function OperationsStackScreen() {
+  return (
+    <OperationsStack.Navigator screenOptions={{ headerShown: false }}>
+      <OperationsStack.Screen name="OperationsList" component={OperationsScreen} />
+      <OperationsStack.Screen name="OperationDetail" component={OperationDetailScreen} />
+    </OperationsStack.Navigator>
+  );
+}
+
+function MoreStackScreen() {
+  return (
+    <MoreStack.Navigator screenOptions={{ headerShown: false }}>
+      <MoreStack.Screen name="MoreHome" component={MoreScreen} />
+      <MoreStack.Screen name="Contracts" component={ContractsScreen} />
+      <MoreStack.Screen name="Statements" component={StatementsListScreen} />
+      <MoreStack.Screen name="StatementDetail" component={StatementDetailScreen} />
+    </MoreStack.Navigator>
   );
 }
 
@@ -48,7 +73,13 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
   const current = state.routes[state.index];
   const nestedName = current.state?.routes?.[current.state.index ?? 0]?.name;
-  if (current.name === 'People' && nestedName && nestedName !== 'PeopleList') {
+  const rootScreens: Record<string, string> = {
+    People: 'PeopleList',
+    Operations: 'OperationsList',
+    More: 'MoreHome',
+  };
+  const rootScreen = rootScreens[current.name];
+  if (rootScreen && nestedName && nestedName !== rootScreen) {
     return null;
   }
   return (
@@ -92,8 +123,8 @@ function MainTabs() {
       <Tab.Screen name="Home" component={DashboardScreen} options={{ tabBarLabel: 'Dashboard' }} />
       <Tab.Screen name="People" component={PeopleStackScreen} options={{ tabBarLabel: 'People' }} />
       <Tab.Screen name="Attendance" component={AttendanceScreen} options={{ tabBarLabel: 'Attendance' }} />
-      <Tab.Screen name="Operations" component={OperationsScreen} options={{ tabBarLabel: 'Operations' }} />
-      <Tab.Screen name="More" component={MoreScreen} options={{ tabBarLabel: 'More' }} />
+      <Tab.Screen name="Operations" component={OperationsStackScreen} options={{ tabBarLabel: 'Operations' }} />
+      <Tab.Screen name="More" component={MoreStackScreen} options={{ tabBarLabel: 'More' }} />
     </Tab.Navigator>
   );
 }

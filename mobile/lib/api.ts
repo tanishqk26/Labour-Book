@@ -136,3 +136,24 @@ export const apiPatch = <T = unknown>(path: string, body: unknown) =>
 
 export const apiDelete = <T = unknown>(path: string) =>
   apiFetch<T>(path, { method: "DELETE" });
+
+/** Multipart upload. Do not set Content-Type — the runtime adds the boundary. */
+export async function apiUpload<T = unknown>(path: string, form: FormData): Promise<T> {
+  const token = await loadAuthToken();
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!response.ok) {
+    let errorData: unknown;
+    try {
+      errorData = await response.json();
+    } catch {
+      errorData = null;
+    }
+    throw new ApiError(response.status, response.statusText, errorData);
+  }
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
+}

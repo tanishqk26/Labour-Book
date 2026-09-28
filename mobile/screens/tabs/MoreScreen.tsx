@@ -1,9 +1,12 @@
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppHeader from '../../components/AppHeader';
 import { useAuth } from '../../context/AuthContext';
 import { C, R, initials } from '../../lib/theme';
+import { MoreStackParamList } from '../details/types';
 
 interface MenuItem { icon: string; label: string; sub: string; comingSoon?: boolean; }
 
@@ -18,6 +21,7 @@ const MENU_ITEMS: MenuItem[] = [
 export default function MoreScreen() {
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<MoreStackParamList>>();
 
   function handleLogout() {
     Alert.alert('Sign Out', 'You will be signed out of LabourBook. Continue?', [
@@ -60,7 +64,11 @@ export default function MoreScreen() {
                 i === 0 && styles.menuItemFirst,
                 i === MENU_ITEMS.length - 1 && styles.menuItemLast,
               ]}
-              onPress={() => Alert.alert(item.label, 'Coming soon in next update.')}
+              onPress={() => {
+                if (item.label === 'Contracts') navigation.navigate('Contracts');
+                else if (item.label === 'Statements') navigation.navigate('Statements');
+                else Alert.alert(item.label, 'Coming soon in next update.');
+              }}
               activeOpacity={0.7}
             >
               <View style={styles.menuIconBox}>

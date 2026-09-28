@@ -12,9 +12,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import AppHeader from '../../components/AppHeader';
 import { apiGet, apiPost } from '../../lib/api';
 import { C, R } from '../../lib/theme';
+import { OperationsStackParamList } from '../details/types';
 
 interface Plot { id: string; name: string; }
 interface FarmYear { id: string; year_label: string; }
@@ -56,8 +58,10 @@ function AddOpModal({ visible, onClose, onSuccess, plotId, lifecycleId }: {
     setSaving(true);
     try {
       await apiPost('/api/v1/plot-operations', {
-        plot_id: plotId, lifecycle_id: lifecycleId,
-        operation_date: date, operation_type: group,
+        plot_id: plotId,
+        plot_lifecycle_id: lifecycleId,
+        operation_date: date,
+        operation_type: group,
         notes: detail.trim() || undefined,
       });
       setDetail(''); setDate(new Date().toISOString().slice(0, 10));
@@ -131,7 +135,7 @@ function AddOpModal({ visible, onClose, onSuccess, plotId, lifecycleId }: {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
-export default function OperationsScreen() {
+export default function OperationsScreen({ navigation }: NativeStackScreenProps<OperationsStackParamList, 'OperationsList'>) {
   const [plots, setPlots] = useState<Plot[]>([]);
   const [selectedPlotId, setSelectedPlotId] = useState<string | null>(null);
   const [farmYears, setFarmYears] = useState<FarmYear[]>([]);
@@ -153,16 +157,30 @@ export default function OperationsScreen() {
   useEffect(() => {
     if (!selectedPlotId) return;
     setFarmYears([]); setSelectedYearId(null); setLifecycles([]); setSelectedLcId(null); setOperations([]);
-    apiGet<FarmYear[]>(`/api/v1/farm-years?plot_id=${selectedPlotId}`)
-      .then((d) => { setFarmYears(d); if (d.length) setSelectedYearId(d[d.length - 1].id); })
+    apiGet<{ items: { id: string; year: number }[] }>('/api/v1/farm-years', { page_size: 50 })
+      .then((d) => {
+        const years = [...d.items].sort((a, b) => a.year - b.year).map((y) => ({ id: y.id, year_label: String(y.year) }));
+        setFarmYears(years);
+        if (years.length) setSelectedYearId(years[years.length - 1].id);
+      })
       .catch(() => {});
   }, [selectedPlotId]);
 
   useEffect(() => {
     if (!selectedYearId || !selectedPlotId) return;
     setLifecycles([]); setSelectedLcId(null); setOperations([]);
-    apiGet<Lifecycle[]>(`/api/v1/farm-years/${selectedYearId}/lifecycles?plot_id=${selectedPlotId}`)
-      .then((d) => { setLifecycles(d); if (d.length) setSelectedLcId(d[d.length - 1].id); })
+    apiGet<{ plot_farm_years: { plot_id: string; lifecycles: { id: string; lifecycle_type: string; start_date: string | null; end_date: string | null }[] }[] }>(`/api/v1/farm-years/${selectedYearId}`)
+      .then((d) => {
+        const enrolled = (d.plot_farm_years ?? []).find((p) => p.plot_id === selectedPlotId);
+        const stages = (enrolled?.lifecycles ?? []).map((lc) => ({
+          id: lc.id,
+          stage: lc.lifecycle_type,
+          start_date: lc.start_date,
+          end_date: lc.end_date,
+        }));
+        setLifecycles(stages);
+        if (stages.length) setSelectedLcId(stages[stages.length - 1].id);
+      })
       .catch(() => {});
   }, [selectedYearId, selectedPlotId]);
 
@@ -170,8 +188,8 @@ export default function OperationsScreen() {
     if (!selectedLcId) return;
     if (!silent) setLoading(true);
     try {
-      const ops = await apiGet<PlotOperation[]>(`/api/v1/plot-operations?lifecycle_id=${selectedLcId}`);
-      setOperations(ops.sort((a, b) => a.operation_date.localeCompare(b.operation_date)));
+      const data = await apiGet<{ items: PlotOperation[] }>('/api/v1/plot-operations', { lifecycle_id: selectedLcId, page_size: 100 });
+      setOperations([...data.items].sort((a, b) => a.operation_date.localeCompare(b.operation_date)));
     } catch { Alert.alert('Error', 'Failed to load operations.'); }
     finally { setLoading(false); setRefreshing(false); }
   }, [selectedLcId]);
@@ -292,7 +310,7 @@ export default function OperationsScreen() {
             const cfg = GROUP_CFG[grp];
             const day = dayNum(operations, op);
             return (
-              <View style={styles.opRow}>
+              <TouchableOpacity style={styles.opRow} onPress={() => navigation.navigate('OperationDetail', { id: op.id })}>
                 <View style={styles.dayBadge}><Text style={styles.dayText}>{day}</Text></View>
                 <Text style={styles.opDate}>{op.operation_date.slice(5)}</Text>
                 <View style={{ flex: 1 }}>
@@ -301,7 +319,7 @@ export default function OperationsScreen() {
                   </View>
                   {op.notes ? <Text style={styles.opNotes} numberOfLines={2}>{op.notes}</Text> : null}
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           }}
         />
