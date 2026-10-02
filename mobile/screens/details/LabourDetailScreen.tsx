@@ -2,17 +2,23 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import PaymentModal from '../../components/PaymentModal';
-import { apiGet, apiPost, ApiError } from '../../lib/api';
+import { ApiError, apiGet, apiPatch, apiPost } from '../../lib/api';
 import { AVATAR_COLORS, C, R, fmtCurrency, fmtDate, initials, todayISO } from '../../lib/theme';
 import { EntityPaymentSummary, Labour, PaymentRead, PaginatedResponse } from '../../types';
 import { PeopleStackParamList } from './types';
@@ -38,15 +44,97 @@ const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = 
 };
 
 const METHOD_LABEL: Record<string, string> = {
-  cash: 'Cash',
-  upi: 'UPI',
-  bank_transfer: 'Bank',
-  other: 'Other',
+  cash: 'Cash', upi: 'UPI', bank_transfer: 'Bank', other: 'Other',
 };
+
+// ─── Edit Labour Modal ────────────────────────────────────────────────────────
+
+function EditLabourModal({
+  visible, labour, onClose, onSaved,
+}: { visible: boolean; labour: Labour; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState('');
+  const [wage, setWage] = useState('');
+  const [phone, setPhone] = useState('');
+  const [hometown, setHometown] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    setName(labour.name);
+    setWage(String(labour.daily_wage));
+    setPhone(labour.phone ?? '');
+    setHometown(labour.hometown ?? '');
+    setStartTime(labour.work_start_time ?? '');
+    setEndTime(labour.work_end_time ?? '');
+    setError(null);
+  }, [visible, labour]);
+
+  async function save() {
+    const w = parseFloat(wage);
+    if (!name.trim()) { setError('Name is required.'); return; }
+    if (isNaN(w) || w < 0) { setError('Enter a valid daily wage.'); return; }
+    setSaving(true); setError(null);
+    try {
+      await apiPatch(`/api/v1/labours/${labour.id}`, {
+        name: name.trim(),
+        daily_wage: w,
+        phone: phone.trim() || null,
+        hometown: hometown.trim() || null,
+        work_start_time: startTime.trim() || null,
+        work_end_time: endTime.trim() || null,
+      });
+      onSaved(); onClose();
+    } catch { setError('Could not save changes.'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={e.root}>
+          <View style={e.header}>
+            <Text style={e.title}>Edit Profile</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={8}>
+              <MaterialCommunityIcons name="close" size={22} color={C.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={e.body} keyboardShouldPersistTaps="handled">
+            {([
+              { label: 'Full Name *', value: name, setter: setName, kb: 'default' as const },
+              { label: 'Daily Wage (₹) *', value: wage, setter: setWage, kb: 'numeric' as const },
+              { label: 'Phone', value: phone, setter: setPhone, kb: 'phone-pad' as const },
+              { label: 'Hometown', value: hometown, setter: setHometown, kb: 'default' as const },
+              { label: 'Shift Start (e.g. 07:00)', value: startTime, setter: setStartTime, kb: 'default' as const },
+              { label: 'Shift End (e.g. 15:00)', value: endTime, setter: setEndTime, kb: 'default' as const },
+            ]).map((f) => (
+              <View key={f.label} style={e.field}>
+                <Text style={e.label}>{f.label}</Text>
+                <TextInput style={e.input} value={f.value} onChangeText={f.setter} keyboardType={f.kb} placeholderTextColor={C.outline} />
+              </View>
+            ))}
+            {error ? <Text style={e.error}>{error}</Text> : null}
+          </ScrollView>
+          <View style={e.footer}>
+            <TouchableOpacity style={e.cancelBtn} onPress={onClose}><Text style={e.cancelText}>Cancel</Text></TouchableOpacity>
+            <TouchableOpacity style={[e.saveBtn, saving && { opacity: 0.6 }]} onPress={save} disabled={saving}>
+              {saving ? <ActivityIndicator color={C.onPrimary} /> : <Text style={e.saveText}>Save Changes</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function LabourDetailScreen({ route, navigation }: Props) {
   const { id } = route.params;
   const insets = useSafeAreaInsets();
+  const rootNav = useNavigation<any>();
   const avatar = AVATAR_COLORS[0];
 
   const [labour, setLabour] = useState<Labour | null>(null);
@@ -59,6 +147,7 @@ export default function LabourDetailScreen({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [settling, setSettling] = useState(false);
 
   const load = useCallback(async (silent = false) => {
@@ -100,22 +189,24 @@ export default function LabourDetailScreen({ route, navigation }: Props) {
             setSettling(true);
             try {
               await apiPost('/api/v1/payments', {
-                labour_id: id,
-                amount: summary.pending,
-                method: 'cash',
-                date: todayISO(),
-                notes: 'Settlement — full balance cleared',
+                labour_id: id, amount: summary.pending, method: 'cash',
+                date: todayISO(), notes: 'Settlement — full balance cleared',
               });
               load(true);
             } catch {
               Alert.alert('Error', 'Settlement failed. Try recording a payment instead.');
-            } finally {
-              setSettling(false);
-            }
+            } finally { setSettling(false); }
           },
         },
       ],
     );
+  }
+
+  function viewStatement() {
+    rootNav.navigate('More', {
+      screen: 'StatementDetail',
+      params: { entityType: 'individual', entityId: id, name: labour?.name ?? '' },
+    });
   }
 
   if (loading) {
@@ -148,7 +239,14 @@ export default function LabourDetailScreen({ route, navigation }: Props) {
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
-      <BackBar onBack={() => navigation.goBack()} title={labour.name} />
+      <BackBar onBack={() => navigation.goBack()} title={labour.name} onEdit={() => setEditOpen(true)} />
+
+      <EditLabourModal
+        visible={editOpen}
+        labour={labour}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => load(true)}
+      />
       <PaymentModal
         visible={payOpen}
         onClose={() => setPayOpen(false)}
@@ -168,7 +266,7 @@ export default function LabourDetailScreen({ route, navigation }: Props) {
           </View>
           <Text style={s.name}>{labour.name}</Text>
           {labour.hometown ? <Text style={s.meta}>📍 {labour.hometown}</Text> : null}
-          {labour.phone ? <Text style={s.meta}>☎ {labour.phone}</Text> : null}
+          {labour.phone ? <Text style={s.meta}>📞 {labour.phone}</Text> : null}
           <View style={s.wageRow}>
             <View style={s.wageChip}>
               <Text style={s.wageLabel}>DAILY WAGE</Text>
@@ -200,6 +298,12 @@ export default function LabourDetailScreen({ route, navigation }: Props) {
           )}
         </View>
 
+        <TouchableOpacity style={s.stmtBtn} onPress={viewStatement}>
+          <MaterialCommunityIcons name="chart-bar" size={16} color={C.primaryContainer} />
+          <Text style={s.stmtBtnText}>View Statement</Text>
+          <MaterialCommunityIcons name="chevron-right" size={16} color={C.outlineVariant} />
+        </TouchableOpacity>
+
         <View style={s.tabRow}>
           {(['attendance', 'payments'] as Tab[]).map((t) => (
             <TouchableOpacity key={t} style={[s.tabBtn, tab === t && s.tabBtnActive]} onPress={() => setTab(t)}>
@@ -212,7 +316,7 @@ export default function LabourDetailScreen({ route, navigation }: Props) {
 
         {tab === 'attendance' ? (
           history.length === 0 ? (
-            <Empty icon="☑" title="No attendance yet" sub="Marked days will appear here." />
+            <Empty iconName="calendar-check-outline" title="No attendance yet" sub="Marked days will appear here." />
           ) : history.map((row) => {
             const st = STATUS_STYLE[row.status] ?? STATUS_STYLE.present;
             return (
@@ -233,7 +337,7 @@ export default function LabourDetailScreen({ route, navigation }: Props) {
             );
           })
         ) : payments.length === 0 ? (
-          <Empty icon="₹" title="No payments yet" sub="Record a payment to start the ledger." />
+          <Empty iconName="credit-card-outline" title="No payments yet" sub="Record a payment to start the ledger." />
         ) : payments.map((p) => (
           <View key={p.id} style={s.row}>
             <View style={{ flex: 1 }}>
@@ -248,14 +352,22 @@ export default function LabourDetailScreen({ route, navigation }: Props) {
   );
 }
 
-function BackBar({ onBack, title }: { onBack: () => void; title?: string }) {
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function BackBar({ onBack, title, onEdit }: { onBack: () => void; title?: string; onEdit?: () => void }) {
   return (
     <View style={s.backBar}>
       <TouchableOpacity onPress={onBack} hitSlop={12} style={s.backBtn}>
-        <Text style={s.backArrow}>‹</Text>
+        <MaterialCommunityIcons name="arrow-left" size={24} color={C.primary} />
       </TouchableOpacity>
       <Text style={s.backTitle} numberOfLines={1}>{title ?? 'Labourer'}</Text>
-      <View style={{ width: 36 }} />
+      {onEdit ? (
+        <TouchableOpacity onPress={onEdit} hitSlop={12} style={s.backBtn}>
+          <MaterialCommunityIcons name="pencil-outline" size={20} color={C.primary} />
+        </TouchableOpacity>
+      ) : (
+        <View style={{ width: 40 }} />
+      )}
     </View>
   );
 }
@@ -269,15 +381,17 @@ function Kpi({ label, value, accent }: { label: string; value: string; accent?: 
   );
 }
 
-function Empty({ icon, title, sub }: { icon: string; title: string; sub: string }) {
+function Empty({ iconName, title, sub }: { iconName: string; title: string; sub: string }) {
   return (
     <View style={s.emptyBox}>
-      <Text style={s.emptyIcon}>{icon}</Text>
+      <MaterialCommunityIcons name={iconName as any} size={40} color={C.outline} style={{ marginBottom: 8 }} />
       <Text style={s.emptyTitle}>{title}</Text>
       <Text style={s.emptySub}>{sub}</Text>
     </View>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
@@ -286,10 +400,9 @@ const s = StyleSheet.create({
   backBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 8, height: 52, borderBottomWidth: 1, borderBottomColor: C.outlineVariant,
-    backgroundColor: C.surface,
+    backgroundColor: C.surfaceLowest,
   },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  backArrow: { fontSize: 32, color: C.primary, lineHeight: 34, marginTop: -2 },
+  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   backTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: C.primary },
   profile: { alignItems: 'center', gap: 4, paddingVertical: 8 },
   avatar: { width: 64, height: 64, borderRadius: R.full, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
@@ -315,6 +428,12 @@ const s = StyleSheet.create({
   primaryBtnText: { color: C.onPrimary, fontWeight: '700' },
   secondaryBtn: { flex: 1, borderWidth: 1, borderColor: C.outlineVariant, borderRadius: R.md, paddingVertical: 12, alignItems: 'center' },
   secondaryBtnText: { color: C.primary, fontWeight: '700' },
+  stmtBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.surfaceLowest, borderRadius: R.md, paddingHorizontal: 14, paddingVertical: 11,
+    borderWidth: 1, borderColor: C.outlineVariant,
+  },
+  stmtBtnText: { flex: 1, fontSize: 13, fontWeight: '600', color: C.primaryContainer },
   tabRow: { flexDirection: 'row', backgroundColor: C.surfaceHigh, borderRadius: R.md, padding: 3, gap: 3 },
   tabBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: R.sm },
   tabBtnActive: { backgroundColor: C.surfaceLowest },
@@ -330,10 +449,31 @@ const s = StyleSheet.create({
   rowAmt: { fontSize: 14, fontWeight: '700', color: C.onSurface },
   badge: { borderRadius: R.full, paddingHorizontal: 8, paddingVertical: 3 },
   badgeText: { fontSize: 10, fontWeight: '800' },
-  emptyBox: { alignItems: 'center', paddingVertical: 32, gap: 6 },
-  emptyIcon: { fontSize: 32, marginBottom: 4 },
+  emptyBox: { alignItems: 'center', paddingVertical: 32, gap: 4 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: C.onSurface, textAlign: 'center' },
   emptySub: { fontSize: 13, color: C.onSurfaceVariant, textAlign: 'center' },
   retryBtn: { marginTop: 12, backgroundColor: C.primaryContainer, borderRadius: R.md, paddingHorizontal: 16, paddingVertical: 10 },
   retryText: { color: C.onPrimary, fontWeight: '700' },
+});
+
+const e = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.surfaceLowest },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: 20, borderBottomWidth: 1, borderBottomColor: C.outlineVariant,
+  },
+  title: { fontSize: 18, fontWeight: '700', color: C.primary },
+  body: { padding: 20, paddingBottom: 32, gap: 4 },
+  field: { marginBottom: 12 },
+  label: { fontSize: 11, fontWeight: '700', color: C.onSurfaceVariant, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 },
+  input: {
+    height: 46, borderWidth: 1, borderColor: C.outlineVariant, borderRadius: R.md,
+    paddingHorizontal: 14, fontSize: 15, color: C.onSurface, backgroundColor: C.surfaceLow,
+  },
+  error: { color: C.error, marginTop: 8 },
+  footer: { flexDirection: 'row', gap: 10, padding: 20, borderTopWidth: 1, borderTopColor: C.outlineVariant },
+  cancelBtn: { flex: 1, borderRadius: R.md, paddingVertical: 13, alignItems: 'center', borderWidth: 1, borderColor: C.outlineVariant },
+  cancelText: { color: C.onSurfaceVariant, fontWeight: '600' },
+  saveBtn: { flex: 2, backgroundColor: C.primaryContainer, borderRadius: R.md, paddingVertical: 13, alignItems: 'center' },
+  saveText: { color: C.onPrimary, fontWeight: '700', fontSize: 14 },
 });

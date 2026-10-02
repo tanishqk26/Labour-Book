@@ -17,9 +17,10 @@ import {
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
 import { apiGet, apiPost, apiPatch } from '../../lib/api';
-import { Labour, TeamSummary, PaginatedResponse } from '../../types';
+import { Labour, TeamSummary, PaginatedResponse, EntityPaymentSummary } from '../../types';
 import { C, R, AVATAR_COLORS, initials, fmtCurrency } from '../../lib/theme';
 import { PeopleStackParamList } from '../details/types';
 
@@ -51,7 +52,9 @@ function AddLabourModal({ visible, onClose, onSuccess }: { visible: boolean; onC
       <View style={ms.container}>
         <View style={ms.header}>
           <Text style={ms.title}>Add Labourer</Text>
-          <TouchableOpacity onPress={() => { reset(); onClose(); }}><Text style={ms.close}>✕</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => { reset(); onClose(); }} hitSlop={8}>
+            <MaterialCommunityIcons name="close" size={22} color={C.onSurfaceVariant} />
+          </TouchableOpacity>
         </View>
         <View style={ms.body}>
           {[
@@ -81,19 +84,29 @@ function AddLabourModal({ visible, onClose, onSuccess }: { visible: boolean; onC
 
 function AddTeamModal({ visible, onClose, onSuccess }: { visible: boolean; onClose: () => void; onSuccess: () => void }) {
   const [name, setName] = useState('');
-  const [wage, setWage] = useState('');
   const [hometown, setHometown] = useState('');
+  const [wage, setWage] = useState('');
+  const [carRent, setCarRent] = useState('');
+  const [mgrFee, setMgrFee] = useState('');
+  const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
 
-  function reset() { setName(''); setWage(''); setHometown(''); }
+  function reset() { setName(''); setHometown(''); setWage(''); setCarRent(''); setMgrFee(''); setDescription(''); }
 
   async function save() {
     if (!name.trim()) { Alert.alert('Required', 'Team name is required'); return; }
     const w = parseFloat(wage);
-    if (isNaN(w) || w < 0) { Alert.alert('Invalid', 'Enter a valid daily rate'); return; }
+    if (isNaN(w) || w < 0) { Alert.alert('Invalid', 'Enter a valid daily wage'); return; }
     setSaving(true);
     try {
-      await apiPost('/api/v1/teams', { name: name.trim(), daily_wage: w, hometown: hometown.trim() || undefined });
+      await apiPost('/api/v1/teams', {
+        name: name.trim(),
+        hometown: hometown.trim() || undefined,
+        daily_wage: w,
+        car_rent: parseFloat(carRent) || 0,
+        manager_fee: parseFloat(mgrFee) || 0,
+        description: description.trim() || undefined,
+      });
       reset(); onSuccess(); onClose();
     } catch { Alert.alert('Error', 'Failed to add team.'); }
     finally { setSaving(false); }
@@ -104,19 +117,42 @@ function AddTeamModal({ visible, onClose, onSuccess }: { visible: boolean; onClo
       <View style={ms.container}>
         <View style={ms.header}>
           <Text style={ms.title}>Add Team</Text>
-          <TouchableOpacity onPress={() => { reset(); onClose(); }}><Text style={ms.close}>✕</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => { reset(); onClose(); }} hitSlop={8}>
+            <MaterialCommunityIcons name="close" size={22} color={C.onSurfaceVariant} />
+          </TouchableOpacity>
         </View>
         <View style={ms.body}>
-          {[
-            { label: 'Team Name *', value: name, setter: setName, placeholder: 'e.g. Shinde Team', kb: 'default' as const },
-            { label: 'Daily Rate per Labour (₹) *', value: wage, setter: setWage, placeholder: 'e.g. 300', kb: 'numeric' as const },
-            { label: 'Hometown', value: hometown, setter: setHometown, placeholder: 'e.g. Narayangaon', kb: 'default' as const },
-          ].map((f) => (
-            <View key={f.label} style={ms.field}>
-              <Text style={ms.label}>{f.label}</Text>
-              <TextInput style={ms.input} value={f.value} onChangeText={f.setter} placeholder={f.placeholder} keyboardType={f.kb} placeholderTextColor={C.outline} />
+          <View style={ms.field}>
+            <Text style={ms.label}>Team Name *</Text>
+            <TextInput style={ms.input} value={name} onChangeText={setName} placeholder="e.g. Shinde Team" placeholderTextColor={C.outline} />
+          </View>
+          <View style={ms.field}>
+            <Text style={ms.label}>Hometown / Village</Text>
+            <TextInput style={ms.input} value={hometown} onChangeText={setHometown} placeholder="e.g. Narayangaon" placeholderTextColor={C.outline} />
+          </View>
+          <View style={ms.field}>
+            <Text style={ms.label}>Daily Wage Per Labour (₹) *</Text>
+            <TextInput style={ms.input} value={wage} onChangeText={setWage} placeholder="e.g. 300" keyboardType="numeric" placeholderTextColor={C.outline} />
+          </View>
+          <View style={ms.twoCol}>
+            <View style={{ flex: 1 }}>
+              <Text style={ms.label}>Car Rent (₹)</Text>
+              <TextInput style={ms.input} value={carRent} onChangeText={setCarRent} placeholder="0" keyboardType="numeric" placeholderTextColor={C.outline} />
             </View>
-          ))}
+            <View style={{ flex: 1 }}>
+              <Text style={ms.label}>Manager Fee (₹)</Text>
+              <TextInput style={ms.input} value={mgrFee} onChangeText={setMgrFee} placeholder="0" keyboardType="numeric" placeholderTextColor={C.outline} />
+            </View>
+          </View>
+          <View style={ms.field}>
+            <Text style={ms.label}>Description (optional)</Text>
+            <TextInput
+              style={[ms.input, { height: 80, textAlignVertical: 'top', paddingTop: 10 }]}
+              value={description} onChangeText={setDescription} multiline
+              placeholder="Brief description of the team..."
+              placeholderTextColor={C.outline}
+            />
+          </View>
         </View>
         <View style={ms.footer}>
           <TouchableOpacity style={ms.cancelBtn} onPress={() => { reset(); onClose(); }}><Text style={ms.cancelText}>Cancel</Text></TouchableOpacity>
@@ -131,7 +167,7 @@ function AddTeamModal({ visible, onClose, onSuccess }: { visible: boolean; onClo
 
 // ─── Labour Card ──────────────────────────────────────────────────────────────
 
-function LabourCard({ labour, index, onPress, onDeactivate }: { labour: Labour; index: number; onPress: () => void; onDeactivate: (id: string, name: string) => void }) {
+function LabourCard({ labour, index, onPress, onDeactivate, balance }: { labour: Labour; index: number; onPress: () => void; onDeactivate: (id: string, name: string) => void; balance?: EntityPaymentSummary }) {
   const c = AVATAR_COLORS[index % AVATAR_COLORS.length];
   const timing = labour.work_start_time && labour.work_end_time
     ? `${labour.work_start_time} – ${labour.work_end_time}`
@@ -147,13 +183,20 @@ function LabourCard({ labour, index, onPress, onDeactivate }: { labour: Labour; 
           <View style={styles.nameRow}>
             <Text style={styles.cardName}>{labour.name}</Text>
             <View style={styles.activeBadge}><Text style={styles.activeBadgeText}>ACTIVE</Text></View>
+            {balance != null && (
+              <View style={[styles.balChip, balance.pending > 0 ? styles.balChipDue : styles.balChipOk]}>
+                <Text style={[styles.balChipText, balance.pending > 0 ? styles.balChipTextDue : styles.balChipTextOk]}>
+                  {balance.pending > 0 ? `${fmtCurrency(balance.pending)} due` : 'Settled'}
+                </Text>
+              </View>
+            )}
           </View>
           {labour.hometown && (
             <Text style={styles.cardMeta}>📍 {labour.hometown}</Text>
           )}
         </View>
         <TouchableOpacity onPress={() => onDeactivate(labour.id, labour.name)} hitSlop={10}>
-          <Text style={styles.moreBtn}>⋯</Text>
+          <MaterialCommunityIcons name="dots-vertical" size={20} color={C.outline} />
         </TouchableOpacity>
       </View>
       <View style={styles.cardGrid}>
@@ -172,7 +215,7 @@ function LabourCard({ labour, index, onPress, onDeactivate }: { labour: Labour; 
 
 // ─── Team Card ────────────────────────────────────────────────────────────────
 
-function TeamCard({ team, index, onPress }: { team: TeamSummary; index: number; onPress: () => void }) {
+function TeamCard({ team, index, onPress, balance }: { team: TeamSummary; index: number; onPress: () => void; balance?: EntityPaymentSummary }) {
   const c = AVATAR_COLORS[index % AVATAR_COLORS.length];
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
@@ -184,6 +227,13 @@ function TeamCard({ team, index, onPress }: { team: TeamSummary; index: number; 
           <View style={styles.nameRow}>
             <Text style={styles.cardName}>{team.name}</Text>
             <View style={styles.activeBadge}><Text style={styles.activeBadgeText}>ACTIVE</Text></View>
+            {balance != null && (
+              <View style={[styles.balChip, balance.pending > 0 ? styles.balChipDue : styles.balChipOk]}>
+                <Text style={[styles.balChipText, balance.pending > 0 ? styles.balChipTextDue : styles.balChipTextOk]}>
+                  {balance.pending > 0 ? `${fmtCurrency(balance.pending)} due` : 'Settled'}
+                </Text>
+              </View>
+            )}
           </View>
           {team.hometown && <Text style={styles.cardMeta}>📍 {team.hometown}</Text>}
         </View>
@@ -195,7 +245,7 @@ function TeamCard({ team, index, onPress }: { team: TeamSummary; index: number; 
         </View>
         <View style={styles.gridCell}>
           <Text style={styles.gridLabel}>MEMBERS</Text>
-          <Text style={styles.gridValue}>👥 {team.member_count} workers</Text>
+          <Text style={styles.gridValue}>{team.member_count} workers</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -216,6 +266,7 @@ export default function PeopleScreen() {
   const [search, setSearch] = useState('');
   const [addLabourOpen, setAddLabourOpen] = useState(false);
   const [addTeamOpen, setAddTeamOpen] = useState(false);
+  const [paymentMap, setPaymentMap] = useState<Record<string, EntityPaymentSummary>>({});
 
   const loadLabours = useCallback(async () => {
     try {
@@ -235,12 +286,22 @@ export default function PeopleScreen() {
     } catch {}
   }, [search]);
 
+  const loadPayments = useCallback(async () => {
+    try {
+      const data = await apiGet<EntityPaymentSummary[] | { items: EntityPaymentSummary[] }>('/api/v1/payments/entities');
+      const items: EntityPaymentSummary[] = Array.isArray(data) ? data : ((data as any).items ?? []);
+      const map: Record<string, EntityPaymentSummary> = {};
+      for (const item of items) map[item.entity_id] = item;
+      setPaymentMap(map);
+    } catch {}
+  }, []);
+
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
-    await Promise.all([loadLabours(), loadTeams()]);
+    await Promise.all([loadLabours(), loadTeams(), loadPayments()]);
     setLoading(false);
     setRefreshing(false);
-  }, [loadLabours, loadTeams]);
+  }, [loadLabours, loadTeams, loadPayments]);
 
   useEffect(() => {
     const t = setTimeout(() => load(), 300);
@@ -310,7 +371,7 @@ export default function PeopleScreen() {
 
         {/* Search */}
         <View style={styles.searchBox}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <MaterialCommunityIcons name="magnify" size={18} color={C.outline} />
           <TextInput
             style={styles.searchInput}
             value={search}
@@ -325,7 +386,10 @@ export default function PeopleScreen() {
         <View style={styles.centred}><ActivityIndicator size="large" color={C.primary} /></View>
       ) : data.length === 0 ? (
         <View style={styles.centred}>
-          <Text style={styles.emptyIcon}>{isIndividual ? '👷' : '👥'}</Text>
+          <MaterialCommunityIcons
+            name={isIndividual ? 'account-hard-hat-outline' : 'account-group-outline'}
+            size={56} color={C.outline} style={{ marginBottom: 8 }}
+          />
           <Text style={styles.emptyTitle}>{search ? 'No results' : isIndividual ? 'No Labourers Yet' : 'No Teams Yet'}</Text>
           <Text style={styles.emptySub}>{search ? `No match for "${search}"` : `Tap + Add ${isIndividual ? 'Labour' : 'Team'} to get started.`}</Text>
         </View>
@@ -342,6 +406,7 @@ export default function PeopleScreen() {
               index={index}
               onPress={() => navigation.navigate('LabourDetail', { id: item.id })}
               onDeactivate={deactivate}
+              balance={paymentMap[item.id]}
             />
           )}
           ListFooterComponent={
@@ -360,6 +425,7 @@ export default function PeopleScreen() {
               team={item}
               index={index}
               onPress={() => navigation.navigate('TeamDetail', { id: item.id })}
+              balance={paymentMap[item.id]}
             />
           )}
           ListFooterComponent={
@@ -378,7 +444,7 @@ export default function PeopleScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
 
-  pageHeader: { backgroundColor: C.surface, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: C.outlineVariant, gap: 10 },
+  pageHeader: { backgroundColor: C.surfaceLow, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: C.outlineVariant, gap: 10 },
   pageHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingTop: 14 },
   pageTitle: { fontSize: 24, fontWeight: '800', color: C.primary, letterSpacing: -0.4 },
   pageSubtitle: { fontSize: 13, color: C.onSurfaceVariant, marginTop: 2 },
@@ -395,8 +461,7 @@ const styles = StyleSheet.create({
   searchIcon: { fontSize: 16 },
   searchInput: { flex: 1, fontSize: 14, color: C.onSurface },
 
-  centred: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  emptyIcon: { fontSize: 48, marginBottom: 8 },
+  centred: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: C.onSurface },
   emptySub: { fontSize: 13, color: C.onSurfaceVariant, textAlign: 'center' },
 
@@ -419,7 +484,6 @@ const styles = StyleSheet.create({
   activeBadge: { backgroundColor: C.primaryFixed, borderRadius: R.full, paddingHorizontal: 8, paddingVertical: 2 },
   activeBadgeText: { fontSize: 9, fontWeight: '800', color: C.primary, letterSpacing: 0.5 },
   cardMeta: { fontSize: 12, color: C.onSurfaceVariant },
-  moreBtn: { fontSize: 22, color: C.outline, paddingHorizontal: 4, paddingTop: 2 },
 
   cardGrid: { flexDirection: 'row', gap: 1, backgroundColor: C.outlineVariant, borderRadius: R.sm, overflow: 'hidden' },
   gridCell: { flex: 1, backgroundColor: C.surfaceLow, padding: 10, gap: 2 },
@@ -427,13 +491,19 @@ const styles = StyleSheet.create({
   gridValue: { fontSize: 13, fontWeight: '600', color: C.onSurface },
 
   footerNote: { fontSize: 11, color: C.onSurfaceVariant, textAlign: 'center', marginTop: 8, paddingHorizontal: 20 },
+
+  balChip: { borderRadius: R.full, paddingHorizontal: 7, paddingVertical: 2 },
+  balChipDue: { backgroundColor: '#fef2f2' },
+  balChipOk: { backgroundColor: C.primaryFixed },
+  balChipText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
+  balChipTextDue: { color: C.error },
+  balChipTextOk: { color: C.primary },
 });
 
 const ms = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.surface },
+  container: { flex: 1, backgroundColor: C.surfaceLowest },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
   title: { fontSize: 18, fontWeight: '700', color: C.primary },
-  close: { fontSize: 18, color: C.onSurfaceVariant, paddingHorizontal: 4 },
   body: { flex: 1, padding: 20, gap: 4 },
   field: { marginBottom: 14 },
   label: { fontSize: 11, fontWeight: '700', color: C.onSurfaceVariant, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 },
@@ -443,4 +513,5 @@ const ms = StyleSheet.create({
   cancelText: { color: C.onSurfaceVariant, fontWeight: '600' },
   saveBtn: { flex: 2, backgroundColor: C.primaryContainer, borderRadius: R.md, paddingVertical: 13, alignItems: 'center' },
   saveText: { color: C.onPrimary, fontWeight: '700', fontSize: 14 },
+  twoCol: { flexDirection: 'row', gap: 10, marginBottom: 14 },
 });

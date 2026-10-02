@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -14,8 +15,9 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { ApiError, apiDelete, apiGet, apiPost, apiUpload } from '../../lib/api';
+import { ApiError, apiDelete, apiGet, apiPatch, apiPost, apiUpload } from '../../lib/api';
 import { C, R, fmtCurrency, fmtDate } from '../../lib/theme';
 import { Labour, PaginatedResponse, TeamSummary } from '../../types';
 import { OperationsStackParamList } from './types';
@@ -55,6 +57,78 @@ function confirmRemove(message: string, onYes: () => void) {
   ]);
 }
 
+// ─── Edit Operation Modal ─────────────────────────────────────────────────────
+
+function EditOpModal({
+  visible, op, onClose, onSaved,
+}: { visible: boolean; op: Operation; onClose: () => void; onSaved: () => void }) {
+  const [date, setDate] = useState('');
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    setDate(op.operation_date);
+    setNotes(op.notes ?? '');
+    setError(null);
+  }, [visible, op]);
+
+  async function save() {
+    if (!date.trim()) { setError('Date is required.'); return; }
+    setSaving(true); setError(null);
+    try {
+      await apiPatch(`/api/v1/plot-operations/${op.id}`, {
+        operation_date: date.trim(),
+        notes: notes.trim() || null,
+      });
+      onSaved(); onClose();
+    } catch { setError('Could not save changes.'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={m.root}>
+          <View style={m.header}>
+            <Text style={m.title}>Edit Operation</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={8}>
+              <MaterialCommunityIcons name="close" size={22} color={C.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={m.body} keyboardShouldPersistTaps="handled">
+            <View style={m.field}>
+              <Text style={m.label}>Date (YYYY-MM-DD)</Text>
+              <TextInput
+                style={m.input} value={date} onChangeText={setDate}
+                placeholder="2025-06-15" placeholderTextColor={C.outline}
+              />
+            </View>
+            <View style={m.field}>
+              <Text style={m.label}>Notes</Text>
+              <TextInput
+                style={[m.input, { height: 80, textAlignVertical: 'top', paddingTop: 12 }]}
+                value={notes} onChangeText={setNotes} multiline
+                placeholder="Optional notes..." placeholderTextColor={C.outline}
+              />
+            </View>
+            {error ? <Text style={m.error}>{error}</Text> : null}
+          </ScrollView>
+          <View style={m.footer}>
+            <TouchableOpacity style={m.cancel} onPress={onClose}><Text style={m.cancelText}>Cancel</Text></TouchableOpacity>
+            <TouchableOpacity style={[m.save, saving && { opacity: 0.6 }]} onPress={save} disabled={saving}>
+              {saving ? <ActivityIndicator color={C.onPrimary} /> : <Text style={m.saveText}>Save Changes</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+
 export default function OperationDetailScreen({ route, navigation }: Props) {
   const { id } = route.params;
   const insets = useSafeAreaInsets();
@@ -64,6 +138,8 @@ export default function OperationDetailScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -109,20 +185,29 @@ export default function OperationDetailScreen({ route, navigation }: Props) {
     });
   }
 
-  async function addPhoto() {
+  async function pickAndUpload(source: 'library' | 'camera') {
     if (photos.length >= 5) {
-      setError('This operation already has 5 photos.');
+      Alert.alert('Limit reached', 'This operation already has 5 photos.');
       return;
     }
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      setError('Photo library permission is required.');
-      return;
+
+    let picked: ImagePicker.ImagePickerResult;
+    if (source === 'camera') {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission required', 'Camera permission is needed to take photos.');
+        return;
+      }
+      picked = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7 });
+    } else {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission required', 'Photo library access is needed.');
+        return;
+      }
+      picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
     }
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.7,
-    });
+
     if (picked.canceled || !picked.assets[0]) return;
     const asset = picked.assets[0];
     const name = asset.fileName ?? 'photo.jpg';
@@ -147,20 +232,72 @@ export default function OperationDetailScreen({ route, navigation }: Props) {
     }
   }
 
+  function deleteOperation() {
+    Alert.alert(
+      'Delete Operation',
+      'Delete this operation and all its workers and photos? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete', style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await apiDelete(`/api/v1/plot-operations/${id}`);
+              navigation.goBack();
+            } catch {
+              Alert.alert('Error', 'Could not delete this operation.');
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  function addPhoto() {
+    if (Platform.OS === 'web') {
+      pickAndUpload('library');
+      return;
+    }
+    Alert.alert('Add Photo', 'Choose a source', [
+      { text: 'Camera', onPress: () => pickAndUpload('camera') },
+      { text: 'Photo Library', onPress: () => pickAndUpload('library') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
+
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
       <View style={s.bar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.back}><Text style={s.backText}>‹</Text></TouchableOpacity>
-        <Text style={s.title} numberOfLines={1}>{op?.operation_type ?? 'Operation'}</Text>
-        <View style={{ width: 36 }} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.back} hitSlop={8}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color={C.primary} />
+        </TouchableOpacity>
+        <Text style={s.barTitle} numberOfLines={1}>{op?.operation_type ?? 'Operation'}</Text>
+        {op ? (
+          <View style={{ flexDirection: 'row', gap: 2 }}>
+            <TouchableOpacity onPress={() => setEditOpen(true)} style={s.back} hitSlop={8}>
+              <MaterialCommunityIcons name="pencil-outline" size={20} color={C.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={deleteOperation} style={s.back} hitSlop={8} disabled={deleting}>
+              {deleting
+                ? <ActivityIndicator size="small" color={C.error} />
+                : <MaterialCommunityIcons name="delete-outline" size={20} color={C.error} />}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={{ width: 80 }} />
+        )}
       </View>
 
       {loading ? (
         <View style={s.centred}><ActivityIndicator size="large" color={C.primary} /></View>
       ) : !op ? (
         <View style={s.centred}>
-          <Text style={s.empty}>{error ?? 'Operation not found'}</Text>
-          <TouchableOpacity style={s.retry} onPress={() => { setLoading(true); load(); }}><Text style={s.retryText}>Try again</Text></TouchableOpacity>
+          <Text style={s.emptyTitle}>{error ?? 'Operation not found'}</Text>
+          <TouchableOpacity style={s.retry} onPress={() => { setLoading(true); load(); }}>
+            <Text style={s.retryText}>Try again</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}>
@@ -170,47 +307,62 @@ export default function OperationDetailScreen({ route, navigation }: Props) {
 
           <View style={s.sectionRow}>
             <Text style={s.section}>Workers</Text>
-            <TouchableOpacity onPress={() => setAdding(true)}><Text style={s.link}>+ Add</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setAdding(true)}>
+              <Text style={s.link}>+ Add</Text>
+            </TouchableOpacity>
           </View>
-          {workers.length === 0 ? <Text style={s.hint}>No labour or team attached yet.</Text> : workers.map((w) => (
-            <View key={w.id} style={s.card}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.name}>{w.labour?.name ?? w.team?.name ?? 'Worker'}</Text>
-                <Text style={s.hint}>
-                  {w.labour
-                    ? `${fmtCurrency(w.labour.daily_wage)}/day`
-                    : w.team
-                      ? `${fmtCurrency(w.team.daily_wage)}/day · car ${fmtCurrency(w.team.car_rent)} · manager ${fmtCurrency(w.team.manager_fee)}`
-                      : w.labour_id ? 'Labour' : 'Team'}
-                  {w.hours_worked ? ` · ${w.hours_worked}h` : ''}
-                </Text>
+          {workers.length === 0
+            ? <Text style={s.hint}>No labour or team attached yet.</Text>
+            : workers.map((w) => (
+              <View key={w.id} style={s.card}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.cardName}>{w.labour?.name ?? w.team?.name ?? 'Worker'}</Text>
+                  <Text style={s.hint}>
+                    {w.labour
+                      ? `${fmtCurrency(w.labour.daily_wage)}/day`
+                      : w.team
+                        ? `${fmtCurrency(w.team.daily_wage)}/day · car ${fmtCurrency(w.team.car_rent)} · manager ${fmtCurrency(w.team.manager_fee)}`
+                        : w.labour_id ? 'Labour' : 'Team'}
+                    {w.hours_worked ? ` · ${w.hours_worked}h` : ''}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => removeWorker(w.id)} hitSlop={8}>
+                  <MaterialCommunityIcons name="account-minus-outline" size={20} color={C.error} />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity onPress={() => removeWorker(w.id)} hitSlop={8}><Text style={s.remove}>Remove</Text></TouchableOpacity>
-            </View>
-          ))}
+            ))}
 
           <View style={s.sectionRow}>
             <Text style={s.section}>Photos ({photos.length}/5)</Text>
             <TouchableOpacity onPress={addPhoto} disabled={uploading}>
-              {uploading ? <ActivityIndicator color={C.primary} /> : <Text style={s.link}>+ Photo</Text>}
+              {uploading
+                ? <ActivityIndicator color={C.primary} size="small" />
+                : <Text style={s.link}>+ Photo</Text>}
             </TouchableOpacity>
           </View>
-          {photos.length === 0 ? <Text style={s.hint}>No photos yet.</Text> : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-              {photos.map((p) => (
-                <View key={p.id}>
-                  <TouchableOpacity onPress={() => p.public_url && setPreview(p.public_url)}>
-                    {p.public_url ? (
-                      <Image source={{ uri: p.public_url }} style={s.thumb} />
-                    ) : (
-                      <View style={[s.thumb, s.thumbEmpty]}><Text style={s.hint}>No preview</Text></View>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => removePhoto(p.id)}><Text style={s.remove}>Delete</Text></TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
-          )}
+          {photos.length === 0
+            ? <Text style={s.hint}>No photos yet.</Text>
+            : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                {photos.map((p) => (
+                  <View key={p.id}>
+                    <TouchableOpacity onPress={() => p.public_url && setPreview(p.public_url)}>
+                      {p.public_url ? (
+                        <Image source={{ uri: p.public_url }} style={s.thumb} />
+                      ) : (
+                        <View style={[s.thumb, s.thumbEmpty]}>
+                          <Text style={s.hint}>No preview</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => removePhoto(p.id)} style={s.deletePhotoBtn}>
+                      <MaterialCommunityIcons name="trash-can-outline" size={14} color={C.error} />
+                      <Text style={s.deletePhotoText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
         </ScrollView>
       )}
 
@@ -221,6 +373,15 @@ export default function OperationDetailScreen({ route, navigation }: Props) {
         onSaved={() => { setAdding(false); load(); }}
       />
 
+      {op && (
+        <EditOpModal
+          visible={editOpen}
+          op={op}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => load()}
+        />
+      )}
+
       <Modal visible={!!preview} transparent animationType="fade" onRequestClose={() => setPreview(null)}>
         <TouchableOpacity style={s.lightbox} activeOpacity={1} onPress={() => setPreview(null)}>
           {preview ? <Image source={{ uri: preview }} style={s.full} resizeMode="contain" /> : null}
@@ -229,6 +390,8 @@ export default function OperationDetailScreen({ route, navigation }: Props) {
     </View>
   );
 }
+
+// ─── AddWorker Modal ──────────────────────────────────────────────────────────
 
 function AddWorker({
   visible, operationId, onClose, onSaved,
@@ -281,8 +444,10 @@ function AddWorker({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={m.root}>
         <View style={m.header}>
-          <Text style={m.title}>Add worker</Text>
-          <TouchableOpacity onPress={onClose}><Text style={m.close}>✕</Text></TouchableOpacity>
+          <Text style={m.title}>Add Worker</Text>
+          <TouchableOpacity onPress={onClose} hitSlop={8}>
+            <MaterialCommunityIcons name="close" size={22} color={C.onSurfaceVariant} />
+          </TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={m.body} keyboardShouldPersistTaps="handled">
           <View style={m.row}>
@@ -299,8 +464,10 @@ function AddWorker({
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={m.label}>Hours (optional)</Text>
-          <TextInput style={m.input} value={hours} onChangeText={setHours} keyboardType="numeric" placeholder="e.g. 4" placeholderTextColor={C.outline} />
+          <View style={m.field}>
+            <Text style={m.label}>Hours (optional)</Text>
+            <TextInput style={m.input} value={hours} onChangeText={setHours} keyboardType="numeric" placeholder="e.g. 4" placeholderTextColor={C.outline} />
+          </View>
           {error ? <Text style={m.error}>{error}</Text> : null}
         </ScrollView>
         <View style={m.footer}>
@@ -314,12 +481,16 @@ function AddWorker({
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
-  bar: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
-  back: { width: 36, alignItems: 'center' },
-  backText: { fontSize: 32, color: C.primary, lineHeight: 34 },
-  title: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: C.primary },
+  bar: {
+    height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 8, backgroundColor: C.surfaceLowest, borderBottomWidth: 1, borderBottomColor: C.outlineVariant,
+  },
+  back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  barTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: C.primary },
   date: { fontSize: 13, fontWeight: '700', color: C.onSurfaceVariant },
   notes: { fontSize: 14, color: C.onSurface },
   error: { color: C.error, fontSize: 13 },
@@ -328,30 +499,31 @@ const s = StyleSheet.create({
   link: { color: C.primary, fontWeight: '700' },
   hint: { fontSize: 12, color: C.onSurfaceVariant },
   card: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surfaceLowest, borderRadius: R.md, padding: 12, borderWidth: 1, borderColor: C.outlineVariant },
-  name: { fontSize: 15, fontWeight: '700', color: C.onSurface },
-  remove: { color: C.error, fontSize: 12, fontWeight: '700', marginTop: 4 },
+  cardName: { fontSize: 15, fontWeight: '700', color: C.onSurface },
   thumb: { width: 96, height: 96, borderRadius: R.md, backgroundColor: C.surfaceHigh },
   thumbEmpty: { alignItems: 'center', justifyContent: 'center' },
-  centred: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  empty: { fontSize: 15, fontWeight: '700', color: C.onSurface, textAlign: 'center' },
-  retry: { marginTop: 12, backgroundColor: C.primaryContainer, borderRadius: R.md, paddingHorizontal: 16, paddingVertical: 10 },
+  deletePhotoBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 },
+  deletePhotoText: { color: C.error, fontSize: 11, fontWeight: '700' },
+  centred: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
+  emptyTitle: { fontSize: 15, fontWeight: '700', color: C.onSurface, textAlign: 'center' },
+  retry: { backgroundColor: C.primaryContainer, borderRadius: R.md, paddingHorizontal: 16, paddingVertical: 10 },
   retryText: { color: C.onPrimary, fontWeight: '700' },
   lightbox: { flex: 1, backgroundColor: 'rgba(0,0,0,0.88)', alignItems: 'center', justifyContent: 'center' },
   full: { width: '92%', height: '80%' },
 });
 
 const m = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.surface, paddingTop: Platform.OS === 'android' ? 12 : 0 },
+  root: { flex: 1, backgroundColor: C.surfaceLowest, paddingTop: Platform.OS === 'android' ? 12 : 0 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
   title: { fontSize: 18, fontWeight: '700', color: C.primary },
-  close: { fontSize: 18, color: C.onSurfaceVariant },
   body: { padding: 20, paddingBottom: 32 },
+  field: { marginBottom: 12 },
   row: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   toggle: { flex: 1, height: 40, borderRadius: R.md, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.outlineVariant },
   toggleOn: { backgroundColor: C.primary, borderColor: C.primary },
   toggleText: { fontWeight: '700', color: C.onSurfaceVariant },
   toggleTextOn: { color: C.onPrimary },
-  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 },
   person: { paddingHorizontal: 12, height: 36, borderRadius: R.full, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceHigh },
   personOn: { backgroundColor: C.primary },
   personText: { fontSize: 13, fontWeight: '600', color: C.onSurface },

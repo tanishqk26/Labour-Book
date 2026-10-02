@@ -5,6 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginScreen from './screens/auth/LoginScreen';
@@ -17,6 +18,8 @@ import LabourDetailScreen from './screens/details/LabourDetailScreen';
 import TeamDetailScreen from './screens/details/TeamDetailScreen';
 import OperationDetailScreen from './screens/details/OperationDetailScreen';
 import ContractsScreen from './screens/contracts/ContractsScreen';
+import ContractDetailScreen from './screens/contracts/ContractDetailScreen';
+import PaymentsScreen from './screens/payments/PaymentsScreen';
 import { StatementsListScreen, StatementDetailScreen } from './screens/statements/StatementsScreen';
 import { MoreStackParamList, OperationsStackParamList, PeopleStackParamList } from './screens/details/types';
 import { C, R } from './lib/theme';
@@ -50,7 +53,9 @@ function MoreStackScreen() {
   return (
     <MoreStack.Navigator screenOptions={{ headerShown: false }}>
       <MoreStack.Screen name="MoreHome" component={MoreScreen} />
+      <MoreStack.Screen name="Payments" component={PaymentsScreen} />
       <MoreStack.Screen name="Contracts" component={ContractsScreen} />
+      <MoreStack.Screen name="ContractDetail" component={ContractDetailScreen} />
       <MoreStack.Screen name="Statements" component={StatementsListScreen} />
       <MoreStack.Screen name="StatementDetail" component={StatementDetailScreen} />
     </MoreStack.Navigator>
@@ -59,12 +64,12 @@ function MoreStackScreen() {
 
 // ─── Tab Icons ────────────────────────────────────────────────────────────────
 
-const TAB_ICONS: Record<string, { default: string; active: string }> = {
-  Home:       { default: '⊟', active: '⊞' },
-  People:     { default: '👤', active: '👤' },
-  Attendance: { default: '☑', active: '✅' },
-  Operations: { default: '🌾', active: '🌾' },
-  More:       { default: '☰', active: '☰' },
+const TAB_ICON_NAMES: Record<string, { default: string; active: string }> = {
+  Home:       { default: 'view-dashboard-outline', active: 'view-dashboard' },
+  People:     { default: 'account-multiple-outline', active: 'account-multiple' },
+  Attendance: { default: 'calendar-check-outline', active: 'calendar-check' },
+  Operations: { default: 'sprout-outline', active: 'sprout' },
+  More:       { default: 'dots-horizontal-circle-outline', active: 'dots-horizontal-circle' },
 };
 
 // ─── Custom Tab Bar ───────────────────────────────────────────────────────────
@@ -94,6 +99,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
         }
 
+        const iconName = (TAB_ICON_NAMES[route.name]?.[isFocused ? 'active' : 'default'] ?? 'circle') as any;
         return (
           <TouchableOpacity
             key={route.key}
@@ -102,7 +108,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             activeOpacity={0.7}
           >
             <View style={[tabStyles.tabIndicator, isFocused && tabStyles.tabIndicatorActive]}>
-              <Text style={tabStyles.tabIcon}>{TAB_ICONS[route.name]?.[isFocused ? 'active' : 'default'] ?? '○'}</Text>
+              <MaterialCommunityIcons name={iconName} size={22} color={isFocused ? C.primary : C.onSurfaceVariant} />
             </View>
             <Text style={[tabStyles.tabLabel, isFocused && tabStyles.tabLabelActive]}>{label as string}</Text>
           </TouchableOpacity>
@@ -138,7 +144,7 @@ function RootNavigator() {
     return (
       <View style={appStyles.splash}>
         <View style={appStyles.splashLogo}>
-          <Text style={appStyles.splashEmoji}>🌿</Text>
+          <MaterialCommunityIcons name="leaf" size={36} color={C.primary} />
         </View>
         <Text style={appStyles.splashTitle}>LabourBook</Text>
         <ActivityIndicator size="small" color={C.primaryFixed} style={{ marginTop: 24 }} />
@@ -190,14 +196,13 @@ const appStyles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 16,
   },
-  splashEmoji: { fontSize: 36 },
   splashTitle: { fontSize: 26, fontWeight: '800', color: C.onPrimary, letterSpacing: -0.5 },
 });
 
 const tabStyles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
-    backgroundColor: C.surface,
+    backgroundColor: C.surfaceLowest,
     borderTopWidth: 1,
     borderTopColor: C.outlineVariant,
     paddingTop: 6,
@@ -217,7 +222,6 @@ const tabStyles = StyleSheet.create({
   tabIndicatorActive: {
     backgroundColor: C.primaryFixed,
   },
-  tabIcon: { fontSize: 16 },
   tabLabel: { fontSize: 10, fontWeight: '600', color: C.onSurfaceVariant },
   tabLabelActive: { color: C.primaryContainer, fontWeight: '700' },
 });

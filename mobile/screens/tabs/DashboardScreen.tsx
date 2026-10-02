@@ -9,10 +9,15 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
 import { apiGet } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { C, R, AVATAR_COLORS, initials, fmtCurrency } from '../../lib/theme';
+
+interface EntityPaymentSummary {
+  entity_id: string; entity_type: string; pending: number;
+}
 
 interface LabourStatus {
   labour_id: string; labour_name: string; daily_wage: number;
@@ -41,6 +46,8 @@ export default function DashboardScreen() {
 
   const [labours, setLabours] = useState<LabourStatus[]>([]);
   const [teams, setTeams] = useState<TeamStatus[]>([]);
+  const [totalPending, setTotalPending] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,9 +56,16 @@ export default function DashboardScreen() {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const data = await apiGet<DailyView>(`/api/v1/attendance/daily?for_date=${today}`);
+      const [data, payData] = await Promise.all([
+        apiGet<DailyView>(`/api/v1/attendance/daily?for_date=${today}`),
+        apiGet<EntityPaymentSummary[] | { items: EntityPaymentSummary[] }>('/api/v1/payments/entities').catch(() => [] as EntityPaymentSummary[]),
+      ]);
       setLabours(data.labours);
       setTeams(data.teams);
+      const items: EntityPaymentSummary[] = Array.isArray(payData) ? payData : ((payData as any).items ?? []);
+      const owing = items.filter((i) => i.pending > 0);
+      setTotalPending(owing.reduce((s, i) => s + i.pending, 0));
+      setPendingCount(owing.length);
     } catch { setError('Failed to load today\'s data.'); }
     finally { setLoading(false); setRefreshing(false); }
   }, [today]);
@@ -61,7 +75,7 @@ export default function DashboardScreen() {
   const all = [...labours, ...teams];
   const totalEntities = all.length;
   const isMarked = all.some((r) => r.status !== null);
-  const presentLabours = labours.filter((l) => l.status === 'present');
+  const presentLabours = labours.filter((l) => l.status === 'present' || l.status === 'half_day');
   const presentTeams = teams.filter((t) => t.status === 'present');
   const totalPresent = presentLabours.length + presentTeams.length;
   const totalWage = all.reduce((s, r) => s + (r.wage_earned ?? 0), 0);
@@ -85,6 +99,20 @@ export default function DashboardScreen() {
           <Text style={styles.greetingSub}>Here's what happened on your farm today.</Text>
         </View>
 
+        {!loading && totalPending > 0 && (
+          <TouchableOpacity
+            style={styles.pendingBanner}
+            onPress={() => navigation.navigate('More', { screen: 'Payments' })}
+          >
+            <MaterialCommunityIcons name="alert-circle-outline" size={18} color={C.error} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pendingBannerTitle}>{fmtCurrency(totalPending)} pending</Text>
+              <Text style={styles.pendingBannerSub}>{pendingCount} {pendingCount === 1 ? 'person' : 'people'} awaiting payment — tap to record</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={18} color={C.error} />
+          </TouchableOpacity>
+        )}
+
         {loading ? (
           <View style={styles.centred}><ActivityIndicator size="large" color={C.primary} /></View>
         ) : error ? (
@@ -100,7 +128,11 @@ export default function DashboardScreen() {
             <View style={[styles.ctaCard, isMarked && styles.ctaCardDone]}>
               <View style={styles.ctaIconRow}>
                 <View style={[styles.ctaIcon, isMarked && styles.ctaIconDone]}>
-                  <Text style={styles.ctaIconEmoji}>{isMarked ? '✅' : '⏳'}</Text>
+                  <MaterialCommunityIcons
+                    name={isMarked ? 'calendar-check' : 'clock-alert-outline'}
+                    size={22}
+                    color={isMarked ? C.primary : C.tertiary}
+                  />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.ctaCardLabel}>{isMarked ? 'ATTENDANCE MARKED' : 'PENDING ACTION'}</Text>
@@ -149,8 +181,14 @@ export default function DashboardScreen() {
 
                 {presentLabours.map((l, i) => {
                   const c = AVATAR_COLORS[i % AVATAR_COLORS.length];
+                  const isHalf = l.status === 'half_day';
                   return (
-                    <View key={l.labour_id} style={styles.personRow}>
+                    <TouchableOpacity
+                      key={l.labour_id}
+                      style={styles.personRow}
+                      onPress={() => navigation.navigate('People', { screen: 'LabourDetail', params: { id: l.labour_id } })}
+                      activeOpacity={0.75}
+                    >
                       <View style={[styles.personAvatar, { backgroundColor: c.bg }]}>
                         <Text style={[styles.personAvatarText, { color: c.fg }]}>{initials(l.labour_name)}</Text>
                       </View>
@@ -160,34 +198,46 @@ export default function DashboardScreen() {
                       </View>
                       <View style={styles.personRight}>
                         <Text style={styles.personWage}>{fmtCurrency(l.wage_earned ?? 0)}</Text>
-                        <View style={styles.presentBadge}><Text style={styles.presentBadgeText}>Present</Text></View>
+                        <View style={[styles.presentBadge, isHalf && styles.halfBadge]}>
+                          <Text style={[styles.presentBadgeText, isHalf && styles.halfBadgeText]}>
+                            {isHalf ? 'Half Day' : 'Present'}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
 
-                {presentTeams.map((t) => (
-                  <View key={t.team_id} style={styles.personRow}>
-                    <View style={[styles.personAvatar, { backgroundColor: '#e8d5f7' }]}>
-                      <Text style={styles.personAvatarText}>👥</Text>
-                    </View>
-                    <View style={styles.personInfo}>
-                      <Text style={styles.personName}>{t.team_name}</Text>
-                      <Text style={styles.personMeta}>{t.num_labourers ?? 0} workers</Text>
-                    </View>
-                    <View style={styles.personRight}>
-                      <Text style={styles.personWage}>{fmtCurrency(t.wage_earned ?? 0)}</Text>
-                      <View style={styles.presentBadge}><Text style={styles.presentBadgeText}>Present</Text></View>
-                    </View>
-                  </View>
-                ))}
+                {presentTeams.map((t, i) => {
+                  const c = AVATAR_COLORS[(presentLabours.length + i) % AVATAR_COLORS.length];
+                  return (
+                    <TouchableOpacity
+                      key={t.team_id}
+                      style={styles.personRow}
+                      onPress={() => navigation.navigate('People', { screen: 'TeamDetail', params: { id: t.team_id } })}
+                      activeOpacity={0.75}
+                    >
+                      <View style={[styles.personAvatar, { backgroundColor: c.bg }]}>
+                        <Text style={[styles.personAvatarText, { color: c.fg }]}>{initials(t.team_name)}</Text>
+                      </View>
+                      <View style={styles.personInfo}>
+                        <Text style={styles.personName}>{t.team_name}</Text>
+                        <Text style={styles.personMeta}>{t.num_labourers ?? 0} workers</Text>
+                      </View>
+                      <View style={styles.personRight}>
+                        <Text style={styles.personWage}>{fmtCurrency(t.wage_earned ?? 0)}</Text>
+                        <View style={styles.presentBadge}><Text style={styles.presentBadgeText}>Present</Text></View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
 
             {/* No active entities */}
             {totalEntities === 0 && (
               <View style={styles.emptyBox}>
-                <Text style={styles.emptyIcon}>👷</Text>
+                <MaterialCommunityIcons name="account-hard-hat-outline" size={56} color={C.outline} style={{ marginBottom: 8 }} />
                 <Text style={styles.emptyTitle}>No Active Labourers</Text>
                 <Text style={styles.emptySub}>Add labourers or teams to get started.</Text>
                 <TouchableOpacity style={styles.ctaBtn} onPress={() => navigation.navigate('People')}>
@@ -206,6 +256,14 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
   scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 32, gap: 14 },
+
+  pendingBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#fef2f2', borderRadius: R.lg, padding: 14,
+    borderWidth: 1, borderColor: '#fecaca',
+  },
+  pendingBannerTitle: { fontSize: 14, fontWeight: '700', color: C.error },
+  pendingBannerSub: { fontSize: 12, color: C.error, opacity: 0.8 },
 
   greetingRow: { gap: 4, marginBottom: 4 },
   dateLabel: { fontSize: 11, fontWeight: '700', color: C.onSurfaceVariant, letterSpacing: 1 },
@@ -228,7 +286,6 @@ const styles = StyleSheet.create({
   ctaIconRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   ctaIcon: { width: 40, height: 40, borderRadius: R.md, backgroundColor: C.tertiaryFixed, alignItems: 'center', justifyContent: 'center' },
   ctaIconDone: { backgroundColor: C.primaryFixed },
-  ctaIconEmoji: { fontSize: 20 },
   ctaCardLabel: { fontSize: 10, fontWeight: '700', color: C.primary, letterSpacing: 1 },
   ctaCardTitle: { fontSize: 15, fontWeight: '700', color: C.onSurface, marginTop: 2 },
   ctaCardSub: { fontSize: 12, color: C.onSurfaceVariant, marginTop: 3 },
@@ -283,9 +340,10 @@ const styles = StyleSheet.create({
   personWage: { fontSize: 14, fontWeight: '700', color: C.primaryContainer },
   presentBadge: { backgroundColor: C.primaryFixed, borderRadius: R.full, paddingHorizontal: 7, paddingVertical: 2 },
   presentBadgeText: { fontSize: 10, fontWeight: '700', color: C.primary },
+  halfBadge: { backgroundColor: '#fef3c7' },
+  halfBadgeText: { color: '#6b4c04' },
 
   emptyBox: { alignItems: 'center', paddingVertical: 40, gap: 8 },
-  emptyIcon: { fontSize: 48, marginBottom: 8 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: C.onSurface },
   emptySub: { fontSize: 13, color: C.onSurfaceVariant, textAlign: 'center' },
 });

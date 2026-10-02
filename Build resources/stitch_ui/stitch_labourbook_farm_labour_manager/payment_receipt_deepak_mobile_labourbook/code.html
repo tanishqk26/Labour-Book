@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_stack" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;margin:0;padding:0;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = {"darkMode":"class","theme":{"extend":{"colors":{"primary-fixed-dim":"#a5d0b9","surface-variant":"#e4e2e1","error":"#ba1a1a","on-secondary-fixed":"#111d25","surface-container-highest":"#e4e2e1","on-tertiary-fixed":"#3e0500","background":"#fcf9f8","secondary":"#53606a","tertiary-container":"#781300","surface-bright":"#fcf9f8","on-primary-fixed":"#002114","on-primary":"#ffffff","inverse-surface":"#303030","on-surface":"#1b1c1c","surface-container-high":"#eae7e7","primary-container":"#1b4332","secondary-container":"#d7e4f0","on-secondary-container":"#596670","tertiary-fixed-dim":"#ffb4a4","secondary-fixed-dim":"#bbc8d3","surface-container":"#f0eded","surface-dim":"#dcd9d9","secondary-fixed":"#d7e4f0","primary-fixed":"#c1ecd4","on-tertiary-container":"#ff8266","on-background":"#1b1c1c","on-secondary-fixed-variant":"#3c4851","outline-variant":"#c1c8c2","inverse-on-surface":"#f3f0f0","surface":"#fcf9f8","on-surface-variant":"#414844","surface-container-lowest":"#ffffff","error-container":"#ffdad6","inverse-primary":"#a5d0b9","surface-tint":"#3f6653","tertiary":"#510900","on-tertiary":"#ffffff","on-tertiary-fixed-variant":"#8c1700","tertiary-fixed":"#ffdad3","outline":"#717973","on-error-container":"#93000a","on-secondary":"#ffffff","on-primary-fixed-variant":"#274e3d","surface-container-low":"#f6f3f2","primary":"#012d1d","on-error":"#ffffff","on-primary-container":"#86af99"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"container-margin":"24px","base":"8px","sidebar-width":"280px","gutter":"16px","drawer-width":"400px"},"fontFamily":{"body-md":["Inter"],"label-caps":["Inter"],"headline-md":["Inter"],"headline-lg":["Inter"],"headline-lg-mobile":["Inter"],"display-currency":["Inter"],"body-lg":["Inter"]},"fontSize":{"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"label-caps":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"600"}],"headline-md":["24px",{"lineHeight":"32px","fontWeight":"600"}],"headline-lg":["32px",{"lineHeight":"40px","fontWeight":"600"}],"headline-lg-mobile":["28px",{"lineHeight":"36px","fontWeight":"600"}],"display-currency":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}],"body-lg":["18px",{"lineHeight":"28px","fontWeight":"400"}]}}}}</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface font-body-md text-body-md text-on-surface flex flex-col min-h-screen"><header class="fixed top-0 w-full z-50 bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe"><div class="h-16 px-gutter flex items-center justify-between"><div class="flex items-center gap-base"><button aria-label="Go back" class="w-11 h-11 -ml-2 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-container transition-colors" onclick="history.back()"><span class="material-symbols-outlined text-[24px]">arrow_back</span></button><h1 class="font-headline-md text-body-lg text-on-surface font-semibold truncate">Labour Profile</h1></div><div class="flex items-center gap-base"><button aria-label="Notifications" class="w-11 h-11 rounded-full flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"><span class="material-symbols-outlined text-[24px]">notifications</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="flex-1 flex flex-col relative w-full pt-16 pb-safe bg-surface"><div class="flex flex-col w-full">
+<!-- Status & Quick Action Utility Strip -->
+<div class="px-container-margin py-base flex items-center justify-between bg-surface-container-low">
+<div class="flex items-center gap-base">
+<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary-fixed text-on-primary-fixed">
+<span class="material-symbols-outlined text-[16px]">verified</span>
+</span>
+<span class="font-label-caps text-label-caps uppercase text-on-surface-variant tracking-wider">Muster Ref #AGR-8841</span>
+</div>
+<div class="flex items-center gap-base">
+<button aria-label="Quick copy receipt reference" class="flex items-center gap-1 px-base py-1 rounded-lg bg-surface-container text-on-surface-variant active:bg-surface-container-high transition-colors text-label-caps font-label-caps" id="copyTxnBtn">
+<span class="material-symbols-outlined text-[15px]">content_copy</span>
+<span>Slip #9842</span>
+</button>
+<button aria-label="Share Slip" class="w-8 h-8 rounded-full flex items-center justify-center bg-surface-container text-on-surface hover:bg-surface-container-high active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">share</span>
+</button>
+</div>
+</div>
+<div class="px-container-margin pt-gutter pb-8 flex flex-col gap-6 max-w-md mx-auto w-full">
+<!-- Success Hero Banner (Digital Ledger Passbook Style) -->
+<div class="relative bg-surface-container-lowest rounded-xl shadow-sm p-6 overflow-hidden flex flex-col items-center text-center">
+<!-- Decorative background glow -->
+<div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-primary-fixed/40 blur-2xl pointer-events-none"></div>
+<div class="absolute -bottom-10 -left-10 w-28 h-28 rounded-full bg-secondary-container/50 blur-xl pointer-events-none"></div>
+<!-- Animated Success Ring -->
+<div class="relative mb-4">
+<div class="w-16 h-16 rounded-full bg-primary-fixed flex items-center justify-center text-primary shadow-sm">
+<span class="material-symbols-outlined text-[36px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<span class="absolute -bottom-1 -right-1 flex h-5 w-5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-fixed-dim opacity-75"></span>
+<span class="relative inline-flex rounded-full h-5 w-5 bg-primary text-on-primary items-center justify-center">
+<span class="material-symbols-outlined text-[12px]">lock</span>
+</span>
+</span>
+</div>
+<span class="font-label-caps text-label-caps uppercase text-primary font-semibold tracking-wider mb-1">Settlement Finalized</span>
+<h2 class="font-headline-md text-headline-md text-primary font-bold tracking-tight">Payment Successful</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1 mb-4">Settlement payment completed for Deepak Jadhav</p>
+<!-- Amount Block -->
+<div class="w-full bg-surface-container-low rounded-xl py-4 px-6 mb-4 flex flex-col items-center">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider mb-0.5">Amount Disbursed</span>
+<div class="flex items-baseline gap-1 text-primary">
+<span class="font-display-currency text-display-currency">₹5,400.00</span>
+</div>
+<div class="flex items-center gap-1.5 mt-2 bg-primary-fixed/60 text-on-primary-fixed px-3 py-1 rounded-full text-label-caps font-label-caps">
+<span class="material-symbols-outlined text-[14px]">payments</span>
+<span>Cash Handover • Farm Gate</span>
+</div>
+</div>
+<!-- Reference & Timestamp Meta Box -->
+<div class="w-full bg-surface-container rounded-lg p-3 flex flex-col gap-1.5 text-left">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-on-surface-variant">Transaction ID</span>
+<div class="flex items-center gap-1">
+<span class="font-label-caps text-label-caps font-semibold text-on-surface font-mono" id="txnIdText">TXN-20260815-DPK-9842</span>
+<button class="text-primary hover:text-on-surface-variant p-0.5 rounded" id="copyIconBtn" title="Copy ID">
+<span class="material-symbols-outlined text-[15px]">copy_all</span>
+</button>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-on-surface-variant">Timestamp</span>
+<span class="font-label-caps text-label-caps font-medium text-on-surface">15 Aug 2026, 06:45 PM</span>
+</div>
+</div>
+</div>
+<!-- Worker & Settlement Meta Card -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-5 flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps uppercase text-on-surface-variant tracking-wider">Beneficiary Worker</span>
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-caps text-label-caps font-semibold">
+<span class="material-symbols-outlined text-[13px]">agriculture</span>
+          Field Crew
+        </span>
+</div>
+<div class="flex items-start gap-3.5">
+<div class="w-12 h-12 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-headline-md text-headline-md font-semibold shrink-0">
+          D
+        </div>
+<div class="flex flex-col min-w-0">
+<h3 class="font-body-lg text-body-lg font-bold text-on-surface truncate">Deepak Jadhav</h3>
+<p class="font-body-md text-body-md text-on-surface-variant truncate">Spray Crew • Sector 4, Junnar Farm</p>
+<div class="flex items-center gap-1.5 mt-1 text-on-surface-variant font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[14px]">call</span>
+<span>+91 98765 43210</span>
+</div>
+</div>
+</div>
+<!-- Ledger Cycle Context -->
+<div class="bg-surface-container-low rounded-lg p-3 flex flex-col gap-2">
+<div class="flex items-start justify-between gap-2">
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="material-symbols-outlined text-[18px] text-primary">event_repeat</span>
+<span class="font-label-caps text-label-caps font-semibold">Cycle Ref:</span>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface text-right font-medium">Aug 2026 - Cycle #14 (Week 2)</span>
+</div>
+<div class="flex items-start justify-between gap-2">
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="material-symbols-outlined text-[18px] text-primary">notes</span>
+<span class="font-label-caps text-label-caps font-semibold">Narration:</span>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface-variant text-right">Pending spraying wages &amp; advance adj.</span>
+</div>
+<div class="flex items-start justify-between gap-2">
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="material-symbols-outlined text-[18px] text-primary">assignment_ind</span>
+<span class="font-label-caps text-label-caps font-semibold">Disbursed By:</span>
+</div>
+<span class="font-label-caps text-label-caps text-on-surface text-right font-medium">Ramesh Patil (Supervisor)</span>
+</div>
+</div>
+</div>
+<!-- Ledger Impact Breakdown (Before / Paid / After) -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-5 flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps uppercase text-on-surface-variant tracking-wider">Ledger Balance Impact</span>
+<span class="inline-flex items-center gap-1 text-primary text-label-caps font-label-caps font-semibold">
+<span class="material-symbols-outlined text-[15px]">sync_saved_locally</span>
+          Auto-Reconciled
+        </span>
+</div>
+<div class="flex flex-col gap-2.5">
+<div class="flex items-center justify-between py-1">
+<span class="font-body-md text-body-md text-on-surface-variant">Previous Outstanding</span>
+<span class="font-body-md text-body-md text-tertiary font-semibold">₹5,400.00</span>
+</div>
+<div class="flex items-center justify-between py-1">
+<span class="font-body-md text-body-md text-on-surface-variant">Payment Applied Today</span>
+<span class="font-body-md text-body-md text-primary font-bold">-₹5,400.00</span>
+</div>
+<!-- Ledger Divider Bar -->
+<div class="h-0.5 bg-surface-container-high rounded-full my-0.5"></div>
+<div class="flex items-center justify-between py-1">
+<div class="flex flex-col">
+<span class="font-body-lg text-body-lg font-bold text-on-surface">Current Due Balance</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">Post-transaction ledger</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-headline-md text-headline-md font-bold text-on-surface">₹0.00</span>
+<span class="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-caps text-label-caps font-semibold">
+<span class="material-symbols-outlined text-[12px]">done_all</span>
+              Settled in Full
+            </span>
+</div>
+</div>
+</div>
+<!-- Cumulative Lifetime Stats Tile -->
+<div class="grid grid-cols-2 gap-2 pt-2 bg-surface-container-low rounded-lg p-3">
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-on-surface-variant">Total Earned (YTD)</span>
+<span class="font-body-md text-body-md font-bold text-on-surface mt-0.5">₹12,400.00</span>
+</div>
+<div class="flex flex-col text-right">
+<span class="font-label-caps text-label-caps text-on-surface-variant">Total Settled (YTD)</span>
+<span class="font-body-md text-body-md font-bold text-primary mt-0.5">₹12,400.00</span>
+</div>
+</div>
+</div>
+<!-- Verification & Delivery Pipeline Status -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-4 flex flex-col gap-3">
+<span class="font-label-caps text-label-caps uppercase text-on-surface-variant tracking-wider">Delivery &amp; Sync Audit</span>
+<!-- WhatsApp Status Entry -->
+<div class="flex items-center gap-3 p-2.5 rounded-lg bg-surface-container-low">
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">chat</span>
+</div>
+<div class="flex flex-col min-w-0 flex-1">
+<div class="flex items-center justify-between">
+<span class="font-body-md text-body-md font-semibold text-on-surface truncate">WhatsApp Slip Dispatched</span>
+<span class="material-symbols-outlined text-primary text-[18px]">done_all</span>
+</div>
+<p class="font-label-caps text-label-caps text-on-surface-variant truncate">Delivered to Deepak: +91 98765 43210</p>
+</div>
+</div>
+<!-- Farm Master Muster Roll Sync Entry -->
+<div class="flex items-center gap-3 p-2.5 rounded-lg bg-surface-container-low">
+<div class="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">cloud_done</span>
+</div>
+<div class="flex flex-col min-w-0 flex-1">
+<div class="flex items-center justify-between">
+<span class="font-body-md text-body-md font-semibold text-on-surface truncate">Junnar Farm Muster Synced</span>
+<span class="font-label-caps text-label-caps text-primary font-semibold">Live</span>
+</div>
+<p class="font-label-caps text-label-caps text-on-surface-variant truncate">Batch #JN-2026-AUG-14 verified</p>
+</div>
+</div>
+</div>
+<!-- Farm / Field Atmosphere Card -->
+<div class="relative rounded-xl overflow-hidden shadow-sm bg-surface-container-high h-28 flex items-end p-4">
+<img class="absolute inset-0 w-full h-full object-cover" data-alt="Sunlit green vineyard terraces with spray workers at Junnar agricultural farm in rural Maharashtra India during late afternoon golden hour with rich crops and soft sunlight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDoTHRgHqD8R_y9jDVA20KevoyIOwpZqECOaMNhIs9mcaQxG2sX5q-1RkCjigbZRwK5NRXViHNzVB84ofRMyullfVfPs6Uo9SoxutNfA2FpcXC6-mfo-QQdqK-9XcAN1QZdEgiN6mqoog6J8PWC1o2LXcKz705cK_0GbFR1hnIbxMr7HVzz5wzxGqo7a43MoxfZuxvcKpkdrdxVj-N5QZs5oONC324ireIGS7OKYcHCwPY4kU9n7p_-xg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/40 to-transparent"></div>
+<div class="relative z-10 flex items-center justify-between w-full text-on-primary">
+<div>
+<p class="font-body-md text-body-md font-semibold text-on-primary">Junnar Farm Operations</p>
+<p class="font-label-caps text-label-caps text-primary-fixed-dim">Spray Section 4 • Muster Ledger</p>
+</div>
+<span class="inline-flex items-center gap-1 text-label-caps font-label-caps px-2 py-1 rounded bg-on-primary-fixed/40 backdrop-blur-sm text-on-primary">
+<span class="material-symbols-outlined text-[14px]">format_image_left</span>
+          Approved
+        </span>
+</div>
+</div>
+<!-- Interactive Action Button Group -->
+<div class="flex flex-col gap-3 pt-2">
+<!-- WhatsApp Share (Primary CTA) -->
+<button class="w-full h-12 rounded-xl bg-primary-container text-on-primary font-body-md text-body-md font-semibold flex items-center justify-center gap-2 shadow-sm active:scale-[0.99] transition-transform" id="shareWhatsappBtn">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+<span>Share Receipt on WhatsApp</span>
+</button>
+<!-- Secondary Action Grid -->
+<div class="grid grid-cols-2 gap-3">
+<!-- PDF Slip Download -->
+<button class="h-11 rounded-xl bg-surface-container text-on-surface font-body-md text-body-md font-medium flex items-center justify-center gap-1.5 active:bg-surface-container-high transition-colors" id="downloadPdfBtn">
+<span class="material-symbols-outlined text-[18px]">download</span>
+<span>Download PDF</span>
+</button>
+<!-- Worker Statement Link -->
+<button class="h-11 rounded-xl bg-surface-container text-on-surface font-body-md text-body-md font-medium flex items-center justify-center gap-1.5 active:bg-surface-container-high transition-colors" id="viewStatementBtn">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+<span>Worker Ledger</span>
+</button>
+</div>
+<!-- Dismiss / Done link -->
+<button class="w-full py-2.5 text-center font-body-md text-body-md text-on-surface-variant hover:text-on-surface transition-colors flex items-center justify-center gap-1" onclick="history.back()">
+<span class="material-symbols-outlined text-[18px]">home</span>
+<span>Return to Muster Roll</span>
+</button>
+</div>
+<!-- Toast Notification Indicator (Hidden by default) -->
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-full bg-inverse-surface text-inverse-on-surface font-label-caps text-label-caps font-medium shadow-xl opacity-0 pointer-events-none transition-opacity duration-200 z-50 flex items-center gap-2" id="toastNotification">
+<span class="material-symbols-outlined text-[16px] text-primary-fixed">check_circle</span>
+<span id="toastMessage">Reference copied to clipboard</span>
+</div>
+</div>
+</div>
+<script>
+  (function() {
+    const copyTxnBtn = document.getElementById('copyTxnBtn');
+    const copyIconBtn = document.getElementById('copyIconBtn');
+    const txnIdText = document.getElementById('txnIdText');
+    const toast = document.getElementById('toastNotification');
+    const toastMsg = document.getElementById('toastMessage');
+    const shareWhatsappBtn = document.getElementById('shareWhatsappBtn');
+    const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+    const viewStatementBtn = document.getElementById('viewStatementBtn');
+
+    function showToast(message) {
+      if (!toast) return;
+      toastMsg.textContent = message;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100');
+      setTimeout(function() {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2400);
+    }
+
+    function copyTxn() {
+      const code = txnIdText ? txnIdText.textContent.trim() : 'TXN-20260815-DPK-9842';
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(function() {
+          showToast('Slip ID copied: ' + code);
+        }).catch(function() {
+          showToast('Reference: ' + code);
+        });
+      } else {
+        showToast('Reference: ' + code);
+      }
+    }
+
+    if (copyTxnBtn) copyTxnBtn.addEventListener('click', copyTxn);
+    if (copyIconBtn) copyIconBtn.addEventListener('click', copyTxn);
+
+    if (shareWhatsappBtn) {
+      shareWhatsappBtn.addEventListener('click', function() {
+        const text = encodeURIComponent('Payment Receipt: ₹5,400 settled to Deepak Jadhav (Spray Crew, Junnar Farm). Ref: TXN-20260815-DPK-9842.');
+        window.open('https://api.whatsapp.com/send?text=' + text, '_blank');
+      });
+    }
+
+    if (downloadPdfBtn) {
+      downloadPdfBtn.addEventListener('click', function() {
+        showToast('Generating official PDF slip...');
+      });
+    }
+
+    if (viewStatementBtn) {
+      viewStatementBtn.addEventListener('click', function() {
+        showToast('Opening Deepak Jadhav full ledger...');
+      });
+    }
+  })();
+</script></main></body></html>

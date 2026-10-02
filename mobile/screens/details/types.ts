@@ -11,7 +11,9 @@ export type OperationsStackParamList = {
 
 export type MoreStackParamList = {
   MoreHome: undefined;
+  Payments: undefined;
   Contracts: undefined;
+  ContractDetail: { id: string };
   Statements: undefined;
   StatementDetail: { entityType: string; entityId: string; name: string };
 };

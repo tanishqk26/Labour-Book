@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { C, R } from '../lib/theme';
 import { useAuth } from '../context/AuthContext';
 
@@ -19,7 +20,7 @@ export default function AppHeader({ screenName }: Props) {
         {/* Logo + screen name */}
         <View style={styles.logoRow}>
           <View style={styles.logoBox}>
-            <Text style={styles.logoIcon}>🌿</Text>
+            <MaterialCommunityIcons name="leaf" size={18} color={C.primary} />
           </View>
           <View>
             <Text style={styles.appLabel}>LABOURBOOK</Text>
@@ -60,7 +61,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoIcon: { fontSize: 18 },
   appLabel: { fontSize: 10, fontWeight: '700', color: C.onSurfaceVariant, letterSpacing: 1 },
   screenName: { fontSize: 15, fontWeight: '700', color: C.primary, lineHeight: 18 },
   rightRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

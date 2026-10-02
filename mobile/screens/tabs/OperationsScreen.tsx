@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
 import { apiGet, apiPost } from '../../lib/api';
 import { C, R } from '../../lib/theme';
@@ -26,9 +27,9 @@ interface PlotOperation { id: string; plot_id: string; lifecycle_id: string | nu
 type OpGroup = 'Spraying' | 'Labour Work' | 'Other';
 const OP_GROUPS: OpGroup[] = ['Spraying', 'Labour Work', 'Other'];
 const GROUP_CFG: Record<OpGroup, { bg: string; fg: string; icon: string; detailLabel: string; placeholder: string }> = {
-  'Spraying': { bg: '#dbeafe', fg: '#1d4ed8', icon: '🌿', detailLabel: 'Chemical / Spray detail', placeholder: 'e.g. Bavistin 50g/L' },
-  'Labour Work': { bg: C.primaryFixed, fg: C.primaryContainer, icon: '👷', detailLabel: 'Work description', placeholder: 'e.g. Pruning, weeding' },
-  'Other': { bg: C.surfaceHigh, fg: C.onSurface, icon: '📋', detailLabel: 'Details (optional)', placeholder: 'Any relevant notes' },
+  'Spraying': { bg: '#dbeafe', fg: '#1d4ed8', icon: 'spray-bottle', detailLabel: 'Chemical / Spray detail', placeholder: 'e.g. Bavistin 50g/L' },
+  'Labour Work': { bg: C.primaryFixed, fg: C.primaryContainer, icon: 'account-hard-hat-outline', detailLabel: 'Work description', placeholder: 'e.g. Pruning, weeding' },
+  'Other': { bg: C.surfaceHigh, fg: C.onSurface, icon: 'clipboard-list-outline', detailLabel: 'Details (optional)', placeholder: 'Any relevant notes' },
 };
 
 function opGroupOf(type: string): OpGroup {
@@ -77,7 +78,9 @@ function AddOpModal({ visible, onClose, onSuccess, plotId, lifecycleId }: {
       <View style={ms.container}>
         <View style={ms.header}>
           <Text style={ms.title}>Add Operation</Text>
-          <TouchableOpacity onPress={onClose}><Text style={ms.close}>✕</Text></TouchableOpacity>
+          <TouchableOpacity onPress={onClose} hitSlop={8}>
+            <MaterialCommunityIcons name="close" size={22} color={C.onSurfaceVariant} />
+          </TouchableOpacity>
         </View>
         <ScrollView style={ms.body} contentContainerStyle={{ gap: 16 }} keyboardShouldPersistTaps="handled">
           <View>
@@ -92,7 +95,7 @@ function AddOpModal({ visible, onClose, onSuccess, plotId, lifecycleId }: {
                     style={[ms.groupBtn, active && { backgroundColor: c.bg, borderColor: c.fg }]}
                     onPress={() => setGroup(g)}
                   >
-                    <Text style={ms.groupIcon}>{c.icon}</Text>
+                    <MaterialCommunityIcons name={c.icon as any} size={20} color={active ? c.fg : C.onSurfaceVariant} />
                     <Text style={[ms.groupText, active && { color: c.fg }]}>{g}</Text>
                   </TouchableOpacity>
                 );
@@ -198,7 +201,7 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
 
   const filtered = filter === 'All' ? operations : operations.filter((op) => opGroupOf(op.operation_type) === filter);
 
-  const lcLabel = (lc: Lifecycle) => lc.stage === 'vegetative' ? '🌱 Vegetative' : '🍇 Fruit Production';
+  const lcLabel = (lc: Lifecycle) => lc.stage === 'vegetative' ? 'Vegetative' : 'Fruit Production';
 
   return (
     <View style={styles.root}>
@@ -214,7 +217,7 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
               style={[styles.chip, selectedPlotId === p.id && styles.chipActive]}
               onPress={() => setSelectedPlotId(p.id)}
             >
-              <Text style={[styles.chipText, selectedPlotId === p.id && styles.chipTextActive]}>🌱 {p.name}</Text>
+              <Text style={[styles.chipText, selectedPlotId === p.id && styles.chipTextActive]}>{p.name}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -287,7 +290,7 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
         <View style={styles.centred}><ActivityIndicator size="large" color={C.primary} /></View>
       ) : filtered.length === 0 ? (
         <View style={styles.centred}>
-          <Text style={styles.emptyIcon}>🌾</Text>
+          <MaterialCommunityIcons name="barley" size={48} color={C.outlineVariant} style={{ marginBottom: 8 }} />
           <Text style={styles.emptyTitle}>{selectedLcId ? 'No operations yet' : 'Select a season & stage'}</Text>
           <Text style={styles.hint}>{selectedLcId ? 'Tap + Add to log the first operation' : 'Choose a grape year and stage above'}</Text>
         </View>
@@ -315,7 +318,8 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
                 <Text style={styles.opDate}>{op.operation_date.slice(5)}</Text>
                 <View style={{ flex: 1 }}>
                   <View style={[styles.groupBadge, { backgroundColor: cfg.bg }]}>
-                    <Text style={[styles.groupBadgeText, { color: cfg.fg }]}>{cfg.icon} {grp}</Text>
+                    <MaterialCommunityIcons name={cfg.icon as any} size={11} color={cfg.fg} />
+                    <Text style={[styles.groupBadgeText, { color: cfg.fg }]}> {grp}</Text>
                   </View>
                   {op.notes ? <Text style={styles.opNotes} numberOfLines={2}>{op.notes}</Text> : null}
                 </View>
@@ -349,7 +353,6 @@ const styles = StyleSheet.create({
 
   centred: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   hint: { fontSize: 12, color: C.onSurfaceVariant, textAlign: 'center' },
-  emptyIcon: { fontSize: 48, marginBottom: 8 },
   emptyTitle: { fontSize: 15, fontWeight: '700', color: C.onSurface, marginBottom: 4 },
 
   tableHeader: { flexDirection: 'row', paddingHorizontal: 4, paddingBottom: 6 },
@@ -359,7 +362,7 @@ const styles = StyleSheet.create({
   dayBadge: { width: 32, height: 32, borderRadius: R.sm, backgroundColor: C.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
   dayText: { fontSize: 12, fontWeight: '700', color: C.onSurface },
   opDate: { width: 66, fontSize: 12, color: C.onSurfaceVariant, paddingTop: 7 },
-  groupBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.sm, alignSelf: 'flex-start', marginBottom: 4 },
+  groupBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.sm, alignSelf: 'flex-start', marginBottom: 4 },
   groupBadgeText: { fontSize: 11, fontWeight: '700' },
   opNotes: { fontSize: 11, color: C.onSurfaceVariant },
 });
@@ -368,12 +371,10 @@ const ms = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.surface },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
   title: { fontSize: 18, fontWeight: '700', color: C.primary },
-  close: { fontSize: 18, color: C.onSurfaceVariant },
   body: { flex: 1, padding: 20 },
   label: { fontSize: 11, fontWeight: '700', color: C.onSurfaceVariant, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 },
   groupGrid: { flexDirection: 'row', gap: 8 },
   groupBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: R.md, borderWidth: 1.5, borderColor: C.outlineVariant, backgroundColor: C.surfaceLow, gap: 4 },
-  groupIcon: { fontSize: 20 },
   groupText: { fontSize: 11, fontWeight: '700', color: C.onSurfaceVariant },
   input: { borderWidth: 1, borderColor: C.outlineVariant, borderRadius: R.md, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: C.onSurface, backgroundColor: C.surfaceLow },
   footer: { flexDirection: 'row', gap: 10, padding: 20, borderTopWidth: 1, borderTopColor: C.outlineVariant },

@@ -2,17 +2,23 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import PaymentModal from '../../components/PaymentModal';
-import { apiGet, apiPost, ApiError } from '../../lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost, ApiError } from '../../lib/api';
 import { AVATAR_COLORS, C, R, fmtCurrency, fmtDate, initials, todayISO } from '../../lib/theme';
 import { EntityPaymentSummary, Labour, PaymentRead, PaginatedResponse, Team } from '../../types';
 import { PeopleStackParamList } from './types';
@@ -38,15 +44,170 @@ const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = 
 };
 
 const METHOD_LABEL: Record<string, string> = {
-  cash: 'Cash',
-  upi: 'UPI',
-  bank_transfer: 'Bank',
-  other: 'Other',
+  cash: 'Cash', upi: 'UPI', bank_transfer: 'Bank', other: 'Other',
 };
+
+// ─── Edit Team Modal ──────────────────────────────────────────────────────────
+
+function EditTeamModal({
+  visible, team, onClose, onSaved,
+}: { visible: boolean; team: Team; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState('');
+  const [wage, setWage] = useState('');
+  const [carRent, setCarRent] = useState('');
+  const [mgrFee, setMgrFee] = useState('');
+  const [hometown, setHometown] = useState('');
+  const [description, setDescription] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    setName(team.name);
+    setWage(String(team.daily_wage));
+    setCarRent(String(team.car_rent ?? 0));
+    setMgrFee(String(team.manager_fee ?? 0));
+    setHometown(team.hometown ?? '');
+    setDescription(team.description ?? '');
+    setError(null);
+  }, [visible, team]);
+
+  async function save() {
+    const w = parseFloat(wage);
+    if (!name.trim()) { setError('Name is required.'); return; }
+    if (isNaN(w) || w < 0) { setError('Enter a valid daily wage.'); return; }
+    setSaving(true); setError(null);
+    try {
+      await apiPatch(`/api/v1/teams/${team.id}`, {
+        name: name.trim(),
+        daily_wage: w,
+        car_rent: parseFloat(carRent) || 0,
+        manager_fee: parseFloat(mgrFee) || 0,
+        hometown: hometown.trim() || null,
+        description: description.trim() || null,
+      });
+      onSaved(); onClose();
+    } catch { setError('Could not save changes.'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={e.root}>
+          <View style={e.header}>
+            <Text style={e.title}>Edit Team</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={8}>
+              <MaterialCommunityIcons name="close" size={22} color={C.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={e.body} keyboardShouldPersistTaps="handled">
+            {([
+              { label: 'Team Name *', value: name, setter: setName, kb: 'default' as const },
+              { label: 'Daily Wage per Labour (₹) *', value: wage, setter: setWage, kb: 'numeric' as const },
+              { label: 'Car Rent (₹)', value: carRent, setter: setCarRent, kb: 'numeric' as const },
+              { label: 'Manager Fee (₹)', value: mgrFee, setter: setMgrFee, kb: 'numeric' as const },
+              { label: 'Hometown', value: hometown, setter: setHometown, kb: 'default' as const },
+              { label: 'Description', value: description, setter: setDescription, kb: 'default' as const },
+            ]).map((f) => (
+              <View key={f.label} style={e.field}>
+                <Text style={e.label}>{f.label}</Text>
+                <TextInput style={e.input} value={f.value} onChangeText={f.setter} keyboardType={f.kb} placeholderTextColor={C.outline} />
+              </View>
+            ))}
+            {error ? <Text style={e.error}>{error}</Text> : null}
+          </ScrollView>
+          <View style={e.footer}>
+            <TouchableOpacity style={e.cancelBtn} onPress={onClose}><Text style={e.cancelText}>Cancel</Text></TouchableOpacity>
+            <TouchableOpacity style={[e.saveBtn, saving && { opacity: 0.6 }]} onPress={save} disabled={saving}>
+              {saving ? <ActivityIndicator color={C.onPrimary} /> : <Text style={e.saveText}>Save Changes</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ─── Add Member Modal ─────────────────────────────────────────────────────────
+
+function AddMemberModal({
+  visible, teamId, existingIds, onClose, onAdded,
+}: { visible: boolean; teamId: string; existingIds: Set<string>; onClose: () => void; onAdded: () => void }) {
+  const [labours, setLabours] = useState<Labour[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [adding, setAdding] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    setLoading(true);
+    apiGet<PaginatedResponse<Labour>>('/api/v1/labours', { status: 'active', page_size: 200 })
+      .then((r) => setLabours(r.items))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [visible]);
+
+  async function add(labourId: string) {
+    setAdding(labourId);
+    try {
+      await apiPost(`/api/v1/teams/${teamId}/members`, { labour_id: labourId });
+      onAdded();
+    } catch {
+      Alert.alert('Error', 'Could not add this member.');
+    } finally { setAdding(null); }
+  }
+
+  const candidates = labours.filter((l) => !existingIds.has(l.id));
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={e.root}>
+        <View style={e.header}>
+          <Text style={e.title}>Add Member</Text>
+          <TouchableOpacity onPress={onClose} hitSlop={8}>
+            <MaterialCommunityIcons name="close" size={22} color={C.onSurfaceVariant} />
+          </TouchableOpacity>
+        </View>
+        {loading ? (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator color={C.primary} />
+          </View>
+        ) : candidates.length === 0 ? (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <Text style={e.emptyText}>All active labourers are already in this team.</Text>
+          </View>
+        ) : (
+          <ScrollView contentContainerStyle={e.body}>
+            {candidates.map((l, i) => {
+              const c = AVATAR_COLORS[i % AVATAR_COLORS.length];
+              return (
+                <TouchableOpacity key={l.id} style={e.memberRow} onPress={() => add(l.id)}>
+                  <View style={[e.memberAvatar, { backgroundColor: c.bg }]}>
+                    <Text style={[e.memberAvatarText, { color: c.fg }]}>{initials(l.name)}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={e.memberName}>{l.name}</Text>
+                    <Text style={e.memberSub}>{fmtCurrency(l.daily_wage)}/day{l.hometown ? ` · ${l.hometown}` : ''}</Text>
+                  </View>
+                  {adding === l.id
+                    ? <ActivityIndicator color={C.primary} />
+                    : <MaterialCommunityIcons name="plus-circle-outline" size={22} color={C.primary} />}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
+    </Modal>
+  );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function TeamDetailScreen({ route, navigation }: Props) {
   const { id } = route.params;
   const insets = useSafeAreaInsets();
+  const rootNav = useNavigation<any>();
   const avatar = AVATAR_COLORS[1];
 
   const [team, setTeam] = useState<Team | null>(null);
@@ -59,7 +220,10 @@ export default function TeamDetailScreen({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [settling, setSettling] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -100,22 +264,42 @@ export default function TeamDetailScreen({ route, navigation }: Props) {
             setSettling(true);
             try {
               await apiPost('/api/v1/payments', {
-                team_id: id,
-                amount: summary.pending,
-                method: 'cash',
-                date: todayISO(),
-                notes: 'Settlement — full balance cleared',
+                team_id: id, amount: summary.pending, method: 'cash',
+                date: todayISO(), notes: 'Settlement — full balance cleared',
               });
               load(true);
             } catch {
               Alert.alert('Error', 'Settlement failed. Try recording a payment instead.');
-            } finally {
-              setSettling(false);
-            }
+            } finally { setSettling(false); }
           },
         },
       ],
     );
+  }
+
+  async function removeMember(labourId: string, name: string) {
+    Alert.alert('Remove Member', `Remove ${name} from this team?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove', style: 'destructive',
+        onPress: async () => {
+          setRemoving(labourId);
+          try {
+            await apiDelete(`/api/v1/teams/${id}/members/${labourId}`);
+            load(true);
+          } catch {
+            Alert.alert('Error', 'Could not remove this member.');
+          } finally { setRemoving(null); }
+        },
+      },
+    ]);
+  }
+
+  function viewStatement() {
+    rootNav.navigate('More', {
+      screen: 'StatementDetail',
+      params: { entityType: 'team', entityId: id, name: team?.name ?? '' },
+    });
   }
 
   if (loading) {
@@ -143,10 +327,25 @@ export default function TeamDetailScreen({ route, navigation }: Props) {
   }
 
   const members: Labour[] = team.members ?? [];
+  const memberIds = new Set(members.map((m) => m.id));
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
-      <BackBar onBack={() => navigation.goBack()} title={team.name} />
+      <BackBar onBack={() => navigation.goBack()} title={team.name} onEdit={() => setEditOpen(true)} />
+
+      <EditTeamModal
+        visible={editOpen}
+        team={team}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => load(true)}
+      />
+      <AddMemberModal
+        visible={addMemberOpen}
+        teamId={id}
+        existingIds={memberIds}
+        onClose={() => setAddMemberOpen(false)}
+        onAdded={() => { setAddMemberOpen(false); load(true); }}
+      />
       <PaymentModal
         visible={payOpen}
         onClose={() => setPayOpen(false)}
@@ -168,7 +367,7 @@ export default function TeamDetailScreen({ route, navigation }: Props) {
           {team.hometown ? <Text style={s.meta}>📍 {team.hometown}</Text> : null}
           {team.description ? <Text style={s.meta}>{team.description}</Text> : null}
           <View style={s.wageRow}>
-            <Chip label="PER LABOUR" value={`${fmtCurrency(team.daily_wage)}`} />
+            <Chip label="PER LABOUR" value={fmtCurrency(team.daily_wage)} />
             <Chip label="CAR RENT" value={fmtCurrency(team.car_rent)} />
             <Chip label="MGR FEE" value={fmtCurrency(team.manager_fee)} />
           </View>
@@ -193,6 +392,12 @@ export default function TeamDetailScreen({ route, navigation }: Props) {
           )}
         </View>
 
+        <TouchableOpacity style={s.stmtBtn} onPress={viewStatement}>
+          <MaterialCommunityIcons name="chart-bar" size={16} color={C.primaryContainer} />
+          <Text style={s.stmtBtnText}>View Statement</Text>
+          <MaterialCommunityIcons name="chevron-right" size={16} color={C.outlineVariant} />
+        </TouchableOpacity>
+
         <View style={s.tabRow}>
           {([
             ['attendance', `Attendance (${history.length})`],
@@ -207,7 +412,7 @@ export default function TeamDetailScreen({ route, navigation }: Props) {
 
         {tab === 'attendance' && (
           history.length === 0 ? (
-            <Empty icon="☑" title="No attendance yet" sub="Marked days will appear here." />
+            <Empty iconName="calendar-check-outline" title="No attendance yet" sub="Marked days will appear here." />
           ) : history.map((row) => {
             const st = STATUS_STYLE[row.status ?? 'present'] ?? STATUS_STYLE.present;
             return (
@@ -231,7 +436,7 @@ export default function TeamDetailScreen({ route, navigation }: Props) {
 
         {tab === 'payments' && (
           payments.length === 0 ? (
-            <Empty icon="₹" title="No payments yet" sub="Record a payment to start the ledger." />
+            <Empty iconName="credit-card-outline" title="No payments yet" sub="Record a payment to start the ledger." />
           ) : payments.map((p) => (
             <View key={p.id} style={s.row}>
               <View style={{ flex: 1 }}>
@@ -244,41 +449,64 @@ export default function TeamDetailScreen({ route, navigation }: Props) {
         )}
 
         {tab === 'members' && (
-          members.length === 0 ? (
-            <Empty icon="👥" title="No members listed" sub="Add members from the web app for now." />
-          ) : members.map((m, i) => {
-            const c = AVATAR_COLORS[i % AVATAR_COLORS.length];
-            return (
-              <TouchableOpacity
-                key={m.id}
-                style={s.row}
-                onPress={() => navigation.navigate('LabourDetail', { id: m.id })}
-              >
-                <View style={[s.memberAvatar, { backgroundColor: c.bg }]}>
-                  <Text style={[s.memberAvatarText, { color: c.fg }]}>{initials(m.name)}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.rowTitle}>{m.name}</Text>
-                  <Text style={s.rowSub}>{fmtCurrency(m.daily_wage)}/day{m.hometown ? ` · ${m.hometown}` : ''}</Text>
-                </View>
-                <Text style={s.chevron}>›</Text>
-              </TouchableOpacity>
-            );
-          })
+          <>
+            <TouchableOpacity style={s.addMemberBtn} onPress={() => setAddMemberOpen(true)}>
+              <MaterialCommunityIcons name="account-plus-outline" size={18} color={C.primary} />
+              <Text style={s.addMemberText}>Add Member</Text>
+            </TouchableOpacity>
+            {members.length === 0 ? (
+              <Empty iconName="account-group-outline" title="No members yet" sub="Add labourers to this team." />
+            ) : members.map((m, i) => {
+              const c = AVATAR_COLORS[i % AVATAR_COLORS.length];
+              return (
+                <TouchableOpacity
+                  key={m.id}
+                  style={s.row}
+                  onPress={() => navigation.navigate('LabourDetail', { id: m.id })}
+                >
+                  <View style={[s.memberAvatar, { backgroundColor: c.bg }]}>
+                    <Text style={[s.memberAvatarText, { color: c.fg }]}>{initials(m.name)}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.rowTitle}>{m.name}</Text>
+                    <Text style={s.rowSub}>{fmtCurrency(m.daily_wage)}/day{m.hometown ? ` · ${m.hometown}` : ''}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => removeMember(m.id, m.name)}
+                    hitSlop={8}
+                    style={{ padding: 4 }}
+                  >
+                    {removing === m.id
+                      ? <ActivityIndicator size="small" color={C.error} />
+                      : <MaterialCommunityIcons name="account-minus-outline" size={20} color={C.error} />}
+                  </TouchableOpacity>
+                  <MaterialCommunityIcons name="chevron-right" size={22} color={C.outline} />
+                </TouchableOpacity>
+              );
+            })}
+          </>
         )}
       </ScrollView>
     </View>
   );
 }
 
-function BackBar({ onBack, title }: { onBack: () => void; title?: string }) {
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function BackBar({ onBack, title, onEdit }: { onBack: () => void; title?: string; onEdit?: () => void }) {
   return (
     <View style={s.backBar}>
       <TouchableOpacity onPress={onBack} hitSlop={12} style={s.backBtn}>
-        <Text style={s.backArrow}>‹</Text>
+        <MaterialCommunityIcons name="arrow-left" size={24} color={C.primary} />
       </TouchableOpacity>
       <Text style={s.backTitle} numberOfLines={1}>{title ?? 'Team'}</Text>
-      <View style={{ width: 36 }} />
+      {onEdit ? (
+        <TouchableOpacity onPress={onEdit} hitSlop={12} style={s.backBtn}>
+          <MaterialCommunityIcons name="pencil-outline" size={20} color={C.primary} />
+        </TouchableOpacity>
+      ) : (
+        <View style={{ width: 40 }} />
+      )}
     </View>
   );
 }
@@ -301,15 +529,17 @@ function Kpi({ label, value, accent }: { label: string; value: string; accent?: 
   );
 }
 
-function Empty({ icon, title, sub }: { icon: string; title: string; sub: string }) {
+function Empty({ iconName, title, sub }: { iconName: string; title: string; sub: string }) {
   return (
     <View style={s.emptyBox}>
-      <Text style={s.emptyIcon}>{icon}</Text>
+      <MaterialCommunityIcons name={iconName as any} size={40} color={C.outline} style={{ marginBottom: 8 }} />
       <Text style={s.emptyTitle}>{title}</Text>
       <Text style={s.emptySub}>{sub}</Text>
     </View>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
@@ -318,10 +548,9 @@ const s = StyleSheet.create({
   backBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 8, height: 52, borderBottomWidth: 1, borderBottomColor: C.outlineVariant,
-    backgroundColor: C.surface,
+    backgroundColor: C.surfaceLowest,
   },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  backArrow: { fontSize: 32, color: C.primary, lineHeight: 34, marginTop: -2 },
+  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   backTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: C.primary },
   profile: { alignItems: 'center', gap: 4, paddingVertical: 8 },
   avatar: { width: 64, height: 64, borderRadius: R.full, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
@@ -347,11 +576,23 @@ const s = StyleSheet.create({
   primaryBtnText: { color: C.onPrimary, fontWeight: '700' },
   secondaryBtn: { flex: 1, borderWidth: 1, borderColor: C.outlineVariant, borderRadius: R.md, paddingVertical: 12, alignItems: 'center' },
   secondaryBtnText: { color: C.primary, fontWeight: '700' },
+  stmtBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.surfaceLowest, borderRadius: R.md, paddingHorizontal: 14, paddingVertical: 11,
+    borderWidth: 1, borderColor: C.outlineVariant,
+  },
+  stmtBtnText: { flex: 1, fontSize: 13, fontWeight: '600', color: C.primaryContainer },
   tabRow: { flexDirection: 'row', backgroundColor: C.surfaceHigh, borderRadius: R.md, padding: 3, gap: 3 },
   tabBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: R.sm },
   tabBtnActive: { backgroundColor: C.surfaceLowest },
   tabText: { fontSize: 11, fontWeight: '600', color: C.onSurfaceVariant, textAlign: 'center' },
   tabTextActive: { color: C.primary },
+  addMemberBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center',
+    borderWidth: 1, borderColor: C.outlineVariant, borderRadius: R.md,
+    paddingVertical: 10, backgroundColor: C.surfaceLowest,
+  },
+  addMemberText: { fontSize: 14, fontWeight: '600', color: C.primary },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: C.surfaceLowest, borderRadius: R.md, padding: 12,
@@ -364,11 +605,40 @@ const s = StyleSheet.create({
   badgeText: { fontSize: 10, fontWeight: '800' },
   memberAvatar: { width: 36, height: 36, borderRadius: R.full, alignItems: 'center', justifyContent: 'center' },
   memberAvatarText: { fontSize: 13, fontWeight: '700' },
-  chevron: { fontSize: 22, color: C.outline },
-  emptyBox: { alignItems: 'center', paddingVertical: 32, gap: 6 },
-  emptyIcon: { fontSize: 32, marginBottom: 4 },
+  emptyBox: { alignItems: 'center', paddingVertical: 32, gap: 4 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: C.onSurface, textAlign: 'center' },
   emptySub: { fontSize: 13, color: C.onSurfaceVariant, textAlign: 'center' },
   retryBtn: { marginTop: 12, backgroundColor: C.primaryContainer, borderRadius: R.md, paddingHorizontal: 16, paddingVertical: 10 },
   retryText: { color: C.onPrimary, fontWeight: '700' },
+});
+
+const e = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.surfaceLowest },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: 20, borderBottomWidth: 1, borderBottomColor: C.outlineVariant,
+  },
+  title: { fontSize: 18, fontWeight: '700', color: C.primary },
+  body: { padding: 20, paddingBottom: 32, gap: 4 },
+  field: { marginBottom: 12 },
+  label: { fontSize: 11, fontWeight: '700', color: C.onSurfaceVariant, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 },
+  input: {
+    height: 46, borderWidth: 1, borderColor: C.outlineVariant, borderRadius: R.md,
+    paddingHorizontal: 14, fontSize: 15, color: C.onSurface, backgroundColor: C.surfaceLow,
+  },
+  error: { color: C.error, marginTop: 8 },
+  footer: { flexDirection: 'row', gap: 10, padding: 20, borderTopWidth: 1, borderTopColor: C.outlineVariant },
+  cancelBtn: { flex: 1, borderRadius: R.md, paddingVertical: 13, alignItems: 'center', borderWidth: 1, borderColor: C.outlineVariant },
+  cancelText: { color: C.onSurfaceVariant, fontWeight: '600' },
+  saveBtn: { flex: 2, backgroundColor: C.primaryContainer, borderRadius: R.md, paddingVertical: 13, alignItems: 'center' },
+  saveText: { color: C.onPrimary, fontWeight: '700', fontSize: 14 },
+  emptyText: { fontSize: 14, color: C.onSurfaceVariant, textAlign: 'center' },
+  memberRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.outlineVariant,
+  },
+  memberAvatar: { width: 40, height: 40, borderRadius: R.full, alignItems: 'center', justifyContent: 'center' },
+  memberAvatarText: { fontSize: 15, fontWeight: '700' },
+  memberName: { fontSize: 14, fontWeight: '700', color: C.onSurface },
+  memberSub: { fontSize: 12, color: C.onSurfaceVariant, marginTop: 2 },
 });

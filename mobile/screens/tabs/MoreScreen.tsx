@@ -3,19 +3,20 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
 import { useAuth } from '../../context/AuthContext';
 import { C, R, initials } from '../../lib/theme';
 import { MoreStackParamList } from '../details/types';
 
-interface MenuItem { icon: string; label: string; sub: string; comingSoon?: boolean; }
+interface MenuItem { iconName: string; label: string; sub: string; comingSoon?: boolean; }
 
 const MENU_ITEMS: MenuItem[] = [
-  { icon: '💳', label: 'Payments', sub: 'Record advances & settlements' },
-  { icon: '📋', label: 'Contracts', sub: 'Fixed-price job assignments' },
-  { icon: '📊', label: 'Statements', sub: 'Earnings, balances & ledger' },
-  { icon: '🌱', label: 'Plots', sub: 'Manage farm plots & seasons' },
-  { icon: '⚙️', label: 'Settings', sub: 'Language, account preferences' },
+  { iconName: 'credit-card-outline', label: 'Payments', sub: 'Record advances & settlements' },
+  { iconName: 'file-document-outline', label: 'Contracts', sub: 'Fixed-price job assignments' },
+  { iconName: 'chart-bar', label: 'Statements', sub: 'Earnings, balances & ledger' },
+  { iconName: 'terrain', label: 'Plots', sub: 'Manage farm plots & seasons', comingSoon: true },
+  { iconName: 'cog-outline', label: 'Settings', sub: 'Language, account preferences', comingSoon: true },
 ];
 
 export default function MoreScreen() {
@@ -65,20 +66,21 @@ export default function MoreScreen() {
                 i === MENU_ITEMS.length - 1 && styles.menuItemLast,
               ]}
               onPress={() => {
-                if (item.label === 'Contracts') navigation.navigate('Contracts');
+                if (item.label === 'Payments') navigation.navigate('Payments');
+                else if (item.label === 'Contracts') navigation.navigate('Contracts');
                 else if (item.label === 'Statements') navigation.navigate('Statements');
                 else Alert.alert(item.label, 'Coming soon in next update.');
               }}
               activeOpacity={0.7}
             >
               <View style={styles.menuIconBox}>
-                <Text style={styles.menuIconText}>{item.icon}</Text>
+                <MaterialCommunityIcons name={item.iconName as any} size={22} color={C.primary} />
               </View>
               <View style={styles.menuInfo}>
                 <Text style={styles.menuLabel}>{item.label}</Text>
                 <Text style={styles.menuSub}>{item.sub}</Text>
               </View>
-              <Text style={styles.menuChevron}>›</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={C.outlineVariant} />
             </TouchableOpacity>
           ))}
         </View>
@@ -122,11 +124,10 @@ const styles = StyleSheet.create({
   menuItemFirst: { borderTopWidth: 0 },
   menuItemLast: {},
   menuIconBox: { width: 40, height: 40, borderRadius: R.md, backgroundColor: C.surfaceLow, alignItems: 'center', justifyContent: 'center' },
-  menuIconText: { fontSize: 20 },
   menuInfo: { flex: 1 },
   menuLabel: { fontSize: 15, fontWeight: '600', color: C.onSurface },
   menuSub: { fontSize: 12, color: C.onSurfaceVariant, marginTop: 1 },
-  menuChevron: { fontSize: 20, color: C.outlineVariant },
+  menuChevron: { color: C.outlineVariant },
 
   signOutBtn: {
     backgroundColor: C.errorContainer,
