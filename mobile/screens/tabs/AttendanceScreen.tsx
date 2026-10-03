@@ -28,6 +28,7 @@ interface AttRecord {
 }
 interface Labour { id: string; name: string; is_active: boolean; daily_wage?: number; }
 interface Team { id: string; name: string; member_count: number; is_active: boolean; daily_wage?: number; }
+interface Payment { id: string; date: string; amount: number; method: string; labour_id?: string | null; team_id?: string | null; }
 
 const STATUS_LABEL: Record<AttStatus, string> = { present: 'P', absent: 'A', half_day: 'H' };
 const STATUS_STYLE: Record<AttStatus, { bg: string; fg: string }> = {
@@ -552,10 +553,12 @@ function PickerModal({
 
 // ─── History Tab ──────────────────────────────────────────────────────────────
 
-function HistoryTab({ weekDates, labours, teams, records, onCycle }: {
-  weekDates: string[]; labours: Labour[]; teams: Team[]; records: AttRecord[];
+function HistoryTab({ weekDates, labours, teams, records, payments, onCycle }: {
+  weekDates: string[]; labours: Labour[]; teams: Team[]; records: AttRecord[]; payments: Payment[];
   onCycle: (id: string, kind: 'labour' | 'team', date: string) => void;
 }) {
+  const [breakdown, setBreakdown] = useState<{ id: string; kind: 'labour' | 'team'; name: string } | null>(null);
+
   const presentIds = new Set(records.map((r) => r.labour_id ?? r.team_id));
   const activeL = labours.filter((l) => presentIds.has(l.id));
   const activeT = teams.filter((t) => presentIds.has(t.id));
@@ -569,71 +572,131 @@ function HistoryTab({ weekDates, labours, teams, records, onCycle }: {
       return n + (st === 'present' ? 1 : st === 'half_day' ? 0.5 : 0);
     }, 0);
   }
+  function paymentsFor(id: string, kind: 'labour' | 'team') {
+    return payments.filter((p) =>
+      weekDates.includes(p.date) &&
+      (kind === 'labour' ? p.labour_id === id : p.team_id === id)
+    );
+  }
+  function weekPaid(id: string, kind: 'labour' | 'team') {
+    return paymentsFor(id, kind).reduce((sum, p) => sum + (p.amount ?? 0), 0);
+  }
+  function fmtDay(iso: string) {
+    return new Date(`${iso}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
 
   if (activeL.length + activeT.length === 0) {
     return <View style={s.centred}><Text style={s.emptyDesc}>No attendance marked for this week.</Text></View>;
   }
 
-  return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
-      <View style={[h.row, h.headerRow]}>
-        <View style={h.nameCol}><Text style={h.headerLabel}>Name</Text></View>
-        {DAY_SHORT.map((d, i) => (
-          <View key={i} style={[h.dayCol, h.dayCell]}>
-            <Text style={h.headerLabel}>{d}</Text>
-            <Text style={h.headerDate}>{new Date(`${weekDates[i]}T00:00:00`).getDate()}</Text>
-          </View>
-        ))}
-        <View style={[h.totalCol, h.dayCell]}><Text style={h.headerLabel}>Days</Text></View>
-      </View>
-      {activeL.map((l, li) => {
-        const c = AVATAR_COLORS[li % AVATAR_COLORS.length];
-        return (
-          <View key={l.id} style={h.row}>
+  function RowContent({ id, kind, avatarBg, avatarFg, avatarLabel, name, rowBg }: {
+    id: string; kind: 'labour' | 'team'; avatarBg: string; avatarFg: string;
+    avatarLabel: string; name: string; rowBg?: string;
+  }) {
+    const paid = weekPaid(id, kind);
+    return (
+      <View style={[h.row, rowBg ? { backgroundColor: rowBg } : {}]}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollEnabled={false} style={h.hScroll}>
+          <View style={h.hInner}>
             <View style={h.nameCol}>
-              <View style={[h.miniAvatar, { backgroundColor: c.bg }]}>
-                <Text style={[h.miniAvatarText, { color: c.fg }]}>{initials(l.name)[0]}</Text>
+              <View style={[h.miniAvatar, { backgroundColor: avatarBg }]}>
+                <Text style={[h.miniAvatarText, { color: avatarFg }]}>{avatarLabel}</Text>
               </View>
-              <Text style={h.nameText} numberOfLines={1}>{l.name.split(' ')[0]}</Text>
+              <Text style={h.nameText} numberOfLines={1}>{name}</Text>
             </View>
             {weekDates.map((d, di) => {
-              const st = statusOf(l.id, 'labour', d);
+              const st = statusOf(id, kind, d);
               const col = st ? STATUS_STYLE[st] : null;
               return (
-                <TouchableOpacity key={di} style={[h.dayCol, h.dayCell, col ? { backgroundColor: col.bg } : {}]} onPress={() => onCycle(l.id, 'labour', d)}>
+                <TouchableOpacity key={di} style={[h.dayCol, h.dayCell, col ? { backgroundColor: col.bg } : {}]} onPress={() => onCycle(id, kind, d)}>
                   <Text style={[h.statusLabel, col ? { color: col.fg } : {}]}>{st ? STATUS_LABEL[st] : '–'}</Text>
                 </TouchableOpacity>
               );
             })}
             <View style={[h.totalCol, h.dayCell]}>
-              <Text style={h.totalText}>{dayCount(l.id, 'labour')}</Text>
+              <Text style={h.totalText}>{dayCount(id, kind)}</Text>
             </View>
+            <TouchableOpacity style={[h.earnedCol, h.dayCell]} onPress={() => setBreakdown({ id, kind, name })}>
+              <Text style={h.earnedText} numberOfLines={1}>
+                {paid > 0 ? `₹${Math.round(paid).toLocaleString('en-IN')}` : '–'}
+              </Text>
+            </TouchableOpacity>
           </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return (
+    <>
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+      {/* Header */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollEnabled={false}>
+        <View style={[h.hInner, h.headerRow]}>
+          <View style={h.nameCol}><Text style={h.headerLabel}>Name</Text></View>
+          {DAY_SHORT.map((d, i) => (
+            <View key={i} style={[h.dayCol, h.dayCell]}>
+              <Text style={h.headerLabel}>{d}</Text>
+              <Text style={h.headerDate}>{new Date(`${weekDates[i]}T00:00:00`).getDate()}</Text>
+            </View>
+          ))}
+          <View style={[h.totalCol, h.dayCell]}><Text style={h.headerLabel}>Days</Text></View>
+          <View style={[h.earnedCol, h.dayCell]}><Text style={h.headerLabel}>Paid</Text></View>
+        </View>
+      </ScrollView>
+      {activeL.map((l, li) => {
+        const c = AVATAR_COLORS[li % AVATAR_COLORS.length];
+        return (
+          <RowContent key={l.id} id={l.id} kind="labour"
+            avatarBg={c.bg} avatarFg={c.fg} avatarLabel={initials(l.name)[0]}
+            name={l.name} />
         );
       })}
       {activeT.map((t) => (
-        <View key={t.id} style={[h.row, { backgroundColor: '#f5f0ff' }]}>
-          <View style={h.nameCol}>
-            <View style={[h.miniAvatar, { backgroundColor: '#e8d5f7' }]}>
-              <Text style={[h.miniAvatarText, { color: '#3d1457' }]}>T</Text>
-            </View>
-            <Text style={h.nameText} numberOfLines={1}>{t.name.split(' ')[0]}</Text>
-          </View>
-          {weekDates.map((d, di) => {
-            const st = statusOf(t.id, 'team', d);
-            const col = st ? STATUS_STYLE[st] : null;
-            return (
-              <TouchableOpacity key={di} style={[h.dayCol, h.dayCell, col ? { backgroundColor: col.bg } : {}]} onPress={() => onCycle(t.id, 'team', d)}>
-                <Text style={[h.statusLabel, col ? { color: col.fg } : {}]}>{st ? STATUS_LABEL[st] : '–'}</Text>
-              </TouchableOpacity>
-            );
-          })}
-          <View style={[h.totalCol, h.dayCell]}>
-            <Text style={h.totalText}>{dayCount(t.id, 'team')}</Text>
-          </View>
-        </View>
+        <RowContent key={t.id} id={t.id} kind="team"
+          avatarBg="#e8d5f7" avatarFg="#3d1457" avatarLabel="T"
+          name={t.name} rowBg="#f5f0ff" />
       ))}
     </ScrollView>
+
+    {/* Payment breakdown modal */}
+    <Modal visible={!!breakdown} transparent animationType="fade" onRequestClose={() => setBreakdown(null)}>
+      <TouchableOpacity style={h.bdOverlay} activeOpacity={1} onPress={() => setBreakdown(null)}>
+        <TouchableOpacity activeOpacity={1} style={h.bdCard} onPress={() => {}}>
+          <Text style={h.bdTitle} numberOfLines={1}>{breakdown?.name}</Text>
+          <Text style={h.bdSubtitle}>Payments this week</Text>
+          {breakdown && paymentsFor(breakdown.id, breakdown.kind).length === 0 ? (
+            <Text style={h.bdEmpty}>No payments recorded this week.</Text>
+          ) : (
+            breakdown && weekDates
+              .map((d) => ({ date: d, items: paymentsFor(breakdown.id, breakdown.kind).filter((p) => p.date === d) }))
+              .filter((x) => x.items.length > 0)
+              .map((x) => (
+                <View key={x.date} style={h.bdRow}>
+                  <Text style={h.bdDay}>{fmtDay(x.date)}</Text>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    {x.items.map((p) => (
+                      <Text key={p.id} style={h.bdAmt}>
+                        {METHOD_LABEL[p.method] ?? p.method}  ₹{Math.round(p.amount).toLocaleString('en-IN')}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+              ))
+          )}
+          {breakdown && paymentsFor(breakdown.id, breakdown.kind).length > 0 && (
+            <View style={h.bdTotalRow}>
+              <Text style={h.bdTotalLabel}>Total</Text>
+              <Text style={h.bdTotalAmt}>₹{Math.round(weekPaid(breakdown.id, breakdown.kind)).toLocaleString('en-IN')}</Text>
+            </View>
+          )}
+          <TouchableOpacity style={h.bdClose} onPress={() => setBreakdown(null)}>
+            <Text style={h.bdCloseTxt}>Close</Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+    </>
   );
 }
 
@@ -647,6 +710,7 @@ export default function AttendanceScreen() {
   const [labours, setLabours] = useState<Labour[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [records, setRecords] = useState<AttRecord[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [sheetIds, setSheetIds] = useState<Set<string> | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -660,16 +724,19 @@ export default function AttendanceScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [ls, ts, rs] = await Promise.all([
+      const [ls, ts, rs, ps] = await Promise.all([
         apiGet<{ items: Labour[] }>('/api/v1/labours', { page: 1, page_size: 100, status: 'active' }),
         apiGet<{ items: Team[] }>('/api/v1/teams', { page: 1, page_size: 100, status: 'active' }),
         apiGet<{ items: AttRecord[] }>('/api/v1/attendance/history', {
           date_from: weekStart, date_to: addDays(weekStart, 6), page: 1, page_size: 100,
         }),
+        apiGet<{ items: Payment[] }>('/api/v1/payments', {
+          date_from: weekStart, date_to: addDays(weekStart, 6), page: 1, page_size: 200,
+        }).catch(() => ({ items: [] as Payment[] })),
       ]);
       const lItems = ls.items ?? [];
       const tItems = ts.items ?? [];
-      setLabours(lItems); setTeams(tItems); setRecords(rs.items ?? []);
+      setLabours(lItems); setTeams(tItems); setRecords(rs.items ?? []); setPayments(ps.items ?? []);
       try {
         const stored = await AsyncStorage.getItem(sheetKey);
         if (stored) {
@@ -847,7 +914,7 @@ export default function AttendanceScreen() {
           sheetIds={sheetIds}
         />
       ) : (
-        <HistoryTab weekDates={weekDates} labours={labours} teams={teams} records={records} onCycle={handleCycle} />
+        <HistoryTab weekDates={weekDates} labours={labours} teams={teams} records={records} payments={payments} onCycle={handleCycle} />
       )}
 
       <PickerModal
@@ -908,20 +975,44 @@ const s = StyleSheet.create({
   removeBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', marginLeft: 2 },
 });
 
+const H_NAME = 96;
+const H_DAY  = 24;
+const H_TOTAL = 30;
+const H_EARNED = 52;
+const H_ROW_W = H_NAME + 7 * H_DAY + H_TOTAL + H_EARNED;
+
 const h = StyleSheet.create({
-  headerRow: { backgroundColor: C.surfaceHigh, borderWidth: 0, minHeight: 40 },
-  row: { flexDirection: 'row', alignItems: 'stretch', backgroundColor: C.surfaceLowest, borderRadius: R.sm, marginBottom: 4, borderWidth: 1, borderColor: C.outlineVariant, minHeight: 44, overflow: 'hidden' },
-  nameCol: { flex: 1.35, minWidth: 0, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dayCol: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  headerRow: { backgroundColor: C.surfaceHigh, borderRadius: R.sm, borderWidth: 1, borderColor: C.outlineVariant, marginBottom: 2, minHeight: 40, overflow: 'hidden' },
+  row: { alignItems: 'stretch', backgroundColor: C.surfaceLowest, borderRadius: R.sm, marginBottom: 4, borderWidth: 1, borderColor: C.outlineVariant, minHeight: 44, overflow: 'hidden' },
+  hScroll: { flex: 1 },
+  hInner: { flexDirection: 'row', alignItems: 'stretch', width: H_ROW_W },
+  nameCol: { width: H_NAME, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dayCol: { width: H_DAY, alignItems: 'center', justifyContent: 'center' },
   dayCell: { borderLeftWidth: 1, borderLeftColor: C.outlineVariant },
-  totalCol: { width: 40, alignItems: 'center', justifyContent: 'center' },
-  headerLabel: { fontSize: 10, fontWeight: '700', color: C.onSurfaceVariant, textAlign: 'center' },
-  headerDate: { fontSize: 10, color: C.outline, textAlign: 'center', marginTop: 1 },
+  totalCol: { width: H_TOTAL, alignItems: 'center', justifyContent: 'center' },
+  earnedCol: { width: H_EARNED, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  headerLabel: { fontSize: 9, fontWeight: '700', color: C.onSurfaceVariant, textAlign: 'center' },
+  headerDate: { fontSize: 9, color: C.outline, textAlign: 'center', marginTop: 1 },
   miniAvatar: { width: 22, height: 22, borderRadius: R.full, alignItems: 'center', justifyContent: 'center' },
   miniAvatarText: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
   nameText: { fontSize: 12, fontWeight: '600', color: C.onSurface, flex: 1 },
-  statusLabel: { fontSize: 12, fontWeight: '800', color: C.onSurfaceVariant, textAlign: 'center' },
+  statusLabel: { fontSize: 11, fontWeight: '800', color: C.onSurfaceVariant, textAlign: 'center' },
   totalText: { fontSize: 12, fontWeight: '700', color: C.onSurface, textAlign: 'center' },
+  earnedText: { fontSize: 11, fontWeight: '700', color: '#2a7a4f', textAlign: 'center' },
+  // breakdown modal
+  bdOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  bdCard: { backgroundColor: C.surfaceLowest, borderRadius: R.xl, padding: 20, width: '100%', maxWidth: 360 },
+  bdTitle: { fontSize: 16, fontWeight: '700', color: C.onSurface, marginBottom: 2 },
+  bdSubtitle: { fontSize: 12, color: C.onSurfaceVariant, marginBottom: 14 },
+  bdEmpty: { fontSize: 13, color: C.onSurfaceVariant, textAlign: 'center', paddingVertical: 12 },
+  bdRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
+  bdDay: { fontSize: 13, color: C.onSurface, fontWeight: '500', flex: 1 },
+  bdAmt: { fontSize: 13, color: C.onSurface, fontWeight: '600' },
+  bdTotalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, marginTop: 2 },
+  bdTotalLabel: { fontSize: 14, fontWeight: '700', color: C.onSurface },
+  bdTotalAmt: { fontSize: 14, fontWeight: '800', color: '#2a7a4f' },
+  bdClose: { marginTop: 16, backgroundColor: C.primaryContainer, borderRadius: R.lg, paddingVertical: 10, alignItems: 'center' },
+  bdCloseTxt: { fontSize: 14, fontWeight: '700', color: C.onPrimary },
 });
 
 const pm = StyleSheet.create({

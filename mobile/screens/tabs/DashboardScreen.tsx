@@ -171,66 +171,71 @@ export default function DashboardScreen() {
               </View>
             )}
 
-            {/* Present people */}
+            {/* Attendance table */}
             {(presentLabours.length + presentTeams.length) > 0 && (
               <View>
                 <View style={styles.sectionHeader}>
                   <Text style={styles.sectionTitle}>Today's Attendance</Text>
                   <Text style={styles.sectionCount}>{totalPresent} present</Text>
                 </View>
-
-                {presentLabours.map((l, i) => {
-                  const c = AVATAR_COLORS[i % AVATAR_COLORS.length];
-                  const isHalf = l.status === 'half_day';
-                  return (
-                    <TouchableOpacity
-                      key={l.labour_id}
-                      style={styles.personRow}
-                      onPress={() => navigation.navigate('People', { screen: 'LabourDetail', params: { id: l.labour_id } })}
-                      activeOpacity={0.75}
-                    >
-                      <View style={[styles.personAvatar, { backgroundColor: c.bg }]}>
-                        <Text style={[styles.personAvatarText, { color: c.fg }]}>{initials(l.labour_name)}</Text>
-                      </View>
-                      <View style={styles.personInfo}>
-                        <Text style={styles.personName}>{l.labour_name}</Text>
-                        <Text style={styles.personMeta}>{l.task ?? 'No task specified'}</Text>
-                      </View>
-                      <View style={styles.personRight}>
-                        <Text style={styles.personWage}>{fmtCurrency(l.wage_earned ?? 0)}</Text>
-                        <View style={[styles.presentBadge, isHalf && styles.halfBadge]}>
-                          <Text style={[styles.presentBadgeText, isHalf && styles.halfBadgeText]}>
-                            {isHalf ? 'Half Day' : 'Present'}
-                          </Text>
+                <View style={styles.attTable}>
+                  {/* Header */}
+                  <View style={styles.attThead}>
+                    <Text style={[styles.attTh, { flex: 1 }]}>Name</Text>
+                    <Text style={[styles.attTh, { width: 72, textAlign: 'right' }]}>Earned</Text>
+                    <Text style={[styles.attTh, { flex: 1, paddingLeft: 10 }]}>Task</Text>
+                  </View>
+                  {/* Labour rows */}
+                  {presentLabours.map((l, i) => {
+                    const c = AVATAR_COLORS[i % AVATAR_COLORS.length];
+                    const isLast = i === presentLabours.length - 1 && presentTeams.length === 0;
+                    return (
+                      <TouchableOpacity
+                        key={l.labour_id}
+                        style={[styles.attTr, isLast && styles.attTrLast]}
+                        onPress={() => navigation.navigate('People', { screen: 'LabourDetail', params: { id: l.labour_id } })}
+                        activeOpacity={0.6}
+                      >
+                        <View style={[styles.attNameCell, { flex: 1 }]}>
+                          <View style={[styles.attAv, { backgroundColor: c.bg }]}>
+                            <Text style={[styles.attAvTxt, { color: c.fg }]}>{initials(l.labour_name)[0]}</Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.attName} numberOfLines={1}>{l.labour_name}</Text>
+                            <Text style={styles.attMeta}>{l.status === 'half_day' ? 'Half Day' : 'Present'}</Text>
+                          </View>
                         </View>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-
-                {presentTeams.map((t, i) => {
-                  const c = AVATAR_COLORS[(presentLabours.length + i) % AVATAR_COLORS.length];
-                  return (
-                    <TouchableOpacity
-                      key={t.team_id}
-                      style={styles.personRow}
-                      onPress={() => navigation.navigate('People', { screen: 'TeamDetail', params: { id: t.team_id } })}
-                      activeOpacity={0.75}
-                    >
-                      <View style={[styles.personAvatar, { backgroundColor: c.bg }]}>
-                        <Text style={[styles.personAvatarText, { color: c.fg }]}>{initials(t.team_name)}</Text>
-                      </View>
-                      <View style={styles.personInfo}>
-                        <Text style={styles.personName}>{t.team_name}</Text>
-                        <Text style={styles.personMeta}>{t.num_labourers ?? 0} workers</Text>
-                      </View>
-                      <View style={styles.personRight}>
-                        <Text style={styles.personWage}>{fmtCurrency(t.wage_earned ?? 0)}</Text>
-                        <View style={styles.presentBadge}><Text style={styles.presentBadgeText}>Present</Text></View>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
+                        <Text style={styles.attEarned}>{fmtCurrency(l.wage_earned ?? 0)}</Text>
+                        <Text style={styles.attTask} numberOfLines={2}>{l.task ?? '—'}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {/* Team rows */}
+                  {presentTeams.map((t, i) => {
+                    const c = AVATAR_COLORS[(presentLabours.length + i) % AVATAR_COLORS.length];
+                    const isLast = i === presentTeams.length - 1;
+                    return (
+                      <TouchableOpacity
+                        key={t.team_id}
+                        style={[styles.attTr, styles.attTrTeam, isLast && styles.attTrLast]}
+                        onPress={() => navigation.navigate('People', { screen: 'TeamDetail', params: { id: t.team_id } })}
+                        activeOpacity={0.6}
+                      >
+                        <View style={[styles.attNameCell, { flex: 1 }]}>
+                          <View style={[styles.attAv, { backgroundColor: c.bg }]}>
+                            <Text style={[styles.attAvTxt, { color: c.fg }]}>{initials(t.team_name)[0]}</Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.attName} numberOfLines={1}>{t.team_name}</Text>
+                            <Text style={styles.attMeta}>{t.num_labourers ?? 0} workers</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.attEarned}>{fmtCurrency(t.wage_earned ?? 0)}</Text>
+                        <Text style={styles.attTask} numberOfLines={2}>{t.task ?? '—'}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
             )}
 
@@ -320,28 +325,19 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: '700', color: C.onSurface },
   sectionCount: { fontSize: 11, fontWeight: '600', color: C.onSurfaceVariant },
 
-  personRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: C.surfaceLowest,
-    borderRadius: R.lg,
-    padding: 12,
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: C.outlineVariant,
-    gap: 10,
-  },
-  personAvatar: { width: 40, height: 40, borderRadius: R.full, alignItems: 'center', justifyContent: 'center' },
-  personAvatarText: { fontSize: 13, fontWeight: '700' },
-  personInfo: { flex: 1, gap: 2 },
-  personName: { fontSize: 14, fontWeight: '600', color: C.onSurface },
-  personMeta: { fontSize: 11, color: C.onSurfaceVariant },
-  personRight: { alignItems: 'flex-end', gap: 4 },
-  personWage: { fontSize: 14, fontWeight: '700', color: C.primaryContainer },
-  presentBadge: { backgroundColor: C.primaryFixed, borderRadius: R.full, paddingHorizontal: 7, paddingVertical: 2 },
-  presentBadgeText: { fontSize: 10, fontWeight: '700', color: C.primary },
-  halfBadge: { backgroundColor: '#fef3c7' },
-  halfBadgeText: { color: '#6b4c04' },
+  attTable:    { borderRadius: R.xl, borderWidth: 1, borderColor: C.outlineVariant, overflow: 'hidden', backgroundColor: C.surfaceLowest },
+  attThead:    { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceHigh, paddingHorizontal: 12, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
+  attTh:       { fontSize: 9, fontWeight: '800', color: C.onSurfaceVariant, letterSpacing: 0.8, textTransform: 'uppercase' },
+  attTr:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.outlineVariant, backgroundColor: C.surfaceLowest },
+  attTrTeam:   { backgroundColor: '#faf7ff' },
+  attTrLast:   { borderBottomWidth: 0 },
+  attNameCell: { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 },
+  attAv:       { width: 28, height: 28, borderRadius: R.full, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  attAvTxt:    { fontSize: 10, fontWeight: '800' },
+  attName:     { fontSize: 13, fontWeight: '600', color: C.onSurface },
+  attMeta:     { fontSize: 10, color: C.onSurfaceVariant, marginTop: 1 },
+  attEarned:   { width: 72, fontSize: 12, fontWeight: '700', color: C.primaryContainer, textAlign: 'right' },
+  attTask:     { flex: 1, fontSize: 11, color: C.onSurfaceVariant, paddingLeft: 10 },
 
   emptyBox: { alignItems: 'center', paddingVertical: 40, gap: 8 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: C.onSurface },

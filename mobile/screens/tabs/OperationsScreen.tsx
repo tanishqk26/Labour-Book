@@ -302,28 +302,33 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadOps(true); }} tintColor={C.primary} />}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <View style={styles.tableHeader}>
-              <Text style={[styles.tableHeaderText, { width: 40 }]}>Day</Text>
-              <Text style={[styles.tableHeaderText, { width: 72 }]}>Date</Text>
-              <Text style={[styles.tableHeaderText, { flex: 1 }]}>Operation</Text>
+            <View style={styles.tableContainer}>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.tableHeaderText, { width: 36 }]}>Day</Text>
+                <Text style={[styles.tableHeaderText, { width: 64 }]}>Date</Text>
+                <Text style={[styles.tableHeaderText, { flex: 1 }]}>Operation</Text>
+              </View>
             </View>
           }
-          renderItem={({ item: op }) => {
+          renderItem={({ item: op, index }) => {
             const grp = opGroupOf(op.operation_type);
             const cfg = GROUP_CFG[grp];
             const day = dayNum(operations, op);
+            const isLast = index === filtered.length - 1;
             return (
-              <TouchableOpacity style={styles.opRow} onPress={() => navigation.navigate('OperationDetail', { id: op.id })}>
-                <View style={styles.dayBadge}><Text style={styles.dayText}>{day}</Text></View>
-                <Text style={styles.opDate}>{op.operation_date.slice(5)}</Text>
-                <View style={{ flex: 1 }}>
-                  <View style={[styles.groupBadge, { backgroundColor: cfg.bg }]}>
-                    <MaterialCommunityIcons name={cfg.icon as any} size={11} color={cfg.fg} />
-                    <Text style={[styles.groupBadgeText, { color: cfg.fg }]}> {grp}</Text>
+              <View style={styles.tableContainer}>
+                <TouchableOpacity style={[styles.opRow, isLast && styles.opRowLast]} onPress={() => navigation.navigate('OperationDetail', { id: op.id })}>
+                  <Text style={styles.dayText}>{day}</Text>
+                  <Text style={styles.opDate}>{new Date(`${op.operation_date}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</Text>
+                  <View style={{ flex: 1 }}>
+                    <View style={[styles.groupBadge, { backgroundColor: cfg.bg }]}>
+                      <MaterialCommunityIcons name={cfg.icon as any} size={11} color={cfg.fg} />
+                      <Text style={[styles.groupBadgeText, { color: cfg.fg }]}> {grp}</Text>
+                    </View>
+                    {op.notes ? <Text style={styles.opNotes} numberOfLines={2}>{op.notes}</Text> : null}
                   </View>
-                  {op.notes ? <Text style={styles.opNotes} numberOfLines={2}>{op.notes}</Text> : null}
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
             );
           }}
         />
@@ -355,16 +360,17 @@ const styles = StyleSheet.create({
   hint: { fontSize: 12, color: C.onSurfaceVariant, textAlign: 'center' },
   emptyTitle: { fontSize: 15, fontWeight: '700', color: C.onSurface, marginBottom: 4 },
 
-  tableHeader: { flexDirection: 'row', paddingHorizontal: 4, paddingBottom: 6 },
-  tableHeaderText: { fontSize: 9, fontWeight: '700', color: C.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.5 },
+  tableContainer: { borderRadius: R.xl, borderWidth: 1, borderColor: C.outlineVariant, overflow: 'hidden', backgroundColor: C.surfaceLowest, marginBottom: 0 },
+  tableHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceHigh, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
+  tableHeaderText: { fontSize: 9, fontWeight: '800', color: C.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.8 },
 
-  opRow: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: C.surfaceLowest, borderRadius: R.lg, padding: 12, marginBottom: 6, borderWidth: 1, borderColor: C.outlineVariant, gap: 10 },
-  dayBadge: { width: 32, height: 32, borderRadius: R.sm, backgroundColor: C.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
-  dayText: { fontSize: 12, fontWeight: '700', color: C.onSurface },
-  opDate: { width: 66, fontSize: 12, color: C.onSurfaceVariant, paddingTop: 7 },
+  opRow: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.outlineVariant, backgroundColor: C.surfaceLowest, gap: 10 },
+  opRowLast: { borderBottomWidth: 0 },
+  dayText: { width: 36, fontSize: 13, fontWeight: '700', color: C.primary, paddingTop: 2 },
+  opDate: { width: 64, fontSize: 12, color: C.onSurfaceVariant, paddingTop: 3 },
   groupBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.sm, alignSelf: 'flex-start', marginBottom: 4 },
   groupBadgeText: { fontSize: 11, fontWeight: '700' },
-  opNotes: { fontSize: 11, color: C.onSurfaceVariant },
+  opNotes: { fontSize: 12, color: C.onSurface },
 });
 
 const ms = StyleSheet.create({

@@ -6,9 +6,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Modal,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -165,88 +165,62 @@ function AddTeamModal({ visible, onClose, onSuccess }: { visible: boolean; onClo
   );
 }
 
-// ─── Labour Card ──────────────────────────────────────────────────────────────
+// ─── Table Row — Labour ───────────────────────────────────────────────────────
 
-function LabourCard({ labour, index, onPress, onDeactivate, balance }: { labour: Labour; index: number; onPress: () => void; onDeactivate: (id: string, name: string) => void; balance?: EntityPaymentSummary }) {
+function LabourRow({ labour, index, onPress, onDeactivate, balance, isLast }: {
+  labour: Labour; index: number; onPress: () => void;
+  onDeactivate: (id: string, name: string) => void;
+  balance?: EntityPaymentSummary; isLast?: boolean;
+}) {
   const c = AVATAR_COLORS[index % AVATAR_COLORS.length];
-  const timing = labour.work_start_time && labour.work_end_time
-    ? `${labour.work_start_time} – ${labour.work_end_time}`
-    : '—';
-
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
-      <View style={styles.cardTop}>
-        <View style={[styles.avatar, { backgroundColor: c.bg }]}>
-          <Text style={[styles.avatarText, { color: c.fg }]}>{initials(labour.name)}</Text>
+    <TouchableOpacity style={[t.tr, isLast && t.trLast]} onPress={onPress} activeOpacity={0.55}>
+      <View style={t.nameCell}>
+        <View style={[t.av, { backgroundColor: c.bg }]}>
+          <Text style={[t.avTxt, { color: c.fg }]}>{initials(labour.name)[0]}</Text>
         </View>
-        <View style={styles.cardInfo}>
-          <View style={styles.nameRow}>
-            <Text style={styles.cardName}>{labour.name}</Text>
-            <View style={styles.activeBadge}><Text style={styles.activeBadgeText}>ACTIVE</Text></View>
-            {balance != null && (
-              <View style={[styles.balChip, balance.pending > 0 ? styles.balChipDue : styles.balChipOk]}>
-                <Text style={[styles.balChipText, balance.pending > 0 ? styles.balChipTextDue : styles.balChipTextOk]}>
-                  {balance.pending > 0 ? `${fmtCurrency(balance.pending)} due` : 'Settled'}
-                </Text>
-              </View>
-            )}
-          </View>
-          {labour.hometown && (
-            <Text style={styles.cardMeta}>📍 {labour.hometown}</Text>
-          )}
-        </View>
-        <TouchableOpacity onPress={() => onDeactivate(labour.id, labour.name)} hitSlop={10}>
-          <MaterialCommunityIcons name="dots-vertical" size={20} color={C.outline} />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.cardGrid}>
-        <View style={styles.gridCell}>
-          <Text style={styles.gridLabel}>DAILY WAGE</Text>
-          <Text style={styles.gridValue}>{fmtCurrency(labour.daily_wage)}/day</Text>
-        </View>
-        <View style={styles.gridCell}>
-          <Text style={styles.gridLabel}>SHIFT TIMING</Text>
-          <Text style={styles.gridValue}>{timing}</Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={t.cellName} numberOfLines={1}>{labour.name}</Text>
+          {labour.hometown ? <Text style={t.cellMeta} numberOfLines={1}>{labour.hometown}</Text> : null}
         </View>
       </View>
+      <Text style={t.cellWage}>{fmtCurrency(labour.daily_wage)}</Text>
+      <View style={t.cellBal}>
+        {balance != null
+          ? <Text style={balance.pending > 0 ? t.due : t.settled}>{balance.pending > 0 ? fmtCurrency(balance.pending) : 'Settled'}</Text>
+          : <Text style={t.dash}>—</Text>}
+      </View>
+      <TouchableOpacity onPress={() => onDeactivate(labour.id, labour.name)} hitSlop={8}>
+        <MaterialCommunityIcons name="dots-vertical" size={18} color={C.outline} />
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
 
-// ─── Team Card ────────────────────────────────────────────────────────────────
+// ─── Table Row — Team ─────────────────────────────────────────────────────────
 
-function TeamCard({ team, index, onPress, balance }: { team: TeamSummary; index: number; onPress: () => void; balance?: EntityPaymentSummary }) {
+function TeamRow({ team, index, onPress, balance, isLast }: {
+  team: TeamSummary; index: number; onPress: () => void;
+  balance?: EntityPaymentSummary; isLast?: boolean;
+}) {
   const c = AVATAR_COLORS[index % AVATAR_COLORS.length];
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
-      <View style={styles.cardTop}>
-        <View style={[styles.avatar, { backgroundColor: c.bg }]}>
-          <Text style={[styles.avatarText, { color: c.fg }]}>{initials(team.name)}</Text>
+    <TouchableOpacity style={[t.tr, isLast && t.trLast]} onPress={onPress} activeOpacity={0.55}>
+      <View style={t.nameCell}>
+        <View style={[t.av, { backgroundColor: c.bg }]}>
+          <Text style={[t.avTxt, { color: c.fg }]}>{initials(team.name)[0]}</Text>
         </View>
-        <View style={styles.cardInfo}>
-          <View style={styles.nameRow}>
-            <Text style={styles.cardName}>{team.name}</Text>
-            <View style={styles.activeBadge}><Text style={styles.activeBadgeText}>ACTIVE</Text></View>
-            {balance != null && (
-              <View style={[styles.balChip, balance.pending > 0 ? styles.balChipDue : styles.balChipOk]}>
-                <Text style={[styles.balChipText, balance.pending > 0 ? styles.balChipTextDue : styles.balChipTextOk]}>
-                  {balance.pending > 0 ? `${fmtCurrency(balance.pending)} due` : 'Settled'}
-                </Text>
-              </View>
-            )}
-          </View>
-          {team.hometown && <Text style={styles.cardMeta}>📍 {team.hometown}</Text>}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={t.cellName} numberOfLines={1}>{team.name}</Text>
+          {team.hometown ? <Text style={t.cellMeta} numberOfLines={1}>{team.hometown}</Text> : null}
         </View>
       </View>
-      <View style={styles.cardGrid}>
-        <View style={styles.gridCell}>
-          <Text style={styles.gridLabel}>DAILY RATE</Text>
-          <Text style={styles.gridValue}>{fmtCurrency(team.daily_wage)}/labour</Text>
-        </View>
-        <View style={styles.gridCell}>
-          <Text style={styles.gridLabel}>MEMBERS</Text>
-          <Text style={styles.gridValue}>{team.member_count} workers</Text>
-        </View>
+      <Text style={t.cellMembers}>{team.member_count}</Text>
+      <Text style={t.cellRate}>{fmtCurrency(team.daily_wage)}</Text>
+      <View style={t.cellBal}>
+        {balance != null
+          ? <Text style={balance.pending > 0 ? t.due : t.settled}>{balance.pending > 0 ? fmtCurrency(balance.pending) : 'Settled'}</Text>
+          : <Text style={t.dash}>—</Text>}
       </View>
     </TouchableOpacity>
   );
@@ -393,47 +367,55 @@ export default function PeopleScreen() {
           <Text style={styles.emptyTitle}>{search ? 'No results' : isIndividual ? 'No Labourers Yet' : 'No Teams Yet'}</Text>
           <Text style={styles.emptySub}>{search ? `No match for "${search}"` : `Tap + Add ${isIndividual ? 'Labour' : 'Team'} to get started.`}</Text>
         </View>
-      ) : isIndividual ? (
-        <FlatList
-          data={labours}
-          keyExtractor={(l) => l.id}
-          contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={C.primary} />}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item, index }) => (
-            <LabourCard
-              labour={item}
-              index={index}
-              onPress={() => navigation.navigate('LabourDetail', { id: item.id })}
-              onDeactivate={deactivate}
-              balance={paymentMap[item.id]}
-            />
-          )}
-          ListFooterComponent={
-            <Text style={styles.footerNote}>Showing {labours.length} registered agricultural workers</Text>
-          }
-        />
       ) : (
-        <FlatList
-          data={teams}
-          keyExtractor={(t) => t.id}
+        <ScrollView
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={C.primary} />}
           showsVerticalScrollIndicator={false}
-          renderItem={({ item, index }) => (
-            <TeamCard
-              team={item}
-              index={index}
-              onPress={() => navigation.navigate('TeamDetail', { id: item.id })}
-              balance={paymentMap[item.id]}
-            />
-          )}
-          ListFooterComponent={
-            <Text style={styles.footerNote}>
-              Daily settlement rates calculate automatically into your Daily Book at day end.
-            </Text>
-          }
-        />
+        >
+          <View style={t.table}>
+            {/* Header */}
+            <View style={t.thead}>
+              <Text style={[t.th, t.nameTh]}>Name</Text>
+              {isIndividual
+                ? <>
+                    <Text style={[t.th, t.wageTh]}>Wage/day</Text>
+                    <Text style={[t.th, t.balTh]}>Balance</Text>
+                    <View style={{ width: 26 }} />
+                  </>
+                : <>
+                    <Text style={[t.th, t.membersTh]}>Members</Text>
+                    <Text style={[t.th, t.rateTh]}>Rate</Text>
+                    <Text style={[t.th, t.balTh]}>Balance</Text>
+                  </>}
+            </View>
+            {/* Rows */}
+            {isIndividual
+              ? labours.map((l, i) => (
+                  <LabourRow
+                    key={l.id} labour={l} index={i}
+                    onPress={() => navigation.navigate('LabourDetail', { id: l.id })}
+                    onDeactivate={deactivate}
+                    balance={paymentMap[l.id]}
+                    isLast={i === labours.length - 1}
+                  />
+                ))
+              : teams.map((tm, i) => (
+                  <TeamRow
+                    key={tm.id} team={tm} index={i}
+                    onPress={() => navigation.navigate('TeamDetail', { id: tm.id })}
+                    balance={paymentMap[tm.id]}
+                    isLast={i === teams.length - 1}
+                  />
+                ))
+            }
+          </View>
+          <Text style={styles.footerNote}>
+            {isIndividual
+              ? `${labours.length} active agricultural worker${labours.length !== 1 ? 's' : ''}`
+              : `${teams.length} active team${teams.length !== 1 ? 's' : ''}`}
+          </Text>
+        </ScrollView>
       )}
     </View>
   );
@@ -465,39 +447,8 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: '700', color: C.onSurface },
   emptySub: { fontSize: 13, color: C.onSurfaceVariant, textAlign: 'center' },
 
-  list: { padding: 16, paddingBottom: 32, gap: 12 },
-
-  card: {
-    backgroundColor: C.surfaceLowest,
-    borderRadius: R.xl,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: C.outlineVariant,
-    gap: 12,
-  },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  avatar: { width: 44, height: 44, borderRadius: R.full, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 15, fontWeight: '700' },
-  cardInfo: { flex: 1, gap: 3 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  cardName: { fontSize: 15, fontWeight: '700', color: C.onSurface },
-  activeBadge: { backgroundColor: C.primaryFixed, borderRadius: R.full, paddingHorizontal: 8, paddingVertical: 2 },
-  activeBadgeText: { fontSize: 9, fontWeight: '800', color: C.primary, letterSpacing: 0.5 },
-  cardMeta: { fontSize: 12, color: C.onSurfaceVariant },
-
-  cardGrid: { flexDirection: 'row', gap: 1, backgroundColor: C.outlineVariant, borderRadius: R.sm, overflow: 'hidden' },
-  gridCell: { flex: 1, backgroundColor: C.surfaceLow, padding: 10, gap: 2 },
-  gridLabel: { fontSize: 9, fontWeight: '700', color: C.onSurfaceVariant, letterSpacing: 0.6 },
-  gridValue: { fontSize: 13, fontWeight: '600', color: C.onSurface },
-
-  footerNote: { fontSize: 11, color: C.onSurfaceVariant, textAlign: 'center', marginTop: 8, paddingHorizontal: 20 },
-
-  balChip: { borderRadius: R.full, paddingHorizontal: 7, paddingVertical: 2 },
-  balChipDue: { backgroundColor: '#fef2f2' },
-  balChipOk: { backgroundColor: C.primaryFixed },
-  balChipText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
-  balChipTextDue: { color: C.error },
-  balChipTextOk: { color: C.primary },
+  list: { padding: 16, paddingBottom: 32 },
+  footerNote: { fontSize: 11, color: C.onSurfaceVariant, textAlign: 'center', marginTop: 10 },
 });
 
 const ms = StyleSheet.create({
@@ -514,4 +465,33 @@ const ms = StyleSheet.create({
   saveBtn: { flex: 2, backgroundColor: C.primaryContainer, borderRadius: R.md, paddingVertical: 13, alignItems: 'center' },
   saveText: { color: C.onPrimary, fontWeight: '700', fontSize: 14 },
   twoCol: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+});
+
+// ─── Table styles (shared by Labour + Team rows) ──────────────────────────────
+
+const t = StyleSheet.create({
+  table:   { borderRadius: R.xl, borderWidth: 1, borderColor: C.outlineVariant, overflow: 'hidden', backgroundColor: C.surfaceLowest },
+  thead:   { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceHigh, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
+  th:      { fontSize: 9, fontWeight: '800', color: C.onSurfaceVariant, letterSpacing: 0.8, textTransform: 'uppercase' },
+  nameTh:  { flex: 1 },
+  wageTh:  { width: 70, textAlign: 'right' },
+  balTh:   { width: 78, textAlign: 'right' },
+  membersTh: { width: 58, textAlign: 'center' },
+  rateTh:  { width: 68, textAlign: 'right' },
+
+  tr:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.outlineVariant, backgroundColor: C.surfaceLowest },
+  trLast:  { borderBottomWidth: 0 },
+
+  nameCell: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0, marginRight: 4 },
+  av:       { width: 28, height: 28, borderRadius: R.full, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  avTxt:    { fontSize: 10, fontWeight: '800' },
+  cellName: { fontSize: 13, fontWeight: '600', color: C.onSurface },
+  cellMeta: { fontSize: 11, color: C.onSurfaceVariant, marginTop: 1 },
+  cellWage: { width: 70, fontSize: 12, fontWeight: '600', color: C.onSurface, textAlign: 'right' },
+  cellMembers: { width: 58, fontSize: 13, fontWeight: '600', color: C.onSurface, textAlign: 'center' },
+  cellRate: { width: 68, fontSize: 12, fontWeight: '600', color: C.onSurface, textAlign: 'right' },
+  cellBal:  { width: 78, alignItems: 'flex-end' },
+  due:      { fontSize: 11, fontWeight: '700', color: C.error },
+  settled:  { fontSize: 11, fontWeight: '700', color: '#2a7a4f' },
+  dash:     { fontSize: 12, color: C.outline },
 });
