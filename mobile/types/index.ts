@@ -58,10 +58,11 @@ export interface AttendanceRecord {
 export interface Plot {
   id: string;
   name: string;
-  area?: number;
-  area_unit?: string;
-  notes?: string;
+  size_acres: number;
+  crop_name?: string | null;
+  notes?: string | null;
   is_active: boolean;
+  status: string;
   created_at: string;
   updated_at: string;
 }

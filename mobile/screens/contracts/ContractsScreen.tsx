@@ -103,19 +103,48 @@ export default function ContractsScreen({ navigation }: { navigation: { goBack: 
     }
   }
 
+  const totalValue = items.reduce((s, c) => s + c.amount, 0);
+
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
+      {/* Nav bar */}
       <View style={s.bar}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12} style={s.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={C.primary} />
         </TouchableOpacity>
-        <Text style={s.title}>Contracts</Text>
-        <TouchableOpacity onPress={openCreate} style={s.addBtn}>
-          <MaterialCommunityIcons name="plus" size={20} color={C.primary} />
-          <Text style={s.addBtnText}>New</Text>
+        <Text style={s.barTitle}>Contracts</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      {/* Page header */}
+      <View style={s.pageHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.pageLabel}>CONTRACTS</Text>
+          <Text style={s.pageTitle}>Contract Work</Text>
+          <Text style={s.pageSub}>Fixed-price work assigned to labourers or teams.</Text>
+        </View>
+        <TouchableOpacity onPress={openCreate} style={s.newBtn}>
+          <MaterialCommunityIcons name="plus" size={16} color={C.onPrimary} />
+          <Text style={s.newBtnText}>New Contract</Text>
         </TouchableOpacity>
       </View>
 
+      {/* KPI summary */}
+      {!loading && items.length > 0 && (
+        <View style={s.kpiCard}>
+          <View style={s.kpiCell}>
+            <Text style={s.kpiLabel}>SHOWING CONTRACTS</Text>
+            <Text style={s.kpiValue}>{items.length}</Text>
+          </View>
+          <View style={s.kpiDiv} />
+          <View style={s.kpiCell}>
+            <Text style={s.kpiLabel}>TOTAL VALUE</Text>
+            <Text style={[s.kpiValue, { color: C.primary }]}>{fmtCurrency(totalValue)}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Filter chips */}
       <View style={s.filters}>
         {(['', 'active', 'completed', 'cancelled'] as const).map((key) => (
           <TouchableOpacity key={key || 'all'} style={[s.chip, status === key && s.chipOn]} onPress={() => setStatus(key)}>
@@ -148,6 +177,10 @@ export default function ContractsScreen({ navigation }: { navigation: { goBack: 
             <View style={{ alignItems: 'center', gap: 8 }}>
               <MaterialCommunityIcons name="file-document-outline" size={48} color={C.outline} />
               <Text style={s.emptyTitle}>No contracts yet</Text>
+              <TouchableOpacity style={s.newBtn} onPress={openCreate}>
+                <MaterialCommunityIcons name="plus" size={16} color={C.onPrimary} />
+                <Text style={s.newBtnText}>New Contract</Text>
+              </TouchableOpacity>
             </View>
           }
           renderItem={({ item }) => (
@@ -180,48 +213,111 @@ function ContractCard({
   onDelete: () => void;
   onStatusChange: (st: ContractStatus) => void;
 }) {
-  const st = STATUS_STYLE[contract.status] ?? STATUS_STYLE.active;
-
   return (
     <TouchableOpacity style={s.card} onPress={onPress} activeOpacity={0.8}>
-      {/* Header row */}
+      {/* Title + actions */}
       <View style={s.cardTop}>
         <Text style={s.cardTitle} numberOfLines={1}>{contract.title}</Text>
-        <View style={{ flexDirection: 'row', gap: 4 }}>
+        <View style={{ flexDirection: 'row', gap: 6 }}>
           <TouchableOpacity onPress={onEdit} style={s.iconBtn} hitSlop={6}>
-            <MaterialCommunityIcons name="pencil-outline" size={16} color={C.primary} />
+            <MaterialCommunityIcons name="pencil-outline" size={15} color={C.onSurfaceVariant} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={onDelete} style={[s.iconBtn, { borderColor: C.errorContainer }]} hitSlop={6}>
-            <MaterialCommunityIcons name="delete-outline" size={16} color={C.error} />
+          <TouchableOpacity onPress={onDelete} style={[s.iconBtn, s.iconBtnRed]} hitSlop={6}>
+            <MaterialCommunityIcons name="delete-outline" size={15} color={C.error} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Meta */}
-      <Text style={s.meta}>{contract.entity_name || (contract.entity_type === 'team' ? 'Team' : 'Labour')} · {fmtDate(contract.assigned_date)}</Text>
-      {contract.plot?.name ? <Text style={s.meta}>Plot · {contract.plot.name}</Text> : null}
-      {contract.description ? <Text style={s.notes} numberOfLines={2}>{contract.description}</Text> : null}
-      <Text style={s.amount}>{fmtCurrency(contract.amount)}</Text>
+      {/* Entity + type label */}
+      <Text style={s.entityLabel}>
+        {(contract.entity_name || (contract.entity_type === 'team' ? 'Team' : 'Labour')).toUpperCase()} · {contract.entity_type === 'team' ? 'TEAM' : 'INDIVIDUAL'}
+      </Text>
+      {contract.plot?.name ? <Text style={s.plotLabel}>Plot · {contract.plot.name}</Text> : null}
 
-      {/* Inline status toggle */}
+      <View style={s.divider} />
+
+      {/* Amount + date row */}
+      <View style={s.amountRow}>
+        <View>
+          <Text style={s.amountLabel}>AGREED AMOUNT</Text>
+          <Text style={s.amount}>{fmtCurrency(contract.amount)}</Text>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={s.amountLabel}>ASSIGNED</Text>
+          <Text style={s.assignedDate}>{fmtDate(contract.assigned_date)}</Text>
+        </View>
+      </View>
+
+      {contract.description ? (
+        <>
+          <View style={s.divider} />
+          <Text style={s.notes} numberOfLines={2}>{contract.description}</Text>
+        </>
+      ) : null}
+
+      <View style={s.divider} />
+
+      {/* Status toggle */}
+      <Text style={s.statusLabel}>STATUS</Text>
       <View style={s.statusRow}>
         {(['active', 'completed', 'cancelled'] as ContractStatus[]).map((key) => {
           const c = STATUS_STYLE[key];
-          const isActive = contract.status === key;
+          const isOn = contract.status === key;
           return (
             <TouchableOpacity
               key={key}
               onPress={() => onStatusChange(key)}
-              style={[s.statusChip, isActive && { backgroundColor: c.bg, borderColor: c.bg }]}
+              style={[s.statusChip, isOn && { backgroundColor: c.bg, borderColor: c.bg }]}
             >
-              <Text style={[s.statusChipText, isActive && { color: c.fg }]}>
-                {key.charAt(0).toUpperCase() + key.slice(1)}
+              <Text style={[s.statusChipText, isOn && { color: c.fg, fontWeight: '800' }]}>
+                {key.toUpperCase()}
               </Text>
             </TouchableOpacity>
           );
         })}
       </View>
     </TouchableOpacity>
+  );
+}
+
+// ─── Sheet Picker ─────────────────────────────────────────────────────────────
+
+function SheetPicker({ label, selectedId, options, onSelect }: {
+  label: string;
+  selectedId: string;
+  options: { id: string; label: string }[];
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel = options.find((o) => o.id === selectedId)?.label ?? '';
+  return (
+    <>
+      <TouchableOpacity style={m.pickerRow} onPress={() => setOpen(true)} activeOpacity={0.7}>
+        <Text style={[m.pickerValue, !selectedLabel && m.pickerPlaceholder]} numberOfLines={1}>
+          {selectedLabel || `Select ${label}...`}
+        </Text>
+        <MaterialCommunityIcons name="chevron-down" size={18} color={C.onSurfaceVariant} />
+      </TouchableOpacity>
+      <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
+        <TouchableOpacity style={m.overlay} activeOpacity={1} onPress={() => setOpen(false)}>
+          <TouchableOpacity style={m.sheet} activeOpacity={1} onPress={() => {}}>
+            <View style={m.sheetHandle} />
+            <Text style={m.sheetTitle}>{label}</Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 320 }}>
+              {options.map((opt) => {
+                const active = opt.id === selectedId;
+                return (
+                  <TouchableOpacity key={opt.id} style={[m.sheetOpt, active && m.sheetOptActive]} onPress={() => { onSelect(opt.id); setOpen(false); }}>
+                    <Text style={[m.sheetOptText, active && m.sheetOptTextActive]}>{opt.label}</Text>
+                    {active && <MaterialCommunityIcons name="check" size={18} color={C.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    </>
   );
 }
 
@@ -256,6 +352,11 @@ function ContractFormModal({
   const [qcOpen, setQcOpen] = useState(false);
   const [qcName, setQcName] = useState('');
   const [qcWage, setQcWage] = useState('');
+  const [qcHometown, setQcHometown] = useState('');
+  const [qcPhone, setQcPhone] = useState('');
+  const [qcCarRent, setQcCarRent] = useState('');
+  const [qcMgrFee, setQcMgrFee] = useState('');
+  const [qcDesc, setQcDesc] = useState('');
   const [qcSaving, setQcSaving] = useState(false);
 
   const selectedPlot = plots.find((p) => p.id === plotId);
@@ -274,7 +375,7 @@ function ContractFormModal({
       setTitle(''); setKind('individual'); setEntityId(''); setAmount(''); setDate(todayISO()); setNotes('');
       setPlotId(''); setRatePerUnit('');
     }
-    setQcOpen(false); setQcName(''); setQcWage(''); setError(null);
+    setQcOpen(false); setQcName(''); setQcWage(''); setQcHometown(''); setQcPhone(''); setQcCarRent(''); setQcMgrFee(''); setQcDesc(''); setError(null);
     if (!isEdit) {
       Promise.all([
         apiGet<PaginatedResponse<Labour>>('/api/v1/labours', { status: 'active', page_size: 100 }),
@@ -287,23 +388,41 @@ function ContractFormModal({
   // Auto-calculate amount when rate + plot area changes
   useEffect(() => {
     const rate = parseFloat(ratePerUnit);
-    const area = selectedPlot?.area;
+    const area = selectedPlot?.size_acres;
     if (!isNaN(rate) && rate > 0 && area != null && area > 0) {
       setAmount(String(Math.round(rate * area)));
     }
   }, [ratePerUnit, selectedPlot]);
 
   async function quickCreate() {
+    if (!qcName.trim()) { Alert.alert('Required', 'Name is required'); return; }
     const w = parseFloat(qcWage);
-    if (!qcName.trim() || isNaN(w) || w < 0) return;
+    if (isNaN(w) || w < 0) { Alert.alert('Invalid', 'Enter a valid daily wage'); return; }
     setQcSaving(true);
     try {
-      const endpoint = kind === 'individual' ? '/api/v1/labours' : '/api/v1/teams';
-      const created = await apiPost<Labour | TeamSummary>(endpoint, { name: qcName.trim(), daily_wage: w });
-      if (kind === 'individual') setLabours((prev) => [...prev, created as Labour]);
-      else setTeams((prev) => [...prev, created as TeamSummary]);
+      let created: Labour | TeamSummary;
+      if (kind === 'individual') {
+        created = await apiPost<Labour>('/api/v1/labours', {
+          name: qcName.trim(),
+          daily_wage: w,
+          hometown: qcHometown.trim() || undefined,
+          phone: qcPhone.trim() || undefined,
+        });
+        setLabours((prev) => [...prev, created as Labour]);
+      } else {
+        created = await apiPost<TeamSummary>('/api/v1/teams', {
+          name: qcName.trim(),
+          daily_wage: w,
+          hometown: qcHometown.trim() || undefined,
+          car_rent: parseFloat(qcCarRent) || 0,
+          manager_fee: parseFloat(qcMgrFee) || 0,
+          description: qcDesc.trim() || undefined,
+        });
+        setTeams((prev) => [...prev, created as TeamSummary]);
+      }
       setEntityId(created.id);
-      setQcOpen(false); setQcName(''); setQcWage('');
+      setQcOpen(false);
+      setQcName(''); setQcWage(''); setQcHometown(''); setQcPhone(''); setQcCarRent(''); setQcMgrFee(''); setQcDesc('');
     } catch {
       Alert.alert('Error', 'Could not create.');
     } finally {
@@ -374,47 +493,57 @@ function ContractFormModal({
                   </TouchableOpacity>
                 ))}
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 8 }}>
-                {options.map((o) => (
-                  <TouchableOpacity key={o.id} style={[m.person, entityId === o.id && m.personOn]} onPress={() => { setEntityId(o.id); setQcOpen(false); }}>
-                    <Text style={[m.personText, entityId === o.id && m.toggleTextOn]}>{o.name}</Text>
-                  </TouchableOpacity>
-                ))}
-                <TouchableOpacity style={m.qcAddBtn} onPress={() => setQcOpen((v) => !v)}>
-                  <MaterialCommunityIcons name={qcOpen ? 'close' : 'plus'} size={16} color={C.primary} />
-                  <Text style={m.qcAddText}>New</Text>
-                </TouchableOpacity>
-              </ScrollView>
+              <SheetPicker
+                label={kind === 'individual' ? 'Labour' : 'Team'}
+                selectedId={entityId}
+                options={options.map((o) => ({ id: o.id, label: o.name }))}
+                onSelect={(id) => { setEntityId(id); setQcOpen(false); }}
+              />
+              <TouchableOpacity style={m.qcAddBtn} onPress={() => setQcOpen((v) => !v)}>
+                <MaterialCommunityIcons name={qcOpen ? 'close' : 'plus'} size={14} color={C.primary} />
+                <Text style={m.qcAddText}>Quick add new {kind === 'individual' ? 'labour' : 'team'}</Text>
+              </TouchableOpacity>
               {/* Quick-create inline form */}
               {qcOpen && (
                 <View style={m.qcForm}>
-                  <Text style={m.qcFormTitle}>Quick Add {kind === 'individual' ? 'Labour' : 'Team'}</Text>
-                  <View style={m.qcRow}>
-                    <TextInput
-                      style={[m.input, { flex: 2 }]}
-                      value={qcName}
-                      onChangeText={setQcName}
-                      placeholder="Name"
-                      placeholderTextColor={C.outline}
-                    />
-                    <TextInput
-                      style={[m.input, { flex: 1 }]}
-                      value={qcWage}
-                      onChangeText={setQcWage}
-                      keyboardType="numeric"
-                      placeholder="₹/day"
-                      placeholderTextColor={C.outline}
-                    />
-                    <TouchableOpacity
-                      style={[m.qcSaveBtn, qcSaving && { opacity: 0.6 }]}
-                      onPress={quickCreate}
-                      disabled={qcSaving}
-                    >
-                      {qcSaving
-                        ? <ActivityIndicator size="small" color={C.onPrimary} />
-                        : <Text style={m.qcSaveBtnText}>Add</Text>}
-                    </TouchableOpacity>
-                  </View>
+                  <Text style={m.qcFormTitle}>New {kind === 'individual' ? 'Labourer' : 'Team'}</Text>
+
+                  <Text style={m.qcFieldLabel}>Full Name *</Text>
+                  <TextInput style={m.input} value={qcName} onChangeText={setQcName} placeholder="e.g. Deepak Jadhav" placeholderTextColor={C.outline} />
+
+                  <Text style={m.qcFieldLabel}>Daily Wage (₹) *</Text>
+                  <TextInput style={m.input} value={qcWage} onChangeText={setQcWage} keyboardType="numeric" placeholder="e.g. 400" placeholderTextColor={C.outline} />
+
+                  <Text style={m.qcFieldLabel}>Hometown</Text>
+                  <TextInput style={m.input} value={qcHometown} onChangeText={setQcHometown} placeholder="e.g. Junnar" placeholderTextColor={C.outline} />
+
+                  {kind === 'individual' ? (
+                    <>
+                      <Text style={m.qcFieldLabel}>Phone</Text>
+                      <TextInput style={m.input} value={qcPhone} onChangeText={setQcPhone} keyboardType="phone-pad" placeholder="10-digit number" placeholderTextColor={C.outline} />
+                    </>
+                  ) : (
+                    <>
+                      <View style={m.qcRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={m.qcFieldLabel}>Car Rent (₹)</Text>
+                          <TextInput style={m.input} value={qcCarRent} onChangeText={setQcCarRent} keyboardType="numeric" placeholder="0" placeholderTextColor={C.outline} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={m.qcFieldLabel}>Manager Fee (₹)</Text>
+                          <TextInput style={m.input} value={qcMgrFee} onChangeText={setQcMgrFee} keyboardType="numeric" placeholder="0" placeholderTextColor={C.outline} />
+                        </View>
+                      </View>
+                      <Text style={m.qcFieldLabel}>Description</Text>
+                      <TextInput style={[m.input, { minHeight: 60, textAlignVertical: 'top' }]} value={qcDesc} onChangeText={setQcDesc} multiline placeholder="Optional notes about this team" placeholderTextColor={C.outline} />
+                    </>
+                  )}
+
+                  <TouchableOpacity style={[m.qcSaveBtn, qcSaving && { opacity: 0.6 }]} onPress={quickCreate} disabled={qcSaving}>
+                    {qcSaving
+                      ? <ActivityIndicator size="small" color={C.onPrimary} />
+                      : <Text style={m.qcSaveBtnText}>Add {kind === 'individual' ? 'Labourer' : 'Team'}</Text>}
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -422,27 +551,24 @@ function ContractFormModal({
               {plots.length > 0 && (
                 <>
                   <Text style={m.label}>Plot (optional)</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 8 }}>
-                    <TouchableOpacity style={[m.person, plotId === '' && m.personOn]} onPress={() => setPlotId('')}>
-                      <Text style={[m.personText, plotId === '' && m.toggleTextOn]}>None</Text>
-                    </TouchableOpacity>
-                    {plots.map((p) => (
-                      <TouchableOpacity key={p.id} style={[m.person, plotId === p.id && m.personOn]} onPress={() => setPlotId(p.id)}>
-                        <Text style={[m.personText, plotId === p.id && m.toggleTextOn]}>
-                          {p.name}{p.area != null ? ` (${p.area}${p.area_unit ?? ''})` : ''}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                  {selectedPlot?.area != null && (
+                  <SheetPicker
+                    label="Plot"
+                    selectedId={plotId}
+                    options={[
+                      { id: '', label: 'None' },
+                      ...plots.map((p) => ({ id: p.id, label: p.name + (p.size_acres != null ? ` (${p.size_acres} ac)` : '') })),
+                    ]}
+                    onSelect={setPlotId}
+                  />
+                  {selectedPlot?.size_acres != null && (
                     <>
-                      <Text style={m.label}>Rate per {selectedPlot.area_unit ?? 'unit'} (₹)</Text>
+                      <Text style={m.label}>Rate per acre (₹)</Text>
                       <TextInput
                         style={m.input}
                         value={ratePerUnit}
                         onChangeText={setRatePerUnit}
                         keyboardType="numeric"
-                        placeholder={`Auto-calculates amount for ${selectedPlot.area} ${selectedPlot.area_unit ?? 'units'}`}
+                        placeholder={`Auto-calculates amount for ${selectedPlot.size_acres} acres`}
                         placeholderTextColor={C.outline}
                       />
                     </>
@@ -475,36 +601,59 @@ function ContractFormModal({
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
-  bar: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, backgroundColor: C.surfaceLowest, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
-  backBtn: { width: 40, alignItems: 'center', justifyContent: 'center' },
-  title: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: C.primary },
-  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 8 },
-  addBtnText: { color: C.primary, fontWeight: '700', fontSize: 14 },
 
-  filters: { flexDirection: 'row', gap: 6, padding: 12, backgroundColor: C.surfaceLow },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: R.full, backgroundColor: C.surfaceHigh },
-  chipOn: { backgroundColor: C.primary },
+  // nav bar
+  bar: { height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, backgroundColor: C.surfaceLowest, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
+  backBtn: { width: 40, alignItems: 'center', justifyContent: 'center' },
+  barTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: C.primary },
+
+  // page header
+  pageHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: C.surfaceLow, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
+  pageLabel: { fontSize: 10, fontWeight: '700', color: C.onSurfaceVariant, letterSpacing: 1 },
+  pageTitle: { fontSize: 22, fontWeight: '800', color: C.primary, letterSpacing: -0.3, marginTop: 2 },
+  pageSub: { fontSize: 12, color: C.onSurfaceVariant, marginTop: 2 },
+  newBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.primaryContainer, borderRadius: R.lg, paddingHorizontal: 12, paddingVertical: 9, marginTop: 4 },
+  newBtnText: { color: C.onPrimary, fontWeight: '700', fontSize: 12 },
+
+  // KPI summary
+  kpiCard: { flexDirection: 'row', backgroundColor: C.surfaceLowest, marginHorizontal: 16, marginTop: 14, borderRadius: R.lg, borderWidth: 1, borderColor: C.outlineVariant, overflow: 'hidden' },
+  kpiCell: { flex: 1, paddingVertical: 12, paddingHorizontal: 16, gap: 2 },
+  kpiDiv: { width: 1, backgroundColor: C.outlineVariant, marginVertical: 10 },
+  kpiLabel: { fontSize: 9, fontWeight: '700', color: C.onSurfaceVariant, letterSpacing: 0.8, textTransform: 'uppercase' },
+  kpiValue: { fontSize: 22, fontWeight: '800', color: C.onSurface, letterSpacing: -0.3 },
+
+  // filter chips
+  filters: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: C.background },
+  chip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: R.full, backgroundColor: C.surfaceHigh, borderWidth: 1, borderColor: C.outlineVariant },
+  chipOn: { backgroundColor: C.primary, borderColor: C.primary },
   chipText: { fontSize: 12, fontWeight: '700', color: C.onSurfaceVariant, textTransform: 'capitalize' },
   chipTextOn: { color: C.onPrimary },
 
-  list: { padding: 12, gap: 10, paddingBottom: 32 },
+  list: { padding: 16, gap: 12, paddingBottom: 40 },
 
-  card: { backgroundColor: C.surfaceLowest, borderRadius: R.lg, padding: 14, borderWidth: 1, borderColor: C.outlineVariant, gap: 5 },
+  // card
+  card: { backgroundColor: C.surfaceLowest, borderRadius: R.xl, padding: 16, borderWidth: 1, borderColor: C.outlineVariant, gap: 8 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  cardTitle: { flex: 1, fontSize: 15, fontWeight: '700', color: C.onSurface },
-  iconBtn: { width: 30, height: 30, borderRadius: R.sm, borderWidth: 1, borderColor: C.outlineVariant, alignItems: 'center', justifyContent: 'center' },
+  cardTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: C.onSurface },
+  iconBtn: { width: 30, height: 30, borderRadius: R.full, borderWidth: 1, borderColor: C.outlineVariant, alignItems: 'center', justifyContent: 'center' },
+  iconBtnRed: { borderColor: '#fecaca' },
 
-  meta: { fontSize: 12, color: C.onSurfaceVariant },
-  notes: { fontSize: 12, color: C.onSurface },
-  amount: { fontSize: 16, fontWeight: '800', color: C.primary, marginTop: 2 },
+  entityLabel: { fontSize: 11, fontWeight: '700', color: C.onSurfaceVariant, letterSpacing: 0.3 },
+  plotLabel: { fontSize: 11, color: C.onSurfaceVariant },
+  divider: { height: 1, backgroundColor: C.outlineVariant },
+  amountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  amountLabel: { fontSize: 9, fontWeight: '700', color: C.onSurfaceVariant, letterSpacing: 0.8, marginBottom: 2 },
+  amount: { fontSize: 20, fontWeight: '800', color: C.primary, letterSpacing: -0.3 },
+  assignedDate: { fontSize: 13, fontWeight: '600', color: C.onSurface },
+  notes: { fontSize: 12, color: C.onSurfaceVariant },
+  statusLabel: { fontSize: 9, fontWeight: '700', color: C.onSurfaceVariant, letterSpacing: 0.8 },
+  statusRow: { flexDirection: 'row', gap: 6 },
+  statusChip: { flex: 1, paddingVertical: 7, borderRadius: R.full, borderWidth: 1, borderColor: C.outlineVariant, alignItems: 'center' },
+  statusChipText: { fontSize: 10, fontWeight: '700', color: C.onSurfaceVariant },
 
-  statusRow: { flexDirection: 'row', gap: 6, marginTop: 6 },
-  statusChip: { flex: 1, paddingVertical: 6, borderRadius: R.full, borderWidth: 1, borderColor: C.outlineVariant, alignItems: 'center' },
-  statusChipText: { fontSize: 11, fontWeight: '700', color: C.onSurfaceVariant, textTransform: 'capitalize' },
-
-  centred: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 8 },
+  centred: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: C.onSurface, textAlign: 'center' },
-  retry: { marginTop: 12, backgroundColor: C.primaryContainer, borderRadius: R.md, paddingHorizontal: 16, paddingVertical: 10 },
+  retry: { backgroundColor: C.primaryContainer, borderRadius: R.md, paddingHorizontal: 16, paddingVertical: 10 },
   retryText: { color: C.onPrimary, fontWeight: '700' },
 });
 
@@ -524,13 +673,25 @@ const m = StyleSheet.create({
   personOn: { backgroundColor: C.primary },
   personText: { fontSize: 13, fontWeight: '600', color: C.onSurface },
   error: { color: C.error, marginTop: 10 },
-  qcAddBtn: { paddingHorizontal: 12, height: 36, borderRadius: R.full, alignItems: 'center', justifyContent: 'center', backgroundColor: C.primaryFixed, flexDirection: 'row', gap: 4 },
+  qcAddBtn: { paddingHorizontal: 14, height: 36, borderRadius: R.md, alignItems: 'center', justifyContent: 'center', backgroundColor: C.primaryFixed, flexDirection: 'row', gap: 6, alignSelf: 'flex-start', marginBottom: 8 },
   qcAddText: { fontSize: 13, fontWeight: '700', color: C.primary },
-  qcForm: { backgroundColor: C.surfaceLow, borderRadius: R.md, padding: 12, borderWidth: 1, borderColor: C.outlineVariant, marginBottom: 8, gap: 8 },
-  qcFormTitle: { fontSize: 12, fontWeight: '700', color: C.onSurfaceVariant },
-  qcRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
-  qcSaveBtn: { backgroundColor: C.primaryContainer, borderRadius: R.md, paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
+  qcForm: { backgroundColor: C.surfaceLow, borderRadius: R.md, padding: 14, borderWidth: 1, borderColor: C.outlineVariant, marginBottom: 8, gap: 6 },
+  qcFormTitle: { fontSize: 13, fontWeight: '800', color: C.onSurface, letterSpacing: 0.2, marginBottom: 4 },
+  qcFieldLabel: { fontSize: 11, fontWeight: '700', color: C.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 2 },
+  qcRow: { flexDirection: 'row', gap: 10 },
+  qcSaveBtn: { backgroundColor: C.primaryContainer, borderRadius: R.md, paddingVertical: 13, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   qcSaveBtnText: { color: C.onPrimary, fontWeight: '700', fontSize: 13 },
+  pickerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: C.outlineVariant, borderRadius: R.md, paddingHorizontal: 14, paddingVertical: 13, marginBottom: 8, backgroundColor: C.surfaceLowest },
+  pickerValue: { fontSize: 15, color: C.onSurface, flex: 1 },
+  pickerPlaceholder: { color: C.onSurfaceVariant },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: C.surfaceLowest, borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, paddingBottom: 32 },
+  sheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: C.outlineVariant, alignSelf: 'center', marginTop: 10, marginBottom: 4 },
+  sheetTitle: { fontSize: 13, fontWeight: '800', color: C.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 20, paddingVertical: 12 },
+  sheetOpt: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.outlineVariant },
+  sheetOptActive: { backgroundColor: C.primaryFixed },
+  sheetOptText: { fontSize: 15, color: C.onSurface },
+  sheetOptTextActive: { fontWeight: '700', color: C.primary },
   footer: { flexDirection: 'row', gap: 10, padding: 20, borderTopWidth: 1, borderTopColor: C.outlineVariant },
   cancel: { flex: 1, borderRadius: R.md, paddingVertical: 13, alignItems: 'center', borderWidth: 1, borderColor: C.outlineVariant },
   cancelText: { color: C.onSurfaceVariant, fontWeight: '600' },

@@ -21,6 +21,7 @@ import ContractsScreen from './screens/contracts/ContractsScreen';
 import ContractDetailScreen from './screens/contracts/ContractDetailScreen';
 import PaymentsScreen from './screens/payments/PaymentsScreen';
 import { StatementsListScreen, StatementDetailScreen } from './screens/statements/StatementsScreen';
+import PlotsScreen from './screens/plots/PlotsScreen';
 import { MoreStackParamList, OperationsStackParamList, PeopleStackParamList } from './screens/details/types';
 import { C, R } from './lib/theme';
 
@@ -58,6 +59,7 @@ function MoreStackScreen() {
       <MoreStack.Screen name="ContractDetail" component={ContractDetailScreen} />
       <MoreStack.Screen name="Statements" component={StatementsListScreen} />
       <MoreStack.Screen name="StatementDetail" component={StatementDetailScreen} />
+      <MoreStack.Screen name="Plots" component={PlotsScreen} />
     </MoreStack.Navigator>
   );
 }

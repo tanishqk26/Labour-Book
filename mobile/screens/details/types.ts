@@ -16,4 +16,5 @@ export type MoreStackParamList = {
   ContractDetail: { id: string };
   Statements: undefined;
   StatementDetail: { entityType: string; entityId: string; name: string };
+  Plots: undefined;
 };

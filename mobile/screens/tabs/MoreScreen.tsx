@@ -15,7 +15,7 @@ const MENU_ITEMS: MenuItem[] = [
   { iconName: 'credit-card-outline', label: 'Payments', sub: 'Record advances & settlements' },
   { iconName: 'file-document-outline', label: 'Contracts', sub: 'Fixed-price job assignments' },
   { iconName: 'chart-bar', label: 'Statements', sub: 'Earnings, balances & ledger' },
-  { iconName: 'terrain', label: 'Plots', sub: 'Manage farm plots & seasons', comingSoon: true },
+  { iconName: 'terrain', label: 'Plots', sub: 'Manage farm plots & seasons' },
   { iconName: 'cog-outline', label: 'Settings', sub: 'Language, account preferences', comingSoon: true },
 ];
 
@@ -69,6 +69,7 @@ export default function MoreScreen() {
                 if (item.label === 'Payments') navigation.navigate('Payments');
                 else if (item.label === 'Contracts') navigation.navigate('Contracts');
                 else if (item.label === 'Statements') navigation.navigate('Statements');
+                else if (item.label === 'Plots') navigation.navigate('Plots');
                 else Alert.alert(item.label, 'Coming soon in next update.');
               }}
               activeOpacity={0.7}

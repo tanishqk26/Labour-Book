@@ -19,7 +19,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
-import { apiGet, apiPost, apiPatch } from '../../lib/api';
+import { apiGet, apiPost, apiPatch, apiDelete } from '../../lib/api';
 import { Labour, TeamSummary, PaginatedResponse, EntityPaymentSummary } from '../../types';
 import { C, R, AVATAR_COLORS, initials, fmtCurrency } from '../../lib/theme';
 import { PeopleStackParamList } from '../details/types';
@@ -167,9 +167,9 @@ function AddTeamModal({ visible, onClose, onSuccess }: { visible: boolean; onClo
 
 // ─── Table Row — Labour ───────────────────────────────────────────────────────
 
-function LabourRow({ labour, index, onPress, onDeactivate, balance, isLast }: {
+function LabourRow({ labour, index, onPress, onMenu, balance, isLast }: {
   labour: Labour; index: number; onPress: () => void;
-  onDeactivate: (id: string, name: string) => void;
+  onMenu: (id: string, name: string) => void;
   balance?: EntityPaymentSummary; isLast?: boolean;
 }) {
   const c = AVATAR_COLORS[index % AVATAR_COLORS.length];
@@ -190,7 +190,7 @@ function LabourRow({ labour, index, onPress, onDeactivate, balance, isLast }: {
           ? <Text style={balance.pending > 0 ? t.due : t.settled}>{balance.pending > 0 ? fmtCurrency(balance.pending) : 'Settled'}</Text>
           : <Text style={t.dash}>—</Text>}
       </View>
-      <TouchableOpacity onPress={() => onDeactivate(labour.id, labour.name)} hitSlop={8}>
+      <TouchableOpacity onPress={() => onMenu(labour.id, labour.name)} hitSlop={8}>
         <MaterialCommunityIcons name="dots-vertical" size={18} color={C.outline} />
       </TouchableOpacity>
     </TouchableOpacity>
@@ -199,8 +199,9 @@ function LabourRow({ labour, index, onPress, onDeactivate, balance, isLast }: {
 
 // ─── Table Row — Team ─────────────────────────────────────────────────────────
 
-function TeamRow({ team, index, onPress, balance, isLast }: {
+function TeamRow({ team, index, onPress, onMenu, balance, isLast }: {
   team: TeamSummary; index: number; onPress: () => void;
+  onMenu: (id: string, name: string) => void;
   balance?: EntityPaymentSummary; isLast?: boolean;
 }) {
   const c = AVATAR_COLORS[index % AVATAR_COLORS.length];
@@ -222,6 +223,9 @@ function TeamRow({ team, index, onPress, balance, isLast }: {
           ? <Text style={balance.pending > 0 ? t.due : t.settled}>{balance.pending > 0 ? fmtCurrency(balance.pending) : 'Settled'}</Text>
           : <Text style={t.dash}>—</Text>}
       </View>
+      <TouchableOpacity onPress={() => onMenu(team.id, team.name)} hitSlop={8}>
+        <MaterialCommunityIcons name="dots-vertical" size={18} color={C.outline} />
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
@@ -282,16 +286,67 @@ export default function PeopleScreen() {
     return () => clearTimeout(t);
   }, [load]);
 
-  function deactivate(id: string, name: string) {
-    Alert.alert('Deactivate', `Remove ${name} from active records?`, [
-      { text: 'Cancel', style: 'cancel' },
+  function menuLabour(id: string, name: string) {
+    Alert.alert(name, 'Choose an action', [
       {
-        text: 'Deactivate', style: 'destructive',
-        onPress: async () => {
-          try { await apiPatch(`/api/v1/labours/${id}`, { is_active: false }); load(true); }
-          catch { Alert.alert('Error', 'Failed to deactivate.'); }
-        },
+        text: 'Deactivate',
+        onPress: () => Alert.alert('Deactivate', `Remove ${name} from active records?`, [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Deactivate', style: 'destructive',
+            onPress: async () => {
+              try { await apiPatch(`/api/v1/labours/${id}`, { is_active: false }); load(true); }
+              catch { Alert.alert('Error', 'Failed to deactivate.'); }
+            },
+          },
+        ]),
       },
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: () => Alert.alert('Delete Labour', `Permanently delete ${name}? All records will be lost and this cannot be undone.`, [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete', style: 'destructive',
+            onPress: async () => {
+              try { await apiDelete(`/api/v1/labours/${id}`); load(true); }
+              catch { Alert.alert('Error', 'Failed to delete. They may have existing records.'); }
+            },
+          },
+        ]),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
+
+  function menuTeam(id: string, name: string) {
+    Alert.alert(name, 'Choose an action', [
+      {
+        text: 'Deactivate',
+        onPress: () => Alert.alert('Deactivate Team', `Remove ${name} from active records?`, [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Deactivate', style: 'destructive',
+            onPress: async () => {
+              try { await apiPatch(`/api/v1/teams/${id}`, { is_active: false }); load(true); }
+              catch { Alert.alert('Error', 'Failed to deactivate.'); }
+            },
+          },
+        ]),
+      },
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: () => Alert.alert('Delete Team', `Permanently delete ${name}? All records will be lost and this cannot be undone.`, [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete', style: 'destructive',
+            onPress: async () => {
+              try { await apiDelete(`/api/v1/teams/${id}`); load(true); }
+              catch { Alert.alert('Error', 'Failed to delete. The team may have existing records.'); }
+            },
+          },
+        ]),
+      },
+      { text: 'Cancel', style: 'cancel' },
     ]);
   }
 
@@ -387,6 +442,7 @@ export default function PeopleScreen() {
                     <Text style={[t.th, t.membersTh]}>Members</Text>
                     <Text style={[t.th, t.rateTh]}>Rate</Text>
                     <Text style={[t.th, t.balTh]}>Balance</Text>
+                    <View style={{ width: 26 }} />
                   </>}
             </View>
             {/* Rows */}
@@ -395,7 +451,7 @@ export default function PeopleScreen() {
                   <LabourRow
                     key={l.id} labour={l} index={i}
                     onPress={() => navigation.navigate('LabourDetail', { id: l.id })}
-                    onDeactivate={deactivate}
+                    onMenu={menuLabour}
                     balance={paymentMap[l.id]}
                     isLast={i === labours.length - 1}
                   />
@@ -404,6 +460,7 @@ export default function PeopleScreen() {
                   <TeamRow
                     key={tm.id} team={tm} index={i}
                     onPress={() => navigation.navigate('TeamDetail', { id: tm.id })}
+                    onMenu={menuTeam}
                     balance={paymentMap[tm.id]}
                     isLast={i === teams.length - 1}
                   />

@@ -38,11 +38,6 @@ function opGroupOf(type: string): OpGroup {
   return 'Other';
 }
 
-function dayNum(ops: PlotOperation[], op: PlotOperation) {
-  const dates = [...new Set(ops.map((o) => o.operation_date))].sort();
-  return Math.floor((new Date(op.operation_date).getTime() - new Date(dates[0]).getTime()) / 86400000) + 1;
-}
-
 // ─── Add Op Modal ─────────────────────────────────────────────────────────────
 
 function AddOpModal({ visible, onClose, onSuccess, plotId, lifecycleId }: {
@@ -136,6 +131,46 @@ function AddOpModal({ visible, onClose, onSuccess, plotId, lifecycleId }: {
   );
 }
 
+// ─── Dropdown ─────────────────────────────────────────────────────────────────
+
+function Dropdown({ label, valueLabel, options, selectedId, onSelect }: {
+  label: string; valueLabel: string;
+  options: { id: string; label: string }[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const canOpen = options.length > 1;
+  return (
+    <>
+      <TouchableOpacity style={dd.row} onPress={() => canOpen && setOpen(true)} activeOpacity={canOpen ? 0.6 : 1}>
+        <Text style={dd.ddLabel}>{label}</Text>
+        <View style={dd.ddValueRow}>
+          <Text style={dd.ddValue} numberOfLines={1}>{valueLabel}</Text>
+          {canOpen && <MaterialCommunityIcons name="chevron-down" size={16} color={C.onSurfaceVariant} />}
+        </View>
+      </TouchableOpacity>
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <TouchableOpacity style={dd.overlay} activeOpacity={1} onPress={() => setOpen(false)}>
+          <TouchableOpacity style={dd.sheet} activeOpacity={1} onPress={() => {}}>
+            <View style={dd.handle} />
+            <Text style={dd.sheetTitle}>{label}</Text>
+            {options.map((opt) => {
+              const active = opt.id === selectedId;
+              return (
+                <TouchableOpacity key={opt.id} style={[dd.option, active && dd.optionActive]} onPress={() => { onSelect(opt.id); setOpen(false); }}>
+                  <Text style={[dd.optText, active && dd.optTextActive]}>{opt.label}</Text>
+                  {active && <MaterialCommunityIcons name="check" size={18} color={C.primary} />}
+                </TouchableOpacity>
+              );
+            })}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    </>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function OperationsScreen({ navigation }: NativeStackScreenProps<OperationsStackParamList, 'OperationsList'>) {
@@ -176,10 +211,8 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
       .then((d) => {
         const enrolled = (d.plot_farm_years ?? []).find((p) => p.plot_id === selectedPlotId);
         const stages = (enrolled?.lifecycles ?? []).map((lc) => ({
-          id: lc.id,
-          stage: lc.lifecycle_type,
-          start_date: lc.start_date,
-          end_date: lc.end_date,
+          id: lc.id, stage: lc.lifecycle_type,
+          start_date: lc.start_date, end_date: lc.end_date,
         }));
         setLifecycles(stages);
         if (stages.length) setSelectedLcId(stages[stages.length - 1].id);
@@ -200,80 +233,62 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
   useEffect(() => { loadOps(); }, [loadOps]);
 
   const filtered = filter === 'All' ? operations : operations.filter((op) => opGroupOf(op.operation_type) === filter);
-
   const lcLabel = (lc: Lifecycle) => lc.stage === 'vegetative' ? 'Vegetative' : 'Fruit Production';
+
+  const selectedPlot = plots.find((p) => p.id === selectedPlotId);
+  const selectedYear = farmYears.find((y) => y.id === selectedYearId);
+  const selectedLc = lifecycles.find((l) => l.id === selectedLcId);
 
   return (
     <View style={styles.root}>
       <AppHeader screenName="Operations" />
 
-      {/* Plot selector — wraps, no horizontal scroll */}
-      <View style={styles.selectorSection}>
-        <Text style={styles.selectorLabel}>PLOT</Text>
-        <View style={styles.chipWrap}>
-          {plots.map((p) => (
-            <TouchableOpacity
-              key={p.id}
-              style={[styles.chip, selectedPlotId === p.id && styles.chipActive]}
-              onPress={() => setSelectedPlotId(p.id)}
-            >
-              <Text style={[styles.chipText, selectedPlotId === p.id && styles.chipTextActive]}>{p.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
+      {/* Dropdowns */}
+      <View style={styles.filterCard}>
+        <Dropdown
+          label="Plot"
+          valueLabel={selectedPlot?.name ?? 'Select plot'}
+          options={plots.map((p) => ({ id: p.id, label: p.name }))}
+          selectedId={selectedPlotId}
+          onSelect={setSelectedPlotId}
+        />
         {farmYears.length > 0 && (
           <>
-            <Text style={styles.selectorLabel}>SEASON</Text>
-            <View style={styles.chipWrap}>
-              {farmYears.map((y) => (
-                <TouchableOpacity
-                  key={y.id}
-                  style={[styles.chip, selectedYearId === y.id && styles.chipActive]}
-                  onPress={() => setSelectedYearId(y.id)}
-                >
-                  <Text style={[styles.chipText, selectedYearId === y.id && styles.chipTextActive]}>{y.year_label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <View style={styles.filterDiv} />
+            <Dropdown
+              label="Season"
+              valueLabel={selectedYear?.year_label ?? '—'}
+              options={farmYears.map((y) => ({ id: y.id, label: y.year_label }))}
+              selectedId={selectedYearId}
+              onSelect={setSelectedYearId}
+            />
           </>
         )}
-
         {lifecycles.length > 0 && (
           <>
-            <Text style={styles.selectorLabel}>STAGE</Text>
-            <View style={styles.chipWrap}>
-              {lifecycles.map((l) => (
-                <TouchableOpacity
-                  key={l.id}
-                  style={[styles.chip, selectedLcId === l.id && styles.chipActive]}
-                  onPress={() => setSelectedLcId(l.id)}
-                >
-                  <Text style={[styles.chipText, selectedLcId === l.id && styles.chipTextActive]}>{lcLabel(l)}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <View style={styles.filterDiv} />
+            <Dropdown
+              label="Stage"
+              valueLabel={selectedLc ? lcLabel(selectedLc) : '—'}
+              options={lifecycles.map((l) => ({ id: l.id, label: lcLabel(l) }))}
+              selectedId={selectedLcId}
+              onSelect={setSelectedLcId}
+            />
           </>
         )}
       </View>
 
-      {/* Filter + Add row */}
-      <View style={styles.filterRow}>
+      {/* Type filter chips */}
+      <View style={styles.typeRow}>
         {(['All', ...OP_GROUPS] as const).map((f) => (
           <TouchableOpacity
             key={f}
-            style={[styles.filterChip, filter === f && styles.filterChipActive]}
+            style={[styles.typeChip, filter === f && styles.typeChipActive]}
             onPress={() => setFilter(f)}
           >
-            <Text style={[styles.filterChipText, filter === f && styles.filterChipTextActive]}>{f}</Text>
+            <Text style={[styles.typeChipText, filter === f && styles.typeChipTextActive]}>{f}</Text>
           </TouchableOpacity>
         ))}
-        <View style={{ flex: 1 }} />
-        {selectedLcId && (
-          <TouchableOpacity style={styles.addOpBtn} onPress={() => setModalOpen(true)}>
-            <Text style={styles.addOpBtnText}>+ Add</Text>
-          </TouchableOpacity>
-        )}
       </View>
 
       <AddOpModal
@@ -285,53 +300,49 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
       />
 
       {!selectedPlotId ? (
-        <View style={styles.centred}><Text style={styles.hint}>Select a plot above to get started</Text></View>
+        <View style={styles.centred}><Text style={styles.hint}>Select a plot to get started</Text></View>
       ) : loading ? (
         <View style={styles.centred}><ActivityIndicator size="large" color={C.primary} /></View>
       ) : filtered.length === 0 ? (
         <View style={styles.centred}>
-          <MaterialCommunityIcons name="barley" size={48} color={C.outlineVariant} style={{ marginBottom: 8 }} />
+          <MaterialCommunityIcons name="barley" size={52} color={C.outlineVariant} style={{ marginBottom: 10 }} />
           <Text style={styles.emptyTitle}>{selectedLcId ? 'No operations yet' : 'Select a season & stage'}</Text>
-          <Text style={styles.hint}>{selectedLcId ? 'Tap + Add to log the first operation' : 'Choose a grape year and stage above'}</Text>
+          <Text style={styles.hint}>{selectedLcId ? 'Tap + to log the first operation' : 'Choose a year and stage above'}</Text>
         </View>
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={(op) => op.id}
-          contentContainerStyle={{ padding: 12, paddingBottom: 40 }}
+          contentContainerStyle={{ padding: 14, paddingBottom: 96 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadOps(true); }} tintColor={C.primary} />}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            <View style={styles.tableContainer}>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderText, { width: 36 }]}>Day</Text>
-                <Text style={[styles.tableHeaderText, { width: 64 }]}>Date</Text>
-                <Text style={[styles.tableHeaderText, { flex: 1 }]}>Operation</Text>
-              </View>
-            </View>
-          }
-          renderItem={({ item: op, index }) => {
+          renderItem={({ item: op }) => {
             const grp = opGroupOf(op.operation_type);
             const cfg = GROUP_CFG[grp];
-            const day = dayNum(operations, op);
-            const isLast = index === filtered.length - 1;
             return (
-              <View style={styles.tableContainer}>
-                <TouchableOpacity style={[styles.opRow, isLast && styles.opRowLast]} onPress={() => navigation.navigate('OperationDetail', { id: op.id })}>
-                  <Text style={styles.dayText}>{day}</Text>
+              <TouchableOpacity style={styles.opCard} onPress={() => navigation.navigate('OperationDetail', { id: op.id })} activeOpacity={0.7}>
+                <View style={[styles.opIconWrap, { backgroundColor: cfg.bg }]}>
+                  <MaterialCommunityIcons name={cfg.icon as any} size={20} color={cfg.fg} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.opType}>{grp}</Text>
+                  {op.notes ? <Text style={styles.opNotes} numberOfLines={2}>{op.notes}</Text> : null}
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 4 }}>
                   <Text style={styles.opDate}>{new Date(`${op.operation_date}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</Text>
-                  <View style={{ flex: 1 }}>
-                    <View style={[styles.groupBadge, { backgroundColor: cfg.bg }]}>
-                      <MaterialCommunityIcons name={cfg.icon as any} size={11} color={cfg.fg} />
-                      <Text style={[styles.groupBadgeText, { color: cfg.fg }]}> {grp}</Text>
-                    </View>
-                    {op.notes ? <Text style={styles.opNotes} numberOfLines={2}>{op.notes}</Text> : null}
-                  </View>
-                </TouchableOpacity>
-              </View>
+                  <MaterialCommunityIcons name="chevron-right" size={16} color={C.outline} />
+                </View>
+              </TouchableOpacity>
             );
           }}
         />
+      )}
+
+      {/* FAB */}
+      {selectedLcId && (
+        <TouchableOpacity style={styles.fab} onPress={() => setModalOpen(true)} activeOpacity={0.85}>
+          <MaterialCommunityIcons name="plus" size={26} color={C.onPrimary} />
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -340,37 +351,45 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
 
-  selectorSection: { backgroundColor: C.surface, padding: 12, borderBottomWidth: 1, borderBottomColor: C.outlineVariant, gap: 6 },
-  selectorLabel: { fontSize: 9, fontWeight: '800', color: C.onSurfaceVariant, letterSpacing: 1, marginTop: 4 },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: R.full, backgroundColor: C.surfaceHigh, borderWidth: 1, borderColor: C.outlineVariant },
-  chipActive: { backgroundColor: C.primaryFixed, borderColor: C.primaryContainer },
-  chipText: { fontSize: 12, fontWeight: '600', color: C.onSurfaceVariant },
-  chipTextActive: { color: C.primaryContainer },
+  // dropdown filter card
+  filterCard: { backgroundColor: C.surfaceLowest, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
+  filterDiv: { height: 1, backgroundColor: C.outlineVariant, marginHorizontal: 16 },
 
-  filterRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 6, backgroundColor: C.surfaceLow, borderBottomWidth: 1, borderBottomColor: C.outlineVariant, flexWrap: 'wrap' },
-  filterChip: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: R.full, backgroundColor: C.surfaceHigh },
-  filterChipActive: { backgroundColor: C.primaryContainer },
-  filterChipText: { fontSize: 11, fontWeight: '700', color: C.onSurfaceVariant },
-  filterChipTextActive: { color: C.onPrimary },
-  addOpBtn: { backgroundColor: C.primaryContainer, borderRadius: R.md, paddingHorizontal: 14, paddingVertical: 6 },
-  addOpBtnText: { color: C.onPrimary, fontWeight: '700', fontSize: 12 },
+  // type filter row
+  typeRow: { flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 8, gap: 6, backgroundColor: C.surfaceLow, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
+  typeChip: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: R.full, backgroundColor: C.surfaceHigh },
+  typeChipActive: { backgroundColor: C.primaryContainer },
+  typeChipText: { fontSize: 11, fontWeight: '700', color: C.onSurfaceVariant },
+  typeChipTextActive: { color: C.onPrimary },
 
   centred: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   hint: { fontSize: 12, color: C.onSurfaceVariant, textAlign: 'center' },
-  emptyTitle: { fontSize: 15, fontWeight: '700', color: C.onSurface, marginBottom: 4 },
+  emptyTitle: { fontSize: 15, fontWeight: '700', color: C.onSurface, marginBottom: 6 },
 
-  tableContainer: { borderRadius: R.xl, borderWidth: 1, borderColor: C.outlineVariant, overflow: 'hidden', backgroundColor: C.surfaceLowest, marginBottom: 0 },
-  tableHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceHigh, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
-  tableHeaderText: { fontSize: 9, fontWeight: '800', color: C.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.8 },
+  // operation cards
+  opCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.surfaceLowest, borderRadius: R.lg, borderWidth: 1, borderColor: C.outlineVariant, padding: 14, marginBottom: 10 },
+  opIconWrap: { width: 40, height: 40, borderRadius: R.md, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  opType: { fontSize: 13, fontWeight: '700', color: C.onSurface, marginBottom: 2 },
+  opNotes: { fontSize: 12, color: C.onSurfaceVariant },
+  opDate: { fontSize: 11, fontWeight: '600', color: C.onSurfaceVariant },
 
-  opRow: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.outlineVariant, backgroundColor: C.surfaceLowest, gap: 10 },
-  opRowLast: { borderBottomWidth: 0 },
-  dayText: { width: 36, fontSize: 13, fontWeight: '700', color: C.primary, paddingTop: 2 },
-  opDate: { width: 64, fontSize: 12, color: C.onSurfaceVariant, paddingTop: 3 },
-  groupBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.sm, alignSelf: 'flex-start', marginBottom: 4 },
-  groupBadgeText: { fontSize: 11, fontWeight: '700' },
-  opNotes: { fontSize: 12, color: C.onSurface },
+  // FAB
+  fab: { position: 'absolute', bottom: 28, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: C.primaryContainer, alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6 },
+});
+
+const dd = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 13 },
+  ddLabel: { fontSize: 11, fontWeight: '700', color: C.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.5 },
+  ddValueRow: { flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '65%' },
+  ddValue: { fontSize: 14, fontWeight: '600', color: C.onSurface, flexShrink: 1 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: C.surfaceLowest, borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, paddingBottom: 32 },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: C.outlineVariant, alignSelf: 'center', marginTop: 10, marginBottom: 4 },
+  sheetTitle: { fontSize: 13, fontWeight: '800', color: C.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 20, paddingVertical: 12 },
+  option: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.outlineVariant },
+  optionActive: { backgroundColor: C.primaryFixed },
+  optText: { fontSize: 15, color: C.onSurface },
+  optTextActive: { fontWeight: '700', color: C.primary },
 });
 
 const ms = StyleSheet.create({
