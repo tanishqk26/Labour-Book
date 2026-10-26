@@ -13,7 +13,7 @@ from logging.config import fileConfig
 
 # Ensure the backend/ directory is on the path when alembic is run from the
 # repo root (e.g. on Render where the build runs from /opt/render/project/src/)
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
