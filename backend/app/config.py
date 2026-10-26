@@ -25,8 +25,7 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-to-a-random-32-char-string"
 
     # --- CORS ---
-    # Accepts a JSON array: '["https://app.vercel.app"]'
-    # OR a comma-separated string: 'https://app.vercel.app,https://other.com'
+    # Base list — always allowed (local dev).
     cors_origins: List[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
@@ -37,15 +36,9 @@ class Settings(BaseSettings):
         "http://localhost:8082",
         "http://127.0.0.1:8082",
     ]
-
-    @model_validator(mode="before")
-    @classmethod
-    def _parse_cors(cls, values: dict) -> dict:
-        raw = values.get("cors_origins")
-        if isinstance(raw, str) and not raw.startswith("["):
-            # comma-separated string → list
-            values["cors_origins"] = [o.strip() for o in raw.split(",") if o.strip()]
-        return values
+    # On Render / Vercel: set EXTRA_CORS_ORIGINS as a plain comma-separated string.
+    # e.g.  EXTRA_CORS_ORIGINS=https://labour-book.vercel.app,https://www.myapp.com
+    extra_cors_origins: str = ""
 
     # --- Auth (Google Sign-In) ---
     google_client_id: str = ""
@@ -61,23 +54,27 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _ensure_local_cors(self):
-        """Keep Expo web and the Next app allowed in development even if .env lists one origin."""
+        origins = list(self.cors_origins or [])
+
+        # Merge EXTRA_CORS_ORIGINS (plain comma-separated string, safe on Render).
+        if self.extra_cors_origins:
+            for o in self.extra_cors_origins.split(","):
+                o = o.strip()
+                if o and o not in origins:
+                    origins.append(o)
+
+        # Keep local dev origins in development.
         if self.app_env == "development":
-            extras = [
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "http://localhost:3001",
-                "http://127.0.0.1:3001",
-                "http://localhost:8081",
-                "http://127.0.0.1:8081",
-                "http://localhost:8082",
-                "http://127.0.0.1:8082",
-            ]
-            origins = list(self.cors_origins or [])
-            for origin in extras:
-                if origin not in origins:
-                    origins.append(origin)
-            self.cors_origins = origins
+            for o in [
+                "http://localhost:3000", "http://127.0.0.1:3000",
+                "http://localhost:3001", "http://127.0.0.1:3001",
+                "http://localhost:8081", "http://127.0.0.1:8081",
+                "http://localhost:8082", "http://127.0.0.1:8082",
+            ]:
+                if o not in origins:
+                    origins.append(o)
+
+        self.cors_origins = origins
         return self
 
     @model_validator(mode="after")
