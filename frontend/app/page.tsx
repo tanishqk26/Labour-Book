@@ -46,7 +46,7 @@ export default function LandingPage() {
         <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(1,45,26,0.92)", backdropFilter: "blur(12px)" }}>
           <div style={{ padding: "0 28px", height: 64, display: "flex", alignItems: "center", gap: 32 }}>
             <a href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", flexShrink: 0 }}>
-              <img src="/LabourBook%20Farm-Inspired%20Logo.png" alt="LabourBook" style={{ height: 34, filter: "brightness(0) invert(1)" }} />
+              <img src="/LabourBook%20Farm-Inspired%20Logo.png" alt="LabourBook" style={{ height: 52 }} />
             </a>
             <div style={{ display: "flex", alignItems: "center", gap: 28, flex: 1, justifyContent: "center" }}>
               {["Features", "How it works", "Mobile App", "Pricing"].map(l => (
