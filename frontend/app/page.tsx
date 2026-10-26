@@ -167,34 +167,29 @@ export default function LandingPage() {
   return (
     <div style={{ fontFamily: "Inter, system-ui, -apple-system, sans-serif", color: "#1a2e1a", overflowX: "hidden" }}>
 
-      {/* NAV */}
-      <nav style={{
-        position: "sticky", top: 0, zIndex: 100,
-        background: "white", borderBottom: "1px solid #e2f0e7",
-        boxShadow: "0 1px 12px rgba(1,45,26,0.06)",
-      }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", height: 64, display: "flex", alignItems: "center", gap: 32 }}>
-          <a href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", flexShrink: 0 }}>
-            <img src="/LabourBook%20Farm-Inspired%20Logo.png" alt="LabourBook" style={{ height: 36 }} />
-          </a>
-          <div style={{ display: "flex", alignItems: "center", gap: 28, flex: 1 }}>
-            {["Features", "How it works", "Mobile App", "Pricing"].map(l => (
-              <a key={l} href={`#${l.toLowerCase().replace(/ /g, "-")}`}
-                style={{ color: "#4a5568", textDecoration: "none", fontSize: 15, fontWeight: 500 }}>{l}</a>
-            ))}
+      {/* HERO (nav merged inside) */}
+      <section style={{ background: "linear-gradient(155deg, #012d1a 0%, #1b4332 55%, #2d6a4f 100%)", overflow: "hidden" }}>
+        <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(1,45,26,0.92)", backdropFilter: "blur(12px)" }}>
+          <div style={{ padding: "0 28px", height: 64, display: "flex", alignItems: "center", gap: 32 }}>
+            <a href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", flexShrink: 0 }}>
+              <img src="/LabourBook%20Farm-Inspired%20Logo.png" alt="LabourBook" style={{ height: 34, filter: "brightness(0) invert(1)" }} />
+            </a>
+            <div style={{ display: "flex", alignItems: "center", gap: 28, flex: 1, justifyContent: "center" }}>
+              {["Features", "How it works", "Mobile App", "Pricing"].map(l => (
+                <a key={l} href={`#${l.toLowerCase().replace(/ /g, "-")}`}
+                  style={{ color: "rgba(255,255,255,0.75)", textDecoration: "none", fontSize: 15, fontWeight: 500 }}>{l}</a>
+              ))}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <Link href="/login" style={{ color: "rgba(255,255,255,0.85)", textDecoration: "none", fontSize: 15, fontWeight: 600 }}>Log in</Link>
+              <Link href="/signup" style={{
+                background: "white", color: "#012d1a", textDecoration: "none",
+                fontSize: 14, fontWeight: 700, padding: "9px 20px", borderRadius: 10,
+              }}>Get started free</Link>
+            </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Link href="/login" style={{ color: "#012d1a", textDecoration: "none", fontSize: 15, fontWeight: 600 }}>Log in</Link>
-            <Link href="/signup" style={{
-              background: "#012d1a", color: "white", textDecoration: "none",
-              fontSize: 14, fontWeight: 700, padding: "10px 22px", borderRadius: 10,
-            }}>Get started free</Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* HERO */}
-      <section style={{ background: "linear-gradient(155deg, #012d1a 0%, #1b4332 55%, #2d6a4f 100%)", padding: "72px 24px 0", overflow: "hidden" }}>
+        </nav>
+        <div style={{ padding: "72px 24px 0" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", gap: 48, flexWrap: "wrap" }}>
           <div style={{ flex: "1 1 380px", minWidth: 0, paddingBottom: 72 }}>
             <div style={{
@@ -255,6 +250,7 @@ export default function LandingPage() {
               <span style={{ color: "#a8d5b5", fontSize: 11, fontWeight: 600, whiteSpace: "pre-line", lineHeight: 1.4 }}>{label}</span>
             </div>
           ))}
+        </div>
         </div>
       </section>
 
