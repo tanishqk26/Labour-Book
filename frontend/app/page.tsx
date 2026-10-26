@@ -8,7 +8,8 @@ function PhoneFrame({ src, alt, style }: { src: string; alt: string; style?: Rea
       position: "relative",
       background: "#0d1f14",
       borderRadius: 40,
-      padding: "12px 9px 16px",
+      padding: "9px",
+      paddingBottom: 14,
       boxShadow: "0 28px 64px rgba(1,45,26,0.55), inset 0 0 0 1.5px #2d4a35",
       ...style,
     }}>
@@ -16,14 +17,14 @@ function PhoneFrame({ src, alt, style }: { src: string; alt: string; style?: Rea
       <div style={{ position: "absolute", left: -3, top: 80, width: 3, height: 32, background: "#1a3a22", borderRadius: "2px 0 0 2px" }} />
       <div style={{ position: "absolute", left: -3, top: 122, width: 3, height: 32, background: "#1a3a22", borderRadius: "2px 0 0 2px" }} />
       <div style={{ position: "absolute", right: -3, top: 100, width: 3, height: 48, background: "#1a3a22", borderRadius: "0 2px 2px 0" }} />
-      {/* Notch */}
-      <div style={{
-        position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)",
-        width: 64, height: 14, background: "#0d1f14", borderRadius: 7, zIndex: 2,
-      }} />
-      {/* Screen */}
-      <div style={{ borderRadius: 30, overflow: "hidden", background: "#f0fdf4" }}>
+      {/* Screen — screenshot fills to the top; notch overlaid on top */}
+      <div style={{ position: "relative", borderRadius: 32, overflow: "hidden", background: "#f0fdf4" }}>
         <img src={src} alt={alt} style={{ width: "100%", display: "block" }} />
+        {/* Dynamic island overlay */}
+        <div style={{
+          position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)",
+          width: 72, height: 18, background: "#0d1f14", borderRadius: 10, zIndex: 2,
+        }} />
       </div>
     </div>
   );
