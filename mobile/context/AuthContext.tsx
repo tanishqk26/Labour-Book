@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { ApiError, apiGet, apiPost, clearAuthToken, loadAuthToken, setAuthToken } from "../lib/api";
+import { ApiError, apiGet, apiPatch, apiPost, clearAuthToken, loadAuthToken, setAuthToken, setUnauthorizedHandler } from "../lib/api";
 import { AuthUser } from "../types";
 
 interface AuthContextValue {
@@ -8,6 +8,7 @@ interface AuthContextValue {
   loginWithPassword: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (name: string, phone: string | null) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -30,6 +31,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => setUser(null));
   }, []);
 
   useEffect(() => {
@@ -57,9 +62,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const updateProfile = useCallback(async (name: string, phone: string | null) => {
+    const updated = await apiPatch<AuthUser>("/api/v1/auth/profile", { name, phone });
+    setUser(updated);
+  }, []);
+
   const value = useMemo(
-    () => ({ user, loading, loginWithPassword, signup, logout }),
-    [user, loading, loginWithPassword, signup, logout]
+    () => ({ user, loading, loginWithPassword, signup, logout, updateProfile }),
+    [user, loading, loginWithPassword, signup, logout, updateProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

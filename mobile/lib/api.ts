@@ -14,6 +14,11 @@ export const API_BASE_URL = Platform.select({
 
 const TOKEN_KEY = "labourbook_auth_token";
 let _cachedToken: string | null = null;
+let _onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(fn: () => void) {
+  _onUnauthorized = fn;
+}
 
 function webStorage(): Storage | null {
   if (typeof window === "undefined") return null;
@@ -112,6 +117,10 @@ export async function apiFetch<T = unknown>(
       errorData = await response.json();
     } catch {
       errorData = null;
+    }
+    if (response.status === 401) {
+      await clearAuthToken();
+      _onUnauthorized?.();
     }
     throw new ApiError(response.status, response.statusText, errorData);
   }

@@ -114,5 +114,7 @@ export interface AuthUser {
   id: string;
   email: string;
   name: string;
+  phone: string | null;
   picture_url: string | null;
+  has_password: boolean;
 }

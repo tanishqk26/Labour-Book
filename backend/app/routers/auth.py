@@ -25,7 +25,14 @@ from app.core.security import (
 )
 from app.database import get_db
 from app.models.user import User
-from app.schemas.user import GoogleLoginRequest, LoginRequest, SignupRequest, UserRead
+from app.schemas.user import (
+    ChangePasswordRequest,
+    GoogleLoginRequest,
+    LoginRequest,
+    SignupRequest,
+    UpdateProfileRequest,
+    UserRead,
+)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 
@@ -188,6 +195,36 @@ async def login(
 @router.get("/me", response_model=UserRead)
 async def read_current_user(user: User = Depends(get_current_user)):
     return UserRead.model_validate(user)
+
+
+@router.patch("/profile", response_model=UserRead)
+async def update_profile(
+    body: UpdateProfileRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(User).where(User.id == user.id))
+    db_user = result.scalar_one()
+    db_user.name = body.name
+    db_user.phone = body.phone
+    await db.flush()
+    await db.refresh(db_user)
+    return UserRead.model_validate(db_user)
+
+
+@router.post("/change-password")
+async def change_password(
+    body: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(User).where(User.id == user.id))
+    db_user = result.scalar_one()
+    if not db_user.password_hash or not verify_password(body.current_password, db_user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
+    db_user.password_hash = hash_password(body.new_password)
+    await db.flush()
+    return {"message": "Password updated"}
 
 
 @router.post("/logout")

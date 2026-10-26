@@ -15,7 +15,9 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
+import { useLanguage } from '../../context/LanguageContext';
 import { apiGet, apiPost } from '../../lib/api';
+import { TranslationKey } from '../../lib/i18n';
 import { C, R } from '../../lib/theme';
 import { OperationsStackParamList } from '../details/types';
 
@@ -24,26 +26,36 @@ interface FarmYear { id: string; year_label: string; }
 interface Lifecycle { id: string; stage: string; start_date: string | null; end_date: string | null; }
 interface PlotOperation { id: string; plot_id: string; lifecycle_id: string | null; operation_date: string; operation_type: string; notes: string | null; }
 
-type OpGroup = 'Spraying' | 'Labour Work' | 'Other';
-const OP_GROUPS: OpGroup[] = ['Spraying', 'Labour Work', 'Other'];
+type OpGroup = 'Spraying' | 'Labour Work' | 'Fertigation' | 'Other';
+const OP_GROUPS: OpGroup[] = ['Spraying', 'Labour Work', 'Fertigation', 'Other'];
 const GROUP_CFG: Record<OpGroup, { bg: string; fg: string; icon: string; detailLabel: string; placeholder: string }> = {
   'Spraying': { bg: '#dbeafe', fg: '#1d4ed8', icon: 'spray-bottle', detailLabel: 'Chemical / Spray detail', placeholder: 'e.g. Bavistin 50g/L' },
   'Labour Work': { bg: C.primaryFixed, fg: C.primaryContainer, icon: 'account-hard-hat-outline', detailLabel: 'Work description', placeholder: 'e.g. Pruning, weeding' },
+  'Fertigation': { bg: '#d1fae5', fg: '#065f46', icon: 'water-pump', detailLabel: 'Fertilizer / Nutrient detail', placeholder: 'e.g. NPK 19:19:19 5g/L' },
   'Other': { bg: C.surfaceHigh, fg: C.onSurface, icon: 'clipboard-list-outline', detailLabel: 'Details (optional)', placeholder: 'Any relevant notes' },
 };
 
 function opGroupOf(type: string): OpGroup {
   if (type === 'Spraying') return 'Spraying';
   if (type === 'Labour Work') return 'Labour Work';
+  if (type === 'Fertigation') return 'Fertigation';
   return 'Other';
 }
 
 // ─── Add Op Modal ─────────────────────────────────────────────────────────────
 
+const GROUP_LABEL_KEY: Record<OpGroup, 'spraying' | 'labour_work' | 'fertigation' | 'other'> = {
+  'Spraying': 'spraying',
+  'Labour Work': 'labour_work',
+  'Fertigation': 'fertigation',
+  'Other': 'other',
+};
+
 function AddOpModal({ visible, onClose, onSuccess, plotId, lifecycleId }: {
   visible: boolean; onClose: () => void; onSuccess: () => void;
   plotId: string | null; lifecycleId: string | null;
 }) {
+  const { t } = useLanguage();
   const [group, setGroup] = useState<OpGroup>('Labour Work');
   const [detail, setDetail] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -72,7 +84,7 @@ function AddOpModal({ visible, onClose, onSuccess, plotId, lifecycleId }: {
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={ms.container}>
         <View style={ms.header}>
-          <Text style={ms.title}>Add Operation</Text>
+          <Text style={ms.title}>{t('add_operation')}</Text>
           <TouchableOpacity onPress={onClose} hitSlop={8}>
             <MaterialCommunityIcons name="close" size={22} color={C.onSurfaceVariant} />
           </TouchableOpacity>
@@ -91,7 +103,7 @@ function AddOpModal({ visible, onClose, onSuccess, plotId, lifecycleId }: {
                     onPress={() => setGroup(g)}
                   >
                     <MaterialCommunityIcons name={c.icon as any} size={20} color={active ? c.fg : C.onSurfaceVariant} />
-                    <Text style={[ms.groupText, active && { color: c.fg }]}>{g}</Text>
+                    <Text style={[ms.groupText, active && { color: c.fg }]}>{t(GROUP_LABEL_KEY[g])}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -174,6 +186,7 @@ function Dropdown({ label, valueLabel, options, selectedId, onSelect }: {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function OperationsScreen({ navigation }: NativeStackScreenProps<OperationsStackParamList, 'OperationsList'>) {
+  const { t } = useLanguage();
   const [plots, setPlots] = useState<Plot[]>([]);
   const [selectedPlotId, setSelectedPlotId] = useState<string | null>(null);
   const [farmYears, setFarmYears] = useState<FarmYear[]>([]);
@@ -241,7 +254,7 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
 
   return (
     <View style={styles.root}>
-      <AppHeader screenName="Operations" />
+      <AppHeader screenName={t('operations')} />
 
       {/* Dropdowns */}
       <View style={styles.filterCard}>
@@ -286,7 +299,9 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
             style={[styles.typeChip, filter === f && styles.typeChipActive]}
             onPress={() => setFilter(f)}
           >
-            <Text style={[styles.typeChipText, filter === f && styles.typeChipTextActive]}>{f}</Text>
+            <Text style={[styles.typeChipText, filter === f && styles.typeChipTextActive]}>
+              {f === 'All' ? 'All' : t(GROUP_LABEL_KEY[f as OpGroup])}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -325,7 +340,7 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
                   <MaterialCommunityIcons name={cfg.icon as any} size={20} color={cfg.fg} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.opType}>{grp}</Text>
+                  <Text style={styles.opType}>{t(GROUP_LABEL_KEY[grp])}</Text>
                   {op.notes ? <Text style={styles.opNotes} numberOfLines={2}>{op.notes}</Text> : null}
                 </View>
                 <View style={{ alignItems: 'flex-end', gap: 4 }}>
@@ -338,8 +353,8 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
         />
       )}
 
-      {/* FAB */}
-      {selectedLcId && (
+      {/* FAB — visible whenever a plot is selected */}
+      {selectedPlotId && (
         <TouchableOpacity style={styles.fab} onPress={() => setModalOpen(true)} activeOpacity={0.85}>
           <MaterialCommunityIcons name="plus" size={26} color={C.onPrimary} />
         </TouchableOpacity>
@@ -398,9 +413,9 @@ const ms = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '700', color: C.primary },
   body: { flex: 1, padding: 20 },
   label: { fontSize: 11, fontWeight: '700', color: C.onSurfaceVariant, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 },
-  groupGrid: { flexDirection: 'row', gap: 8 },
-  groupBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: R.md, borderWidth: 1.5, borderColor: C.outlineVariant, backgroundColor: C.surfaceLow, gap: 4 },
-  groupText: { fontSize: 11, fontWeight: '700', color: C.onSurfaceVariant },
+  groupGrid: { flexDirection: 'row', gap: 6 },
+  groupBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: R.md, borderWidth: 1.5, borderColor: C.outlineVariant, backgroundColor: C.surfaceLow, gap: 3 },
+  groupText: { fontSize: 9, fontWeight: '700', color: C.onSurfaceVariant, textAlign: 'center' },
   input: { borderWidth: 1, borderColor: C.outlineVariant, borderRadius: R.md, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: C.onSurface, backgroundColor: C.surfaceLow },
   footer: { flexDirection: 'row', gap: 10, padding: 20, borderTopWidth: 1, borderTopColor: C.outlineVariant },
   cancelBtn: { flex: 1, borderRadius: R.md, paddingVertical: 13, alignItems: 'center', borderWidth: 1, borderColor: C.outlineVariant },

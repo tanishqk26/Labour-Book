@@ -19,6 +19,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
+import { useLanguage } from '../../context/LanguageContext';
 import { apiGet, apiPost, apiPatch, apiDelete } from '../../lib/api';
 import { Labour, TeamSummary, PaginatedResponse, EntityPaymentSummary } from '../../types';
 import { C, R, AVATAR_COLORS, initials, fmtCurrency } from '../../lib/theme';
@@ -165,6 +166,147 @@ function AddTeamModal({ visible, onClose, onSuccess }: { visible: boolean; onClo
   );
 }
 
+// ─── Edit Labour Modal ────────────────────────────────────────────────────────
+
+function EditLabourModal({ labour, onClose, onSuccess }: { labour: Labour | null; onClose: () => void; onSuccess: () => void }) {
+  const [name, setName] = useState('');
+  const [wage, setWage] = useState('');
+  const [hometown, setHometown] = useState('');
+  const [phone, setPhone] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (labour) {
+      setName(labour.name);
+      setWage(String(labour.daily_wage));
+      setHometown(labour.hometown ?? '');
+      setPhone(labour.phone ?? '');
+    }
+  }, [labour]);
+
+  async function save() {
+    if (!name.trim()) { Alert.alert('Required', 'Name is required'); return; }
+    const w = parseFloat(wage);
+    if (isNaN(w) || w < 0) { Alert.alert('Invalid', 'Enter a valid daily wage'); return; }
+    setSaving(true);
+    try {
+      await apiPatch(`/api/v1/labours/${labour!.id}`, { name: name.trim(), daily_wage: w, hometown: hometown.trim() || null, phone: phone.trim() || null });
+      onSuccess(); onClose();
+    } catch { Alert.alert('Error', 'Failed to update labourer.'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <Modal visible={!!labour} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={ms.container}>
+        <View style={ms.header}>
+          <Text style={ms.title}>Edit Labourer</Text>
+          <TouchableOpacity onPress={onClose} hitSlop={8}><MaterialCommunityIcons name="close" size={22} color={C.onSurfaceVariant} /></TouchableOpacity>
+        </View>
+        <View style={ms.body}>
+          {[
+            { label: 'Full Name *', value: name, setter: setName, placeholder: 'e.g. Deepak Jadhav', kb: 'default' as const },
+            { label: 'Daily Wage (₹) *', value: wage, setter: setWage, placeholder: 'e.g. 400', kb: 'numeric' as const },
+            { label: 'Hometown', value: hometown, setter: setHometown, placeholder: 'e.g. Junnar', kb: 'default' as const },
+            { label: 'Phone', value: phone, setter: setPhone, placeholder: '10-digit number', kb: 'phone-pad' as const },
+          ].map((f) => (
+            <View key={f.label} style={ms.field}>
+              <Text style={ms.label}>{f.label}</Text>
+              <TextInput style={ms.input} value={f.value} onChangeText={f.setter} placeholder={f.placeholder} keyboardType={f.kb} placeholderTextColor={C.outline} />
+            </View>
+          ))}
+        </View>
+        <View style={ms.footer}>
+          <TouchableOpacity style={ms.cancelBtn} onPress={onClose}><Text style={ms.cancelText}>Cancel</Text></TouchableOpacity>
+          <TouchableOpacity style={[ms.saveBtn, saving && { opacity: 0.6 }]} onPress={save} disabled={saving}>
+            {saving ? <ActivityIndicator color={C.onPrimary} /> : <Text style={ms.saveText}>Save Changes</Text>}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── Edit Team Modal ───────────────────────────────────────────────────────────
+
+function EditTeamModal({ team, onClose, onSuccess }: { team: TeamSummary | null; onClose: () => void; onSuccess: () => void }) {
+  const [name, setName] = useState('');
+  const [hometown, setHometown] = useState('');
+  const [wage, setWage] = useState('');
+  const [carRent, setCarRent] = useState('');
+  const [mgrFee, setMgrFee] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (team) {
+      setName(team.name);
+      setHometown(team.hometown ?? '');
+      setWage(String(team.daily_wage));
+      setCarRent(String(team.car_rent));
+      setMgrFee(String(team.manager_fee));
+    }
+  }, [team]);
+
+  async function save() {
+    if (!name.trim()) { Alert.alert('Required', 'Team name is required'); return; }
+    const w = parseFloat(wage);
+    if (isNaN(w) || w < 0) { Alert.alert('Invalid', 'Enter a valid daily wage'); return; }
+    setSaving(true);
+    try {
+      await apiPatch(`/api/v1/teams/${team!.id}`, {
+        name: name.trim(),
+        hometown: hometown.trim() || null,
+        daily_wage: w,
+        car_rent: parseFloat(carRent) || 0,
+        manager_fee: parseFloat(mgrFee) || 0,
+      });
+      onSuccess(); onClose();
+    } catch { Alert.alert('Error', 'Failed to update team.'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <Modal visible={!!team} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={ms.container}>
+        <View style={ms.header}>
+          <Text style={ms.title}>Edit Team</Text>
+          <TouchableOpacity onPress={onClose} hitSlop={8}><MaterialCommunityIcons name="close" size={22} color={C.onSurfaceVariant} /></TouchableOpacity>
+        </View>
+        <View style={ms.body}>
+          <View style={ms.field}>
+            <Text style={ms.label}>Team Name *</Text>
+            <TextInput style={ms.input} value={name} onChangeText={setName} placeholder="e.g. Shinde Team" placeholderTextColor={C.outline} />
+          </View>
+          <View style={ms.field}>
+            <Text style={ms.label}>Hometown / Village</Text>
+            <TextInput style={ms.input} value={hometown} onChangeText={setHometown} placeholder="e.g. Narayangaon" placeholderTextColor={C.outline} />
+          </View>
+          <View style={ms.field}>
+            <Text style={ms.label}>Daily Wage Per Labour (₹) *</Text>
+            <TextInput style={ms.input} value={wage} onChangeText={setWage} placeholder="e.g. 300" keyboardType="numeric" placeholderTextColor={C.outline} />
+          </View>
+          <View style={ms.twoCol}>
+            <View style={{ flex: 1 }}>
+              <Text style={ms.label}>Car Rent (₹)</Text>
+              <TextInput style={ms.input} value={carRent} onChangeText={setCarRent} placeholder="0" keyboardType="numeric" placeholderTextColor={C.outline} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={ms.label}>Manager Fee (₹)</Text>
+              <TextInput style={ms.input} value={mgrFee} onChangeText={setMgrFee} placeholder="0" keyboardType="numeric" placeholderTextColor={C.outline} />
+            </View>
+          </View>
+        </View>
+        <View style={ms.footer}>
+          <TouchableOpacity style={ms.cancelBtn} onPress={onClose}><Text style={ms.cancelText}>Cancel</Text></TouchableOpacity>
+          <TouchableOpacity style={[ms.saveBtn, saving && { opacity: 0.6 }]} onPress={save} disabled={saving}>
+            {saving ? <ActivityIndicator color={C.onPrimary} /> : <Text style={ms.saveText}>Save Changes</Text>}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Table Row — Labour ───────────────────────────────────────────────────────
 
 function LabourRow({ labour, index, onPress, onMenu, balance, isLast }: {
@@ -236,6 +378,7 @@ type Tab = 'individual' | 'team';
 
 export default function PeopleScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<PeopleStackParamList>>();
+  const { t: tl } = useLanguage();
   const [tab, setTab] = useState<Tab>('individual');
   const [labours, setLabours] = useState<Labour[]>([]);
   const [teams, setTeams] = useState<TeamSummary[]>([]);
@@ -244,24 +387,23 @@ export default function PeopleScreen() {
   const [search, setSearch] = useState('');
   const [addLabourOpen, setAddLabourOpen] = useState(false);
   const [addTeamOpen, setAddTeamOpen] = useState(false);
+  const [editingLabour, setEditingLabour] = useState<Labour | null>(null);
+  const [editingTeam, setEditingTeam] = useState<TeamSummary | null>(null);
   const [paymentMap, setPaymentMap] = useState<Record<string, EntityPaymentSummary>>({});
+  const [error, setError] = useState<string | null>(null);
 
   const loadLabours = useCallback(async () => {
-    try {
-      const params: Record<string, string | number> = { page: 1, page_size: 100, status: 'active' };
-      if (search.trim()) params.search = search.trim();
-      const d = await apiGet<PaginatedResponse<Labour>>('/api/v1/labours', params);
-      setLabours(d.items);
-    } catch {}
+    const params: Record<string, string | number> = { page: 1, page_size: 100, status: 'active' };
+    if (search.trim()) params.search = search.trim();
+    const d = await apiGet<PaginatedResponse<Labour>>('/api/v1/labours', params);
+    setLabours(d.items);
   }, [search]);
 
   const loadTeams = useCallback(async () => {
-    try {
-      const params: Record<string, string | number> = { page: 1, page_size: 100, status: 'active' };
-      if (search.trim()) params.search = search.trim();
-      const d = await apiGet<PaginatedResponse<TeamSummary>>('/api/v1/teams', params);
-      setTeams(d.items);
-    } catch {}
+    const params: Record<string, string | number> = { page: 1, page_size: 100, status: 'active' };
+    if (search.trim()) params.search = search.trim();
+    const d = await apiGet<PaginatedResponse<TeamSummary>>('/api/v1/teams', params);
+    setTeams(d.items);
   }, [search]);
 
   const loadPayments = useCallback(async () => {
@@ -276,7 +418,12 @@ export default function PeopleScreen() {
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
-    await Promise.all([loadLabours(), loadTeams(), loadPayments()]);
+    setError(null);
+    try {
+      await Promise.all([loadLabours(), loadTeams(), loadPayments()]);
+    } catch {
+      setError('Could not load data. Check your connection.');
+    }
     setLoading(false);
     setRefreshing(false);
   }, [loadLabours, loadTeams, loadPayments]);
@@ -288,6 +435,7 @@ export default function PeopleScreen() {
 
   function menuLabour(id: string, name: string) {
     Alert.alert(name, 'Choose an action', [
+      { text: 'Edit', onPress: () => setEditingLabour(labours.find(l => l.id === id) ?? null) },
       {
         text: 'Deactivate',
         onPress: () => Alert.alert('Deactivate', `Remove ${name} from active records?`, [
@@ -320,6 +468,7 @@ export default function PeopleScreen() {
 
   function menuTeam(id: string, name: string) {
     Alert.alert(name, 'Choose an action', [
+      { text: 'Edit', onPress: () => setEditingTeam(teams.find(tm => tm.id === id) ?? null) },
       {
         text: 'Deactivate',
         onPress: () => Alert.alert('Deactivate Team', `Remove ${name} from active records?`, [
@@ -358,10 +507,12 @@ export default function PeopleScreen() {
 
   return (
     <View style={styles.root}>
-      <AppHeader screenName={isIndividual ? 'Labours' : 'Teams'} />
+      <AppHeader screenName={isIndividual ? tl('labour') : tl('teams')} />
 
       <AddLabourModal visible={addLabourOpen} onClose={() => setAddLabourOpen(false)} onSuccess={() => load(true)} />
       <AddTeamModal visible={addTeamOpen} onClose={() => setAddTeamOpen(false)} onSuccess={() => load(true)} />
+      <EditLabourModal labour={editingLabour} onClose={() => setEditingLabour(null)} onSuccess={() => load(true)} />
+      <EditTeamModal team={editingTeam} onClose={() => setEditingTeam(null)} onSuccess={() => load(true)} />
 
       {/* Page header */}
       <View style={styles.pageHeader}>
@@ -374,7 +525,7 @@ export default function PeopleScreen() {
             style={styles.addBtn}
             onPress={() => isIndividual ? setAddLabourOpen(true) : setAddTeamOpen(true)}
           >
-            <Text style={styles.addBtnText}>+ {isIndividual ? 'Add Labour' : 'Add Team'}</Text>
+            <Text style={styles.addBtnText}>+ {isIndividual ? tl('add_labour') : tl('add_team')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -413,14 +564,23 @@ export default function PeopleScreen() {
 
       {loading ? (
         <View style={styles.centred}><ActivityIndicator size="large" color={C.primary} /></View>
+      ) : error ? (
+        <View style={styles.centred}>
+          <MaterialCommunityIcons name="wifi-off" size={48} color={C.outline} style={{ marginBottom: 8 }} />
+          <Text style={styles.emptyTitle}>Connection Error</Text>
+          <Text style={styles.emptySub}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
+            <Text style={styles.retryText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
       ) : data.length === 0 ? (
         <View style={styles.centred}>
           <MaterialCommunityIcons
             name={isIndividual ? 'account-hard-hat-outline' : 'account-group-outline'}
             size={56} color={C.outline} style={{ marginBottom: 8 }}
           />
-          <Text style={styles.emptyTitle}>{search ? 'No results' : isIndividual ? 'No Labourers Yet' : 'No Teams Yet'}</Text>
-          <Text style={styles.emptySub}>{search ? `No match for "${search}"` : `Tap + Add ${isIndividual ? 'Labour' : 'Team'} to get started.`}</Text>
+          <Text style={styles.emptyTitle}>{search ? 'No results' : isIndividual ? tl('no_labours') : tl('no_teams')}</Text>
+          <Text style={styles.emptySub}>{search ? `No match for "${search}"` : `Tap + ${isIndividual ? tl('add_labour') : tl('add_team')} to get started.`}</Text>
         </View>
       ) : (
         <ScrollView
@@ -503,6 +663,8 @@ const styles = StyleSheet.create({
   centred: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: C.onSurface },
   emptySub: { fontSize: 13, color: C.onSurfaceVariant, textAlign: 'center' },
+  retryBtn: { marginTop: 8, backgroundColor: C.primaryContainer, borderRadius: R.md, paddingHorizontal: 20, paddingVertical: 10 },
+  retryText: { color: C.onPrimary, fontWeight: '700', fontSize: 14 },
 
   list: { padding: 16, paddingBottom: 32 },
   footerNote: { fontSize: 11, color: C.onSurfaceVariant, textAlign: 'center', marginTop: 10 },

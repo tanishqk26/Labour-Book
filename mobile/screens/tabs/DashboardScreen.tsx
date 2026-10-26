@@ -13,6 +13,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
 import { apiGet } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { C, R, AVATAR_COLORS, initials, fmtCurrency } from '../../lib/theme';
 
 interface EntityPaymentSummary {
@@ -32,15 +33,16 @@ interface TeamStatus {
 interface DailyView { labours: LabourStatus[]; teams: TeamStatus[]; }
 
 function todayISO() { return new Date().toISOString().slice(0, 10); }
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
-}
-
 export default function DashboardScreen() {
   const { user } = useAuth();
+  const { t } = useLanguage();
+
+  function greeting() {
+    const h = new Date().getHours();
+    if (h < 12) return t('good_morning');
+    if (h < 17) return t('good_afternoon');
+    return t('good_evening');
+  }
   const navigation = useNavigation<any>();
   const today = todayISO();
 
@@ -85,7 +87,7 @@ export default function DashboardScreen() {
 
   return (
     <View style={styles.root}>
-      <AppHeader screenName="Dashboard" />
+      <AppHeader screenName={t('dashboard')} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -160,11 +162,11 @@ export default function DashboardScreen() {
             {isMarked && (
               <View style={styles.statsRow}>
                 <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>LABOUR COST</Text>
+                  <Text style={styles.statLabel}>{t('total_paid').toUpperCase()}</Text>
                   <Text style={styles.statValue}>{fmtCurrency(totalWage)}</Text>
                 </View>
                 <View style={styles.statCard}>
-                  <Text style={styles.statLabel}>WORKERS TODAY</Text>
+                  <Text style={styles.statLabel}>{t('present_today').toUpperCase()}</Text>
                   <Text style={styles.statValue}>{totalPresent}</Text>
                   <Text style={styles.statSub}>{presentTeams.length} teams · {presentLabours.length} solo</Text>
                 </View>

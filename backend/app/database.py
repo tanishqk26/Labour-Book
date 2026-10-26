@@ -4,14 +4,16 @@ from app.config import settings
 
 
 # --- Async Engine ---
-# Driver: psycopg (psycopg3) — pre-built binaries, no compiler needed
+# Driver: psycopg (psycopg3) — works with Supabase pooler username format
 # Connection string format: postgresql+psycopg://user:pass@host:port/db
 engine = create_async_engine(
     settings.database_url,
-    echo=settings.is_dev,        # Log SQL queries in development
-    pool_pre_ping=True,           # Verify connections before use (handles dropped connections)
-    pool_size=10,
-    max_overflow=20,
+    echo=False,          # Disable SQL logging — reduces noise and overhead
+    pool_pre_ping=True,
+    pool_size=5,         # Free tier has 60 max connections; keep pool small
+    max_overflow=10,
+    pool_recycle=300,    # Recycle connections every 5 min to avoid stale idle connections
+    pool_timeout=30,
 )
 
 # --- Session Factory ---

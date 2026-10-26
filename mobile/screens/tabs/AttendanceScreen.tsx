@@ -17,6 +17,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
+import { useLanguage } from '../../context/LanguageContext';
 import ClockPicker, { fmt12h } from '../../components/ClockPicker';
 import { apiGet, apiPost, apiDelete } from '../../lib/api';
 import { C, R, AVATAR_COLORS, initials } from '../../lib/theme';
@@ -704,6 +705,7 @@ function HistoryTab({ weekDates, labours, teams, records, payments, onCycle }: {
 
 export default function AttendanceScreen() {
   const today = todayISO();
+  const { t } = useLanguage();
   const [weekStart, setWeekStart] = useState(mondayOf(today));
   const [markDate, setMarkDate] = useState(today);
   const [activeTab, setActiveTab] = useState<'mark' | 'history'>('mark');
@@ -712,6 +714,7 @@ export default function AttendanceScreen() {
   const [records, setRecords] = useState<AttRecord[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sheetIds, setSheetIds] = useState<Set<string> | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pendingMark, setPendingMark] = useState<PendingMark | null>(null);
@@ -723,6 +726,7 @@ export default function AttendanceScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [ls, ts, rs, ps] = await Promise.all([
         apiGet<{ items: Labour[] }>('/api/v1/labours', { page: 1, page_size: 100, status: 'active' }),
@@ -747,7 +751,7 @@ export default function AttendanceScreen() {
           setSheetIds(new Set(allKeys));
         }
       } catch { setSheetIds(null); }
-    } catch { Alert.alert('Error', 'Failed to load attendance.'); }
+    } catch { setLoadError('Failed to load attendance data. Check your connection.'); }
     finally { setLoading(false); }
   }, [weekStart, sheetKey]);
 
@@ -853,7 +857,7 @@ export default function AttendanceScreen() {
 
   return (
     <View style={s.root}>
-      <AppHeader screenName="Attendance" />
+      <AppHeader screenName={t('attendance')} />
 
       <View style={s.weekNav}>
         <TouchableOpacity style={s.navBtn} onPress={() => setWeekStart(addDays(weekStart, -7))}>
@@ -901,6 +905,15 @@ export default function AttendanceScreen() {
 
       {loading ? (
         <View style={s.centred}><ActivityIndicator size="large" color={C.primary} /></View>
+      ) : loadError ? (
+        <View style={s.centred}>
+          <MaterialCommunityIcons name="wifi-off" size={48} color={C.outline} />
+          <Text style={[s.emptyDesc, { fontSize: 16, fontWeight: '700', color: C.onSurface }]}>Connection Error</Text>
+          <Text style={s.emptyDesc}>{loadError}</Text>
+          <TouchableOpacity style={s.retryBtn} onPress={load}>
+            <Text style={s.retryBtnText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
       ) : activeTab === 'mark' ? (
         <MarkTab
           markDate={markDate}
@@ -957,6 +970,8 @@ const s = StyleSheet.create({
   dayChipTextActive: { color: C.onPrimary },
   centred: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 8 },
   emptyDesc: { fontSize: 14, color: C.onSurfaceVariant, textAlign: 'center' },
+  retryBtn: { marginTop: 8, backgroundColor: C.primaryContainer, borderRadius: R.md, paddingHorizontal: 20, paddingVertical: 10 },
+  retryBtnText: { color: C.onPrimary, fontWeight: '700', fontSize: 14 },
   markHeader: { marginBottom: 12, gap: 4 },
   markHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   markDate: { fontSize: 15, fontWeight: '700', color: C.onSurface },

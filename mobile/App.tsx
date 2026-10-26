@@ -8,6 +8,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import LoginScreen from './screens/auth/LoginScreen';
 import DashboardScreen from './screens/tabs/DashboardScreen';
 import PeopleScreen from './screens/tabs/PeopleScreen';
@@ -22,6 +23,7 @@ import ContractDetailScreen from './screens/contracts/ContractDetailScreen';
 import PaymentsScreen from './screens/payments/PaymentsScreen';
 import { StatementsListScreen, StatementDetailScreen } from './screens/statements/StatementsScreen';
 import PlotsScreen from './screens/plots/PlotsScreen';
+import SettingsScreen from './screens/settings/SettingsScreen';
 import { MoreStackParamList, OperationsStackParamList, PeopleStackParamList } from './screens/details/types';
 import { C, R } from './lib/theme';
 
@@ -60,6 +62,7 @@ function MoreStackScreen() {
       <MoreStack.Screen name="Statements" component={StatementsListScreen} />
       <MoreStack.Screen name="StatementDetail" component={StatementDetailScreen} />
       <MoreStack.Screen name="Plots" component={PlotsScreen} />
+      <MoreStack.Screen name="Settings" component={SettingsScreen} />
     </MoreStack.Navigator>
   );
 }
@@ -78,6 +81,11 @@ const TAB_ICON_NAMES: Record<string, { default: string; active: string }> = {
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
+  const TAB_LABELS: Record<string, string> = {
+    Home: t('dashboard'), People: t('people'), Attendance: t('attendance'),
+    Operations: t('operations'), More: t('more'),
+  };
   const current = state.routes[state.index];
   const nestedName = current.state?.routes?.[current.state.index ?? 0]?.name;
   const rootScreens: Record<string, string> = {
@@ -93,7 +101,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
     <View style={[tabStyles.bar, { paddingBottom: insets.bottom || 8 }]}>
       {state.routes.map((route: any, index: number) => {
         const { options } = descriptors[route.key];
-        const label = options.tabBarLabel ?? route.name;
+        const label = TAB_LABELS[route.name] ?? options.tabBarLabel ?? route.name;
         const isFocused = state.index === index;
 
         function onPress() {
@@ -172,8 +180,10 @@ export default function App() {
     <SafeAreaProvider>
       <NavigationContainer>
         <AuthProvider>
-          <StatusBar style="dark" />
-          <RootNavigator />
+          <LanguageProvider>
+            <StatusBar style="dark" />
+            <RootNavigator />
+          </LanguageProvider>
         </AuthProvider>
       </NavigationContainer>
     </SafeAreaProvider>

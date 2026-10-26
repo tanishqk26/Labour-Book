@@ -16,6 +16,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import { apiGet } from '../../lib/api';
 import { C, R, fmtCurrency, todayISO, AVATAR_COLORS, initials } from '../../lib/theme';
 import { MoreStackParamList } from '../details/types';
@@ -634,6 +636,50 @@ const ls = StyleSheet.create({
   retryText: { color: C.onPrimary, fontWeight: '700' },
 });
 
+// ─── Month Picker ─────────────────────────────────────────────────────────────
+
+function MonthPicker({ label, date, isEnd, onChange }: {
+  label: string; date: string; isEnd: boolean; onChange: (date: string) => void;
+}) {
+  const today = new Date();
+  const y = date ? parseInt(date.slice(0, 4)) : today.getFullYear();
+  const m = date ? parseInt(date.slice(5, 7)) : today.getMonth() + 1;
+  const displayStr = date
+    ? new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+    : 'All time';
+
+  function step(dir: 1 | -1) {
+    const d = new Date(y, m - 1 + dir, 1);
+    const ny = d.getFullYear();
+    const nm = d.getMonth() + 1;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    if (isEnd) {
+      const last = new Date(ny, nm, 0).getDate();
+      onChange(`${ny}-${pad(nm)}-${pad(last)}`);
+    } else {
+      onChange(`${ny}-${pad(nm)}-01`);
+    }
+  }
+
+  const canGoForward = new Date(y, m, 1) <= today;
+
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={ds.inputLabel}>{label}</Text>
+      <View style={ds.monthPickerRow}>
+        <TouchableOpacity onPress={() => step(-1)} hitSlop={8}>
+          <MaterialCommunityIcons name="chevron-left" size={20} color={C.primary} />
+        </TouchableOpacity>
+        <Text style={ds.monthPickerLabel}>{displayStr}</Text>
+        <TouchableOpacity onPress={() => step(1)} disabled={!canGoForward} hitSlop={8}
+          style={{ opacity: canGoForward ? 1 : 0.3 }}>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={C.primary} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 // ─── Detail Screen ────────────────────────────────────────────────────────────
 
 export function StatementDetailScreen({ route, navigation }: DetailProps) {
@@ -697,8 +743,14 @@ export function StatementDetailScreen({ route, navigation }: DetailProps) {
         return;
       }
 
-      // Native (iOS / Android): open system print dialog (Android has Save as PDF built in)
-      await Print.printAsync({ html });
+      // Native: generate PDF file then share (works on both iOS and Android)
+      const { uri } = await Print.printToFileAsync({ html });
+      if (Platform.OS === 'android') {
+        const contentUri = await FileSystem.getContentUriAsync(uri);
+        await Sharing.shareAsync(contentUri, { mimeType: 'application/pdf', dialogTitle: 'Share Statement' });
+      } else {
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+      }
     } catch (err: any) {
       const msg = err?.message ?? String(err) ?? 'Unknown error';
       Alert.alert('PDF Error', msg);
@@ -819,28 +871,8 @@ export function StatementDetailScreen({ route, navigation }: DetailProps) {
 
           {/* Date inputs */}
           <View style={ds.dateRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={ds.inputLabel}>FROM (YYYY-MM-DD)</Text>
-              <TextInput
-                style={ds.dateInput}
-                value={dateFrom}
-                onChangeText={v => { setDateFrom(v); setActivePreset(''); }}
-                placeholder="2026-01-01"
-                placeholderTextColor={C.outlineVariant}
-                keyboardType="numeric"
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={ds.inputLabel}>TO (YYYY-MM-DD)</Text>
-              <TextInput
-                style={ds.dateInput}
-                value={dateTo}
-                onChangeText={v => { setDateTo(v); setActivePreset(''); }}
-                placeholder="2026-12-31"
-                placeholderTextColor={C.outlineVariant}
-                keyboardType="numeric"
-              />
-            </View>
+            <MonthPicker label="FROM" date={dateFrom} isEnd={false} onChange={v => { setDateFrom(v); setActivePreset(''); }} />
+            <MonthPicker label="TO" date={dateTo} isEnd={true} onChange={v => { setDateTo(v); setActivePreset(''); }} />
           </View>
 
           {error && (
@@ -890,7 +922,7 @@ export function StatementDetailScreen({ route, navigation }: DetailProps) {
               entity.car_rent ? ['Car Rent', fmtCurrency(entity.car_rent)] : null,
               entity.manager_fee ? ['Manager Fee', fmtCurrency(entity.manager_fee)] : null,
               entity.member_count != null ? ['Members', String(entity.member_count)] : null,
-            ].filter(Boolean).map(([label, val]) => (
+            ].filter((r): r is [string, string] => r !== null).map(([label, val]) => (
               <View key={label as string} style={ds.infoRow}>
                 <Text style={ds.infoRowLabel}>{label}</Text>
                 <Text style={ds.infoRowVal}>{val}</Text>
@@ -1104,6 +1136,8 @@ const ds = StyleSheet.create({
   dateRow: { flexDirection: 'row', gap: 10 },
   inputLabel: { fontSize: 10, fontWeight: '700', color: C.onSurfaceVariant, letterSpacing: 0.4, marginBottom: 4 },
   dateInput: { borderWidth: 1, borderColor: C.outlineVariant, borderRadius: R.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: C.onSurface, backgroundColor: C.surfaceLowest },
+  monthPickerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.surfaceLowest, borderRadius: R.md, paddingHorizontal: 10, height: 46, borderWidth: 1, borderColor: C.outlineVariant },
+  monthPickerLabel: { fontSize: 13, fontWeight: '700', color: C.onSurface, flex: 1, textAlign: 'center' },
 
   errorBox: { backgroundColor: C.errorContainer, borderRadius: R.md, padding: 12 },
   errorText: { color: C.error, fontSize: 13, fontWeight: '600' },

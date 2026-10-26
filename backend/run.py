@@ -9,12 +9,20 @@ effect.
 """
 
 import asyncio
+import selectors
 import sys
 
 if sys.platform == "win32":
+    # Python 3.12+ on Windows defaults to ProactorEventLoop which psycopg
+    # cannot use. Explicitly create and install a SelectorEventLoop before
+    # uvicorn touches anything, then also set the policy so any loops created
+    # later (e.g. in worker threads) also use the selector.
+    _selector = selectors.SelectSelector()
+    _loop = asyncio.SelectorEventLoop(_selector)
+    asyncio.set_event_loop(_loop)
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 import uvicorn
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False, loop="none")
