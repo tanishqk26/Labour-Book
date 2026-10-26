@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-to-a-random-32-char-string"
 
     # --- CORS ---
+    # Accepts a JSON array: '["https://app.vercel.app"]'
+    # OR a comma-separated string: 'https://app.vercel.app,https://other.com'
     cors_origins: List[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
@@ -35,6 +37,15 @@ class Settings(BaseSettings):
         "http://localhost:8082",
         "http://127.0.0.1:8082",
     ]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _parse_cors(cls, values: dict) -> dict:
+        raw = values.get("cors_origins")
+        if isinstance(raw, str) and not raw.startswith("["):
+            # comma-separated string → list
+            values["cors_origins"] = [o.strip() for o in raw.split(",") if o.strip()]
+        return values
 
     # --- Auth (Google Sign-In) ---
     google_client_id: str = ""
