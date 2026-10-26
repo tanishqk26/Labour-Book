@@ -38,12 +38,16 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 
 
 def _set_session_cookie(response: Response, token: str) -> None:
+    # In production the frontend (Vercel) and API (Render) are on different
+    # domains, so the cookie must use SameSite=None + Secure so browsers
+    # include it in cross-origin fetch requests (credentials: "include").
+    cross_origin = not settings.is_dev
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=token,
         httponly=True,
-        secure=not settings.is_dev,
-        samesite="lax",
+        secure=cross_origin,
+        samesite="none" if cross_origin else "lax",
         max_age=settings.access_token_expire_minutes * 60,
         path="/",
     )
