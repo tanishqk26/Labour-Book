@@ -108,8 +108,9 @@ export default function LandingPage() {
   }
 
   return (
-    <div style={{ fontFamily: "Inter, system-ui, -apple-system, sans-serif", color: "#1a2e1a", overflowX: "hidden" }}>
+    <div style={{ fontFamily: "Inter, system-ui, -apple-system, sans-serif", color: "#1a2e1a", overflowX: "hidden", maxWidth: "100vw" }}>
       <style>{`
+        html, body { overflow-x: hidden; max-width: 100vw; }
         html { scroll-behavior: smooth; }
         @keyframes fadeUp { from { opacity:0; transform:translateY(32px); } to { opacity:1; transform:translateY(0); } }
         @keyframes float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-10px); } }
@@ -132,6 +133,16 @@ export default function LandingPage() {
         .nav-link:hover::after, .nav-link.active::after { transform:scaleX(1); }
         .nav-link:hover { color:white !important; }
         .nav-link.active { color:white !important; }
+        @media (max-width: 768px) {
+          .nav-center-links { display: none !important; }
+          .nav-signup-text { display: none !important; }
+          .hero-cluster { display: none !important; }
+          .hero-copy { padding-bottom: 48px !important; }
+          .showcase-phones { display: none !important; }
+          .lang-photo { display: none !important; }
+          .cta-phone { display: none !important; }
+          .footer-links { flex-direction: column !important; align-items: flex-start !important; gap: 16px !important; }
+        }
       `}</style>
 
       {/* HERO (nav merged inside) */}
@@ -141,7 +152,7 @@ export default function LandingPage() {
             <a href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", flexShrink: 0 }}>
               <img src="/LabourBook%20Farm-Inspired%20Logo.png" alt="LabourBook" style={{ height: 52 }} />
             </a>
-            <div style={{ display: "flex", alignItems: "center", gap: 28, flex: 1, justifyContent: "center" }}>
+            <div className="nav-center-links" style={{ display: "flex", alignItems: "center", gap: 28, flex: 1, justifyContent: "center" }}>
               {[
                 { label: "Features", href: "#features", section: "features" },
                 { label: "How it works", href: "#how-it-works", section: "how-it-works" },
@@ -155,8 +166,13 @@ export default function LandingPage() {
               ))}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <Link href="/login" style={{ color: "rgba(255,255,255,0.85)", textDecoration: "none", fontSize: 15, fontWeight: 600 }}>Log in</Link>
-              <Link href="/signup" style={{
+              <Link href="/login" style={{
+                color: "white", textDecoration: "none", fontSize: 14, fontWeight: 600,
+                padding: "8px 18px", borderRadius: 10,
+                border: "1.5px solid rgba(255,255,255,0.3)",
+                background: "rgba(255,255,255,0.08)",
+              }}>Log in</Link>
+              <Link href="/signup" className="nav-signup-text" style={{
                 background: "white", color: "#012d1a", textDecoration: "none",
                 fontSize: 14, fontWeight: 700, padding: "9px 20px", borderRadius: 10,
               }}>Get started free</Link>
@@ -164,7 +180,7 @@ export default function LandingPage() {
           </div>
         </nav>
 
-        <div style={{ padding: "72px 24px 0" }}>
+        <div style={{ padding: "72px 24px 96px" }}>
           <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", gap: 48, flexWrap: "wrap" }}>
             {/* Left copy */}
             <div style={{ flex: "1 1 380px", minWidth: 0, paddingBottom: 72 }}>
@@ -199,7 +215,7 @@ export default function LandingPage() {
             </div>
 
             {/* Phone cluster */}
-            <div style={{ flex: "0 1 500px", position: "relative", height: 460, minWidth: 300 }}>
+            <div className="hero-cluster" style={{ flex: "0 1 500px", position: "relative", height: 460, minWidth: 300 }}>
               <div style={{ position: "absolute", left: 0, top: 48, width: 158, transform: "rotate(-7deg)", opacity: 0.88 }}>
                 <PhoneFrame src={IMG.attendance} alt="Attendance" />
               </div>
@@ -238,7 +254,7 @@ export default function LandingPage() {
 
           </FadeIn>
           {/* 3 phones with real screenshots */}
-          <div style={{ display: "flex", gap: 32, justifyContent: "center", alignItems: "flex-start", flexWrap: "wrap" as const, marginBottom: 52 }}>
+          <div className="showcase-phones" style={{ display: "flex", gap: 32, justifyContent: "center", alignItems: "flex-start", flexWrap: "wrap" as const, marginBottom: 52 }}>
             <div style={{ flex: "0 1 220px" }}><PhoneFrame src={IMG.dashboard} alt="Dashboard screen" /></div>
             <div style={{ flex: "0 1 220px" }}><PhoneFrame src={IMG.labour} alt="Labour screen" /></div>
             <div style={{ flex: "0 1 220px" }}><PhoneFrame src={IMG.attendance} alt="Attendance screen" /></div>
@@ -298,7 +314,7 @@ export default function LandingPage() {
             </p>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" as const }}>
               <a
-                href="https://expo.dev/artifacts/eas/V6nsmi4FqFkcPhh6Ii7GXUJmn0Y5YivW8PBJWXg_LtA.apk"
+                href="https://expo.dev/artifacts/eas/xKHfPRFuhPrf9QKxv3xmNNs8c17n30BvF41sTKGEswQ.apk"
                 download
                 className="apk-btn"
                 style={{ transition: "all 0.2s",
@@ -316,7 +332,7 @@ export default function LandingPage() {
             </p>
           </div>
           {/* Phone preview */}
-          <div style={{ flex: "0 1 200px", transform: "rotate(-3deg)", opacity: 0.92 }}>
+          <div className="cta-phone" style={{ flex: "0 1 200px", transform: "rotate(-3deg)", opacity: 0.92 }}>
             <PhoneFrame src={IMG.dashboard} alt="LabourBook mobile app" />
           </div>
         </div>
@@ -326,7 +342,7 @@ export default function LandingPage() {
       <section style={{ background: "#f7fdf9", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "stretch", flexWrap: "wrap" as const }}>
           {/* Photo — full bleed left */}
-          <div style={{ flex: "1 1 420px", minHeight: 400, position: "relative" }}>
+          <div className="lang-photo" style={{ flex: "1 1 420px", minHeight: 400, position: "relative" }}>
             <img
               src="/Farmer%20Using%20LabourBook%20in%20Vineyard.png"
               alt="Farmer using LabourBook in vineyard"
@@ -401,7 +417,7 @@ export default function LandingPage() {
               ))}
             </div>
           </div>
-          <div style={{ flex: "0 1 210px", transform: "rotate(3deg)" }}>
+          <div className="cta-phone" style={{ flex: "0 1 210px", transform: "rotate(3deg)" }}>
             <PhoneFrame src={IMG.dashboard} alt="LabourBook Dashboard" />
           </div>
         </div>

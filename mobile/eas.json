@@ -2,12 +2,12 @@
   "build": {
     "preview": {
       "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://labourbook-api.onrender.com" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://labour-book.onrender.com" }
     },
     "production": {
       "android": { "buildType": "app-bundle" },
       "ios": {},
-      "env": { "EXPO_PUBLIC_API_URL": "https://labourbook-api.onrender.com" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://labour-book.onrender.com" }
     }
   }
 }
