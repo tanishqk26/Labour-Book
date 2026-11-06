@@ -62,26 +62,20 @@ async def get_system_stats(
 ) -> SystemStats:
     """Returns aggregate counts and system info, scoped to the current user."""
 
-    total_labours = (await db.execute(
-        select(func.count(Labour.id)).where(Labour.owner_id == current_user.id)
-    )).scalar_one()
-    active_labours = (await db.execute(
-        select(func.count(Labour.id)).where(Labour.is_active == True, Labour.owner_id == current_user.id)
-    )).scalar_one()
-
-    total_teams = (await db.execute(
-        select(func.count(Team.id)).where(Team.owner_id == current_user.id)
-    )).scalar_one()
-    active_teams = (await db.execute(
-        select(func.count(Team.id)).where(Team.is_active == True, Team.owner_id == current_user.id)
-    )).scalar_one()
-
-    total_attendance = (await db.execute(
-        select(func.count(Attendance.id)).where(Attendance.owner_id == current_user.id)
-    )).scalar_one()
-    total_payments = (await db.execute(
-        select(func.count(Payment.id)).where(Payment.owner_id == current_user.id)
-    )).scalar_one()
+    # One round-trip for all six counts (scalar subqueries in a single SELECT).
+    owner = current_user.id
+    row = (await db.execute(
+        select(
+            select(func.count(Labour.id)).where(Labour.owner_id == owner).scalar_subquery(),
+            select(func.count(Labour.id)).where(Labour.is_active == True, Labour.owner_id == owner).scalar_subquery(),  # noqa: E712
+            select(func.count(Team.id)).where(Team.owner_id == owner).scalar_subquery(),
+            select(func.count(Team.id)).where(Team.is_active == True, Team.owner_id == owner).scalar_subquery(),  # noqa: E712
+            select(func.count(Attendance.id)).where(Attendance.owner_id == owner).scalar_subquery(),
+            select(func.count(Payment.id)).where(Payment.owner_id == owner).scalar_subquery(),
+        )
+    )).one()
+    (total_labours, active_labours, total_teams, active_teams,
+     total_attendance, total_payments) = row
 
     return SystemStats(
         total_labours=total_labours,

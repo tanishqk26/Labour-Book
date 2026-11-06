@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiGet, apiPost, apiDelete } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
 import LabourModal from "@/components/LabourModal";
@@ -53,7 +53,8 @@ export default function MarkAttendancePage() {
   const [payments, setPayments] = useState<SheetPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [savingKey, setSavingKey] = useState<string | null>(null);
+  // Cells (entity:date) with a save in flight — guards against racing clicks.
+  const pendingRef = useRef<Set<string>>(new Set());
   const [labourModal, setLabourModal] = useState(false);
   const [teamModal, setTeamModal] = useState(false);
   const [listedKeys, setListedKeys] = useState<string[]>([]);
@@ -73,14 +74,16 @@ export default function MarkAttendancePage() {
     setLoading(true);
     setError(null);
     try {
-      await loadPeople();
       const params: Record<string, string | number> = {
         date_from: weekStart,
         date_to: weekEnd,
         page_size: 500,
       };
       if (entityFilter !== "all") params.entity_type = entityFilter;
-      const [att, pmt] = await Promise.all([
+      // All four requests in parallel (people + week data) — one round-trip of
+      // wall-clock time instead of two sequential ones.
+      const [, att, pmt] = await Promise.all([
+        loadPeople(),
         apiGet<{ items: SheetAtt[] }>("/api/v1/attendance/history", params),
         apiGet<{ items: SheetPayment[] }>("/api/v1/payments", { date_from: weekStart, date_to: weekEnd, page_size: 100 }),
       ]);
@@ -132,15 +135,39 @@ export default function MarkAttendancePage() {
 
   async function handleCellClick(entity: SheetEntity, date: string, current: SheetAtt | null) {
     const key = `${entity.key}:${date}`;
+    // A save for this cell is still in flight (its optimistic record may not have
+    // a server id yet) — ignore the click rather than race it.
+    if (pendingRef.current.has(key)) return;
+
     const idx = CYCLE.indexOf(current?.status ?? null);
     const next = CYCLE[(idx + 1) % CYCLE.length];
-    setSavingKey(key);
+    const isCell = (r: SheetAtt) =>
+      r.date === date && (entity.kind === "labour" ? r.labour_id === entity.id : r.team_id === entity.id);
+
+    // Optimistic update: the cell changes instantly; the server response (or a
+    // rollback on error) reconciles it afterwards.
+    const optimistic: SheetAtt | null =
+      next === null
+        ? null
+        : {
+            id: current?.id ?? `tmp-${key}`,
+            date,
+            labour_id: entity.kind === "labour" ? entity.id : null,
+            team_id: entity.kind === "team" ? entity.id : null,
+            status: next,
+            labour: current?.labour ?? null,
+            team: current?.team ?? null,
+          };
+    setError(null);
+    setRecords((prev) => {
+      const without = prev.filter((r) => !isCell(r));
+      return optimistic ? [...without, optimistic] : without;
+    });
+
+    pendingRef.current.add(key);
     try {
       if (next === null) {
-        if (current?.id) {
-          await apiDelete(`/api/v1/attendance/${current.id}`);
-          setRecords((prev) => prev.filter((r) => r.id !== current.id));
-        }
+        if (current?.id) await apiDelete(`/api/v1/attendance/${current.id}`);
       } else {
         const body = {
           date,
@@ -156,15 +183,17 @@ export default function MarkAttendancePage() {
           ],
         };
         const saved = await apiPost<SheetAtt[]>("/api/v1/attendance/bulk", body);
-        setRecords((prev) => {
-          const without = prev.filter((r) => !(r.date === date && (entity.kind === "labour" ? r.labour_id === entity.id : r.team_id === entity.id)));
-          return [...without, ...saved];
-        });
+        setRecords((prev) => [...prev.filter((r) => !isCell(r)), ...saved]);
       }
     } catch {
+      // Roll the cell back to what it was before the click.
+      setRecords((prev) => {
+        const without = prev.filter((r) => !isCell(r));
+        return current ? [...without, current] : without;
+      });
       setError(t("attendance.saveErrorGeneric"));
     } finally {
-      setSavingKey(null);
+      pendingRef.current.delete(key);
     }
   }
 
@@ -262,7 +291,6 @@ export default function MarkAttendancePage() {
               records={records}
               payments={payments}
               interactive
-              savingKey={savingKey}
               onCellClick={handleCellClick}
               onRemove={removeFromSheet}
             />

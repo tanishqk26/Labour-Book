@@ -15,7 +15,7 @@ from datetime import date, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -107,31 +107,28 @@ async def get_daily_attendance(
     all_labours = labour_result.scalars().all()
     labour_map: dict[uuid.UUID, Labour] = {l.id: l for l in all_labours}
 
-    # Fetch today's labour attendance records
-    today_att_result = await db.execute(
+    # One query for both today's and yesterday's attendance (labours + teams)
+    # instead of separate per-entity / per-day queries (each is a network round-trip).
+    yesterday = target_date - timedelta(days=1)
+    att_result = await db.execute(
         select(Attendance).options(selectinload(Attendance.contract)).where(
-            Attendance.labour_id.isnot(None),
-            Attendance.date == target_date,
+            Attendance.date.in_([target_date, yesterday]),
             Attendance.owner_id == current_user.id,
         )
     )
-    today_labour_att = today_att_result.scalars().all()
+    all_att = att_result.scalars().all()
+
+    today_labour_att = [a for a in all_att if a.date == target_date and a.labour_id is not None]
     today_labour_att_map: dict[uuid.UUID, Attendance] = {
         a.labour_id: a for a in today_labour_att if a.labour_id in labour_map
     }
 
     # Carry-forward for labours
     if not today_labour_att:
-        yesterday = target_date - timedelta(days=1)
-        yesterday_att_result = await db.execute(
-            select(Attendance).where(
-                Attendance.labour_id.isnot(None),
-                Attendance.date == yesterday,
-                Attendance.status == "present",
-                Attendance.owner_id == current_user.id,
-            )
-        )
-        yesterday_present = yesterday_att_result.scalars().all()
+        yesterday_present = [
+            a for a in all_att
+            if a.date == yesterday and a.labour_id is not None and a.status == "present"
+        ]
         if yesterday_present:
             seed_labour_ids = {a.labour_id for a in yesterday_present if a.labour_id in labour_map}
         else:
@@ -174,14 +171,7 @@ async def get_daily_attendance(
     all_teams = team_result.scalars().all()
     team_map: dict[uuid.UUID, Team] = {t.id: t for t in all_teams}
 
-    today_team_att_result = await db.execute(
-        select(Attendance).options(selectinload(Attendance.contract)).where(
-            Attendance.team_id.isnot(None),
-            Attendance.date == target_date,
-            Attendance.owner_id == current_user.id,
-        )
-    )
-    today_team_att = today_team_att_result.scalars().all()
+    today_team_att = [a for a in all_att if a.date == target_date and a.team_id is not None]
     today_team_att_map: dict[uuid.UUID, Attendance] = {
         a.team_id: a for a in today_team_att if a.team_id in team_map
     }
@@ -433,40 +423,46 @@ async def upsert_attendance(
     """
     Mark attendance for a labour or team on a date.
     """
+    # One round-trip: fetch the (owner-scoped) entity together with any
+    # existing attendance row for that date via an outer join.
+    labour: Optional[Labour] = None
+    team: Optional[Team] = None
     if payload.labour_id:
-        labour_result = await db.execute(
-            select(Labour).where(Labour.id == payload.labour_id, Labour.owner_id == current_user.id)
-        )
-        labour = labour_result.scalar_one_or_none()
-        if labour is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Labour '{payload.labour_id}' not found")
-
-        existing_result = await db.execute(
-            select(Attendance).where(
-                Attendance.labour_id == payload.labour_id,
-                Attendance.date == payload.date,
-                Attendance.owner_id == current_user.id,
+        row = (await db.execute(
+            select(Labour, Attendance)
+            .outerjoin(
+                Attendance,
+                and_(
+                    Attendance.labour_id == Labour.id,
+                    Attendance.date == payload.date,
+                    Attendance.owner_id == current_user.id,
+                ),
             )
-        )
-        existing = existing_result.scalar_one_or_none()
+            .where(Labour.id == payload.labour_id, Labour.owner_id == current_user.id)
+            .options(selectinload(Attendance.contract))
+        )).first()
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Labour '{payload.labour_id}' not found")
+        labour, existing = row
         wage = _compute_wage_labour(labour, payload.status, payload.hours_worked)
 
     elif payload.team_id:
-        team_result = await db.execute(
-            select(Team).where(Team.id == payload.team_id, Team.owner_id == current_user.id)
-        )
-        team = team_result.scalar_one_or_none()
-        if team is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Team '{payload.team_id}' not found")
-
-        existing_result = await db.execute(
-            select(Attendance).where(
-                Attendance.team_id == payload.team_id,
-                Attendance.date == payload.date,
-                Attendance.owner_id == current_user.id,
+        row = (await db.execute(
+            select(Team, Attendance)
+            .outerjoin(
+                Attendance,
+                and_(
+                    Attendance.team_id == Team.id,
+                    Attendance.date == payload.date,
+                    Attendance.owner_id == current_user.id,
+                ),
             )
-        )
-        existing = existing_result.scalar_one_or_none()
+            .where(Team.id == payload.team_id, Team.owner_id == current_user.id)
+            .options(selectinload(Attendance.contract))
+        )).first()
+        if row is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Team '{payload.team_id}' not found")
+        team, existing = row
         wage = _compute_wage_team(team, payload.status, payload.num_labourers)
     else:
         raise HTTPException(status_code=400, detail="Either labour_id or team_id is required")
@@ -479,11 +475,9 @@ async def upsert_attendance(
         existing.work_end_time = payload.work_end_time
         existing.num_labourers = payload.num_labourers
         existing.wage_earned = wage
-        await db.flush()
-        await db.refresh(existing)
         result_obj = existing
     else:
-        att = Attendance(
+        result_obj = Attendance(
             labour_id=payload.labour_id,
             team_id=payload.team_id,
             date=payload.date,
@@ -496,17 +490,17 @@ async def upsert_attendance(
             wage_earned=wage,
             owner_id=current_user.id,
         )
-        db.add(att)
-        await db.flush()
-        await db.refresh(att)
-        result_obj = att
+        db.add(result_obj)
 
-    reloaded = await db.execute(
-        select(Attendance)
-        .options(selectinload(Attendance.labour), selectinload(Attendance.team))
-        .where(Attendance.id == result_obj.id, Attendance.owner_id == current_user.id)
-    )
-    return AttendanceRead.model_validate(reloaded.scalar_one())
+    # Pre-set the already-loaded related entity so serialisation needs no
+    # lazy load; eager_defaults fetches created_at/updated_at via RETURNING
+    # in the same statement. Net: 1 lookup + 1 write, no refresh/reload.
+    if labour is not None:
+        result_obj.labour = labour
+    if team is not None:
+        result_obj.team = team
+    await db.flush()
+    return AttendanceRead.model_validate(result_obj)
 
 
 # ---------------------------------------------------------------------------

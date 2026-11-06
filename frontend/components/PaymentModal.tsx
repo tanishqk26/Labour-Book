@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ApiError, apiGet, apiPost } from "@/lib/api";
-import { Labour, TeamSummary, PaginatedResponse, EntityPaymentSummary } from "@/types";
+import { Labour, TeamSummary, PaginatedResponse, EntityPaymentSummary, PaymentRead } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
@@ -11,7 +11,8 @@ import { useLanguage } from "@/context/LanguageContext";
 interface PaymentModalProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  /** Called after a payment is saved; receives the server-returned payment so callers can update locally instead of refetching. */
+  onSuccess: (created?: PaymentRead) => void;
   /** Pre-select a specific entity */
   preselectedEntityType?: "individual" | "team";
   preselectedEntityId?: string;
@@ -167,8 +168,8 @@ export default function PaymentModal({
     }
 
     try {
-      await apiPost("/api/v1/payments", payload);
-      onSuccess();
+      const created = await apiPost<PaymentRead>("/api/v1/payments", payload);
+      onSuccess(created);
       onClose();
     } catch (err) {
       if (err instanceof ApiError) {

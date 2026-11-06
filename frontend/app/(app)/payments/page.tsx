@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { apiGet } from "@/lib/api";
 import { PaymentRead, PaginatedPayments } from "@/types";
 import { formatCurrency, formatMediumDate, getInitials } from "@/lib/utils";
@@ -43,8 +43,12 @@ export default function PaymentsPage() {
 
   const today = todayISO();
 
+  const hasLoadedRef = useRef(false);
+
   const fetchPayments = useCallback(async () => {
-    setLoading(true);
+    // Only show the full-page spinner on the very first load; later refreshes
+    // update in the background so the lists never blank out.
+    if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
       const [todayData, recentData] = await Promise.all([
@@ -57,6 +61,7 @@ export default function PaymentsPage() {
       ]);
       setTodayPayments(todayData.items);
       setRecentPayments(recentData.items);
+      hasLoadedRef.current = true;
     } catch {
       setError(t("payments.loadErrorMessage"));
     } finally {
@@ -80,7 +85,12 @@ export default function PaymentsPage() {
       <PaymentModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSuccess={fetchPayments}
+        onSuccess={(created) => {
+          // Use the server response directly — no refetch round-trip.
+          if (!created) { fetchPayments(); return; }
+          setRecentPayments((prev) => [created, ...prev].slice(0, 15));
+          if (created.date === today) setTodayPayments((prev) => [created, ...prev]);
+        }}
       />
 
       {/* Page Header */}

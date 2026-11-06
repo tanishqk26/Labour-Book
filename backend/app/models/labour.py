@@ -17,6 +17,8 @@ from app.database import Base
 
 class Labour(Base):
     __tablename__ = "labours"
+    # Fetch server-generated created_at/updated_at via RETURNING (no refresh round-trip).
+    __mapper_args__ = {"eager_defaults": True}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     owner_id = Column(

@@ -112,26 +112,32 @@ async def create_contract(
 ) -> ContractRead:
     """Create a new fixed-price contract. If plot_id + amount_per_acre are provided,
     amount = amount_per_acre * plot.size_acres (computed by the client and sent as `amount`)."""
-    # Validate entity exists and belongs to this user
+    # Validate entity exists and belongs to this user. The fetched name is reused
+    # for the response, so no extra "resolve entity name" query is needed.
+    entity_name: Optional[str] = None
     if payload.entity_type == "individual" and payload.labour_id:
         result = await db.execute(
-            select(Labour).where(Labour.id == payload.labour_id, Labour.owner_id == current_user.id)
+            select(Labour.name).where(Labour.id == payload.labour_id, Labour.owner_id == current_user.id)
         )
-        if result.scalar_one_or_none() is None:
+        entity_name = result.scalar_one_or_none()
+        if entity_name is None:
             raise HTTPException(status_code=404, detail="Labour not found")
     elif payload.entity_type == "team" and payload.team_id:
         result = await db.execute(
-            select(Team).where(Team.id == payload.team_id, Team.owner_id == current_user.id)
+            select(Team.name).where(Team.id == payload.team_id, Team.owner_id == current_user.id)
         )
-        if result.scalar_one_or_none() is None:
+        entity_name = result.scalar_one_or_none()
+        if entity_name is None:
             raise HTTPException(status_code=404, detail="Team not found")
 
-    # Validate plot if provided
+    # Validate plot if provided (kept for the response so no reload is needed)
+    plot: Optional[Plot] = None
     if payload.plot_id:
         result = await db.execute(
             select(Plot).where(Plot.id == payload.plot_id, Plot.owner_id == current_user.id)
         )
-        if result.scalar_one_or_none() is None:
+        plot = result.scalar_one_or_none()
+        if plot is None:
             raise HTTPException(status_code=404, detail="Plot not found")
 
     contract = Contract(
@@ -147,14 +153,10 @@ async def create_contract(
         status=payload.status,
         owner_id=current_user.id,
     )
+    contract.plot = plot  # already loaded above; avoids a reload / lazy load
     db.add(contract)
-    await db.flush()
-    await db.refresh(contract)
-
-    # Reload with plot relationship
-    reloaded = await _get_contract_or_404(db, contract.id, current_user.id)
-    entity_name = await _resolve_entity_name(db, reloaded)
-    return contract_to_read(reloaded, entity_name)
+    await db.flush()  # eager_defaults fills created_at/updated_at via RETURNING
+    return contract_to_read(contract, entity_name)
 
 
 @router.get(
@@ -251,14 +253,27 @@ async def update_contract(
     """Partially update a contract."""
     contract = await _get_contract_or_404(db, contract_id, current_user.id)
     update_data = payload.model_dump(exclude_unset=True)
+
+    # Only hit the DB for the plot when it is actually being changed (this also
+    # enforces owner isolation on the new plot).
+    new_plot: Optional[Plot] = None
+    plot_changed = "plot_id" in update_data and update_data["plot_id"] != contract.plot_id
+    if plot_changed and update_data["plot_id"] is not None:
+        result = await db.execute(
+            select(Plot).where(Plot.id == update_data["plot_id"], Plot.owner_id == current_user.id)
+        )
+        new_plot = result.scalar_one_or_none()
+        if new_plot is None:
+            raise HTTPException(status_code=404, detail="Plot not found")
+
     for field, value in update_data.items():
         setattr(contract, field, value)
+    if plot_changed:
+        contract.plot = new_plot
     await db.flush()
 
-    # Reload with relationships
-    reloaded = await _get_contract_or_404(db, contract_id, current_user.id)
-    entity_name = await _resolve_entity_name(db, reloaded)
-    return contract_to_read(reloaded, entity_name)
+    entity_name = await _resolve_entity_name(db, contract)
+    return contract_to_read(contract, entity_name)
 
 
 @router.delete(

@@ -27,6 +27,10 @@ class Attendance(Base):
         UniqueConstraint("team_id",   "date", name="uq_attendance_team_date"),
     )
 
+    # Fetch server-generated values (created_at / updated_at) via RETURNING on
+    # INSERT/UPDATE instead of a separate SELECT round-trip.
+    __mapper_args__ = {"eager_defaults": True}
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     owner_id = Column(
         UUID(as_uuid=True),

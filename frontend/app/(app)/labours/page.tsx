@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import type { Metadata } from "next";
 import { apiGet } from "@/lib/api";
 import { Labour, PaginatedResponse, EntityPaymentSummary } from "@/types";
@@ -38,8 +38,11 @@ export default function LaboursPage() {
     return () => clearTimeout(t);
   }, [search]);
 
+  // Spinner only on first load; later refreshes update in the background.
+  const hasLoadedRef = useRef(false);
+
   const fetchLabours = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
       const params: Record<string, string | number> = {
@@ -61,6 +64,7 @@ export default function LaboursPage() {
         if (e.entity_type === "individual") map[e.entity_id] = e;
       }
       setPaymentMap(map);
+      hasLoadedRef.current = true;
     } catch {
       setError(t("labours.loadFailedMessage"));
     } finally {

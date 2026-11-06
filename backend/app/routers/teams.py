@@ -102,17 +102,6 @@ async def _get_team_or_404(db: AsyncSession, team_id: uuid.UUID, owner_id: uuid.
     return team
 
 
-async def _refresh_team(db: AsyncSession, team: Team) -> None:
-    """Reload expired columns (e.g. updated_at) and the members collection.
-
-    After flush, onupdate columns are expired. Refreshing only ``members``
-    leaves those scalars unloaded, and reading them later raises
-    MissingGreenlet in async SQLAlchemy.
-    """
-    await db.refresh(team)
-    await db.refresh(team, attribute_names=["members"])
-
-
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -138,9 +127,11 @@ async def create_team(
         manager_fee=payload.manager_fee,
         owner_id=current_user.id,
     )
+    # A brand-new team has no members; initialise the collection so serialising
+    # it never triggers a lazy load. (eager_defaults fills timestamps via RETURNING.)
+    team.members = []
     db.add(team)
     await db.flush()
-    await _refresh_team(db, team)
     return team_to_read(team)
 
 
@@ -221,7 +212,6 @@ async def update_team(
         setattr(team, field, value)
 
     await db.flush()
-    await _refresh_team(db, team)
     return team_to_read(team)
 
 
@@ -297,7 +287,6 @@ async def add_members(
             team.members.append(labour)
 
     await db.flush()
-    await _refresh_team(db, team)
     return team_to_read(team)
 
 
@@ -319,5 +308,4 @@ async def remove_members(
     team.members = [m for m in team.members if m.id not in remove_ids]
 
     await db.flush()
-    await _refresh_team(db, team)
     return team_to_read(team)

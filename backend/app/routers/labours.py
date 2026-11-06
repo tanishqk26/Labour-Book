@@ -72,8 +72,7 @@ async def create_labour(
     """Create a new individual labourer."""
     labour = Labour(**payload.model_dump(), owner_id=current_user.id)
     db.add(labour)
-    await db.flush()
-    await db.refresh(labour)
+    await db.flush()  # eager_defaults fills created_at/updated_at via RETURNING
     return labour_to_read(labour)
 
 
@@ -167,7 +166,6 @@ async def update_labour(
         setattr(labour, field, value)
 
     await db.flush()
-    await db.refresh(labour)
     return labour_to_read(labour)
 
 

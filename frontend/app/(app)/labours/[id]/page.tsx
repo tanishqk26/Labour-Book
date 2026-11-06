@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState, useCallback } from "react";
+import { use, useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPost, apiFetch } from "@/lib/api";
@@ -156,8 +156,11 @@ export default function LabourDetailPage({ params }: PageProps) {
     }
   }, [id]);
 
+  // Spinner only on first load; refreshes after a payment update in place.
+  const paymentsLoadedRef = useRef(false);
+
   const fetchPayments = useCallback(async () => {
-    setPaymentsLoading(true);
+    if (!paymentsLoadedRef.current) setPaymentsLoading(true);
     try {
       const [summaryData, listData] = await Promise.all([
         apiGet<EntityPaymentSummary>(`/api/v1/payments/entity/individual/${id}/summary`),
@@ -165,6 +168,7 @@ export default function LabourDetailPage({ params }: PageProps) {
       ]);
       setPaymentSummary(summaryData);
       setPayments(listData.items);
+      paymentsLoadedRef.current = true;
     } catch {
       // silently fail
     } finally {

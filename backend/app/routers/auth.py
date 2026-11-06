@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, invalidate_user_cache
 from app.core.security import (
     SESSION_COOKIE_NAME,
     create_access_token,
@@ -213,6 +213,7 @@ async def update_profile(
     db_user.phone = body.phone
     await db.flush()
     await db.refresh(db_user)
+    invalidate_user_cache(db_user.id)
     return UserRead.model_validate(db_user)
 
 
@@ -228,6 +229,7 @@ async def change_password(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
     db_user.password_hash = hash_password(body.new_password)
     await db.flush()
+    invalidate_user_cache(db_user.id)
     return {"message": "Password updated"}
 
 

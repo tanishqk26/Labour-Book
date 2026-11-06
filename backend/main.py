@@ -10,7 +10,10 @@ if sys.platform == "win32":
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from sqlalchemy import text
+
 from app.config import settings
+from app.database import engine
 from app.core.deps import get_current_user
 from app.routers.health import router as health_router
 from app.routers.auth import router as auth_router
@@ -36,9 +39,28 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     # -- Startup --
     print(f"[LabourBook] API starting up [{settings.app_env}]")
+    keep_warm = asyncio.create_task(_keep_db_warm())
     yield
     # -- Shutdown --
+    keep_warm.cancel()
     print("[LabourBook] API shutting down")
+
+
+async def _keep_db_warm() -> None:
+    """
+    Open a DB connection at startup (avoids a multi-second cold connect on the
+    first request) and ping it periodically so the remote pooler never drops
+    the hot connection that requests reuse (pool_use_lifo).
+    """
+    while True:
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # never let the keep-alive crash the app
+            print(f"[LabourBook] DB keep-warm ping failed: {exc}")
+        await asyncio.sleep(45)
 
 
 # ---------------------------------------------------------------------------

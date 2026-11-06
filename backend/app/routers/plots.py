@@ -87,8 +87,7 @@ async def create_plot(
         owner_id=current_user.id,
     )
     db.add(plot)
-    await db.flush()
-    await db.refresh(plot)
+    await db.flush()  # eager_defaults fills timestamps via RETURNING
     return PlotRead.from_orm_obj(plot)
 
 
@@ -121,7 +120,6 @@ async def update_plot(
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(plot, field, value)
     await db.flush()
-    await db.refresh(plot)
     return PlotRead.from_orm_obj(plot)
 
 

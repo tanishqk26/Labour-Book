@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { apiGet, apiPost, apiPatch, apiDelete, ApiError } from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
 import DatePicker from "@/components/ui/DatePicker";
@@ -889,8 +889,11 @@ export default function ContractsPage() {
 
   const PAGE_SIZE = 20;
 
+  // Spinner only on first load; later refreshes update in the background.
+  const hasLoadedRef = useRef(false);
+
   const fetchContracts = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
       const params: Record<string, string | number> = { page, page_size: PAGE_SIZE };
@@ -898,6 +901,7 @@ export default function ContractsPage() {
       const data = await apiGet<PaginatedContracts>("/api/v1/contracts", params);
       setContracts(data.items);
       setTotal(data.total);
+      hasLoadedRef.current = true;
     } catch {
       setError(t("contracts.loadFailedError"));
     } finally {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { apiGet, apiDelete } from "@/lib/api";
 import { TeamSummary, PaginatedResponse } from "@/types";
@@ -33,8 +33,11 @@ export default function TeamsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
+  // Spinner only on first load; later refreshes update in the background.
+  const hasLoadedRef = useRef(false);
+
   const fetchTeams = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
       const params: Record<string, string | number> = {
@@ -47,6 +50,7 @@ export default function TeamsPage() {
       const data = await apiGet<PaginatedResponse<TeamSummary>>("/api/v1/teams", params);
       setTeams(data.items);
       setTotal(data.total);
+      hasLoadedRef.current = true;
     } catch {
       setError(t("teams.failedToLoadTeamsMessage"));
     } finally {

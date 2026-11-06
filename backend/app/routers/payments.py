@@ -351,8 +351,7 @@ async def create_payment(
         owner_id=current_user.id,
     )
     db.add(payment)
-    await db.flush()
-    await db.refresh(payment)
+    await db.flush()  # eager_defaults fills timestamps via RETURNING
 
     return _payment_to_read(payment, entity_name)
 
@@ -458,7 +457,6 @@ async def update_payment(
     for field, value in update_data.items():
         setattr(p, field, value)
     await db.flush()
-    await db.refresh(p)
 
     name: Optional[str] = None
     if p.labour_id:
