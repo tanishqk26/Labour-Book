@@ -17,7 +17,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
 import { apiGet } from '../../lib/api';
 import { C, R, fmtCurrency, todayISO, AVATAR_COLORS, initials } from '../../lib/theme';
 import { MoreStackParamList } from '../details/types';
@@ -745,12 +744,12 @@ export function StatementDetailScreen({ route, navigation }: DetailProps) {
 
       // Native: generate PDF file then share (works on both iOS and Android)
       const { uri } = await Print.printToFileAsync({ html });
-      if (Platform.OS === 'android') {
-        const contentUri = await FileSystem.getContentUriAsync(uri);
-        await Sharing.shareAsync(contentUri, { mimeType: 'application/pdf', dialogTitle: 'Share Statement' });
-      } else {
-        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
-      }
+      // expo-sharing converts the file:// URI to a shareable content URI on Android itself.
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Share Statement',
+        UTI: 'com.adobe.pdf',
+      });
     } catch (err: any) {
       const msg = err?.message ?? String(err) ?? 'Unknown error';
       Alert.alert('PDF Error', msg);
