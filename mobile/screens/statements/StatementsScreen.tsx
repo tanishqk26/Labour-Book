@@ -404,7 +404,7 @@ function generateStatementHTML(
 <!-- HEADER BAND -->
 <div class="header">
   <div>
-    <div class="brand">LabourBook</div>
+    <div class="brand">KhetKitab</div>
     <div class="stmt-title">${typeLabel}</div>
   </div>
   <div class="stmt-meta">
@@ -455,7 +455,7 @@ function generateStatementHTML(
 <!-- FOOTER -->
 <div class="footer">
   <span>Computer generated document — no signature required.</span>
-  <span>LabourBook · ${generatedOn}</span>
+  <span>KhetKitab · ${generatedOn}</span>
 </div>
 
 </body>

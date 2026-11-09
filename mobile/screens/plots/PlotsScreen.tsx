@@ -250,10 +250,12 @@ function PlotCard({
   plot,
   onEdit,
   onDeleted,
+  onRemoving,
 }: {
   plot: Plot;
   onEdit: () => void;
   onDeleted: () => void;
+  onRemoving: () => void;
 }) {
   function confirmDelete() {
     Alert.alert(
@@ -265,11 +267,12 @@ function PlotCard({
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            onRemoving(); // hide the card immediately
             try {
               await apiDelete(`/api/v1/plots/${plot.id}`);
-              onDeleted();
             } catch {
               Alert.alert('Error', 'Could not delete plot.');
+              onDeleted(); // reload to restore it
             }
           },
         },
@@ -441,6 +444,7 @@ export default function PlotsScreen({ navigation }: NavProp) {
                 plot={p}
                 onEdit={() => openEdit(p)}
                 onDeleted={load}
+                onRemoving={() => setPlots((prev) => prev.filter((x) => x.id !== p.id))}
               />
             ))}
           </View>

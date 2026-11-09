@@ -1,5 +1,5 @@
 /**
- * LabourBook Mobile API Client
+ * KhetKitab Mobile API Client
  *
  * Auth uses a Bearer token.
  * Native: expo-secure-store. Web: localStorage (SecureStore is not available).

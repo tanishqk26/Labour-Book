@@ -95,7 +95,7 @@ export default function MoreScreen() {
           <Text style={styles.signOutText}>{t('sign_out')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>LabourBook Mobile · v1.0.0</Text>
+        <Text style={styles.version}>KhetKitab Mobile · v1.0.0</Text>
       </ScrollView>
     </View>
   );

@@ -1,7 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { C, R } from '../lib/theme';
 import { useAuth } from '../context/AuthContext';
 
@@ -20,10 +19,10 @@ export default function AppHeader({ screenName }: Props) {
         {/* Logo + screen name */}
         <View style={styles.logoRow}>
           <View style={styles.logoBox}>
-            <MaterialCommunityIcons name="leaf" size={18} color={C.primary} />
+            <Image source={require('../assets/logo-mark.png')} style={{ width: 28, height: 28 }} resizeMode="contain" />
           </View>
           <View>
-            <Text style={styles.appLabel}>LABOURBOOK</Text>
+            <Text style={styles.appLabel}>KHETKITAB</Text>
             <Text style={styles.screenName}>{screenName}</Text>
           </View>
         </View>

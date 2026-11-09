@@ -18,6 +18,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { LANGUAGES } from '../../lib/i18n';
 import { C, R, initials } from '../../lib/theme';
+import PasswordInput from '../../components/PasswordInput';
 
 // ─── Back header ─────────────────────────────────────────────────────────────
 
@@ -210,9 +211,9 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
               ) : (
                 <View style={{ gap: 10 }}>
-                  <TextInput style={s.input} value={currentPw} onChangeText={setCurrentPw} placeholder={t('current_password')} placeholderTextColor={C.outlineVariant} secureTextEntry />
-                  <TextInput style={s.input} value={newPw} onChangeText={setNewPw} placeholder={t('new_password')} placeholderTextColor={C.outlineVariant} secureTextEntry />
-                  <TextInput style={s.input} value={confirmPw} onChangeText={setConfirmPw} placeholder={t('confirm_password')} placeholderTextColor={C.outlineVariant} secureTextEntry />
+                  <PasswordInput style={s.input} value={currentPw} onChangeText={setCurrentPw} placeholder={t('current_password')} placeholderTextColor={C.outlineVariant} />
+                  <PasswordInput style={s.input} value={newPw} onChangeText={setNewPw} placeholder={t('new_password')} placeholderTextColor={C.outlineVariant} />
+                  <PasswordInput style={s.input} value={confirmPw} onChangeText={setConfirmPw} placeholder={t('confirm_password')} placeholderTextColor={C.outlineVariant} />
                   <View style={{ flexDirection: 'row', gap: 8 }}>
                     <TouchableOpacity style={[s.changePwBtn, { flex: 1 }]} onPress={() => { setShowPwSection(false); setCurrentPw(''); setNewPw(''); setConfirmPw(''); }}>
                       <Text style={[s.changePwBtnText, { color: C.onSurfaceVariant }]}>{t('cancel')}</Text>

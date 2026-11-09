@@ -1,5 +1,5 @@
 /**
- * LabourBook Mobile Design Tokens
+ * KhetKitab Mobile Design Tokens
  * Extracted from the reference UI design.
  */
 

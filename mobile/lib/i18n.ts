@@ -24,7 +24,7 @@ const translations = {
     settings: 'Settings',
     settings_sub: 'Language, account preferences',
     sign_out: 'Sign Out',
-    sign_out_msg: 'You will be signed out of LabourBook. Continue?',
+    sign_out_msg: 'You will be signed out of KhetKitab. Continue?',
     cancel: 'Cancel',
 
     // Settings screen
@@ -124,7 +124,7 @@ const translations = {
     settings: 'सेटिंग',
     settings_sub: 'भाषा, खाता प्राथमिकताएं',
     sign_out: 'साइन आउट',
-    sign_out_msg: 'आप LabourBook से साइन आउट हो जाएंगे। जारी रखें?',
+    sign_out_msg: 'आप KhetKitab से साइन आउट हो जाएंगे। जारी रखें?',
     cancel: 'रद्द करें',
 
     settings_title: 'सेटिंग',
@@ -218,7 +218,7 @@ const translations = {
     settings: 'सेटिंग्ज',
     settings_sub: 'भाषा, खाते प्राधान्ये',
     sign_out: 'साइन आउट',
-    sign_out_msg: 'तुम्ही LabourBook मधून साइन आउट व्हाल. पुढे जायचे का?',
+    sign_out_msg: 'तुम्ही KhetKitab मधून साइन आउट व्हाल. पुढे जायचे का?',
     cancel: 'रद्द करा',
 
     settings_title: 'सेटिंग्ज',

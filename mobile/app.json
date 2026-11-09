@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "LabourBook",
+    "name": "KhetKitab",
     "slug": "labourbook",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,7 +15,7 @@
       "package": "com.labourbook.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -28,7 +28,16 @@
     "plugins": [
       "expo-secure-store",
       "expo-sharing",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#EDF4ED"
+        }
+      ]
     ],
     "extra": {
       "eas": {

@@ -151,11 +151,13 @@ export default function LaboursScreen() {
       {
         text: "Deactivate", style: "destructive",
         onPress: async () => {
+          // Remove from the list immediately; restore it if the request fails.
+          setLabours((prev) => prev.filter((l) => l.id !== id));
           try {
             await apiPatch(`/api/v1/labours/${id}`, { is_active: false });
-            load(true);
           } catch {
             Alert.alert("Error", "Failed to deactivate labourer.");
+            load(true);
           }
         },
       },

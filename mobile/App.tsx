@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -153,11 +153,7 @@ function RootNavigator() {
   if (loading) {
     return (
       <View style={appStyles.splash}>
-        <View style={appStyles.splashLogo}>
-          <MaterialCommunityIcons name="leaf" size={36} color={C.primary} />
-        </View>
-        <Text style={appStyles.splashTitle}>LabourBook</Text>
-        <ActivityIndicator size="small" color={C.primaryFixed} style={{ marginTop: 24 }} />
+        <Image source={require('./assets/splash.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
       </View>
     );
   }
@@ -195,20 +191,8 @@ export default function App() {
 const appStyles = StyleSheet.create({
   splash: {
     flex: 1,
-    backgroundColor: C.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#EDF4ED',
   },
-  splashLogo: {
-    width: 72,
-    height: 72,
-    borderRadius: R.xl,
-    backgroundColor: C.primaryFixed,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  splashTitle: { fontSize: 26, fontWeight: '800', color: C.onPrimary, letterSpacing: -0.5 },
 });
 
 const tabStyles = StyleSheet.create({

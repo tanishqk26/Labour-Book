@@ -81,11 +81,13 @@ export default function ContractsScreen({ navigation }: { navigation: { goBack: 
         {
           text: 'Delete', style: 'destructive',
           onPress: async () => {
+            // Remove from the list immediately; restore it if the request fails.
+            setItems((prev) => prev.filter((c) => c.id !== contract.id));
             try {
               await apiDelete(`/api/v1/contracts/${contract.id}`);
-              load(true);
             } catch {
               Alert.alert('Error', 'Could not delete this contract.');
+              load(true);
             }
           },
         },

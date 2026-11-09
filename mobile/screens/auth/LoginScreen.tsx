@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { ApiError } from '../../lib/api';
 import { C, R } from '../../lib/theme';
+import PasswordInput from '../../components/PasswordInput';
 
 export default function LoginScreen() {
   const { loginWithPassword } = useAuth();
@@ -60,9 +62,9 @@ export default function LoginScreen() {
         {/* Brand */}
         <View style={styles.brand}>
           <View style={styles.logoBox}>
-            <Text style={styles.logoIcon}>🌿</Text>
+            <Image source={require('../../assets/logo-mark.png')} style={styles.logoImg} resizeMode="contain" />
           </View>
-          <Text style={styles.appName}>LabourBook</Text>
+          <Text style={styles.appName}>KhetKitab</Text>
           <Text style={styles.tagline}>Farm Labour Manager</Text>
         </View>
 
@@ -87,12 +89,11 @@ export default function LoginScreen() {
 
           <View style={styles.field}>
             <Text style={styles.label}>Password</Text>
-            <TextInput
+            <PasswordInput
               style={styles.input}
               value={password}
               onChangeText={setPassword}
               placeholder="Enter your password"
-              secureTextEntry
               placeholderTextColor={C.outline}
             />
           </View>
@@ -138,7 +139,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 4,
   },
-  logoIcon: { fontSize: 32 },
+  logoImg: { width: 48, height: 48 },
   appName: { fontSize: 28, fontWeight: '800', color: C.primary, letterSpacing: -0.5 },
   tagline: { fontSize: 13, color: C.onSurfaceVariant, marginTop: 3 },
   card: {

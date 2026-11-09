@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -26,6 +26,7 @@ type AttStatus = 'present' | 'absent' | 'half_day';
 interface AttRecord {
   id: string; date: string; labour_id: string | null; team_id: string | null;
   status: AttStatus; wage_earned?: number;
+  task?: string | null; work_start_time?: string | null; work_end_time?: string | null; num_labourers?: number | null;
 }
 interface Labour { id: string; name: string; is_active: boolean; daily_wage?: number; }
 interface Team { id: string; name: string; member_count: number; is_active: boolean; daily_wage?: number; }
@@ -38,6 +39,7 @@ const STATUS_STYLE: Record<AttStatus, { bg: string; fg: string }> = {
   half_day: { bg: '#fef3c7', fg: '#6b4c04' },
 };
 const DAY_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const ROSTER_KEY = 'lb:att-roster';
 const PAYMENT_METHODS = ['cash', 'upi', 'bank_transfer'] as const;
 const METHOD_LABEL: Record<string, string> = { cash: 'Cash', upi: 'UPI', bank_transfer: 'Bank' };
 
@@ -53,7 +55,10 @@ function addDays(iso: string, n: number) {
 
 // ─── Present Detail Modal ─────────────────────────────────────────────────────
 
-interface PendingMark { entityId: string; kind: 'labour' | 'team'; date: string; name: string; defaultCount?: number; status: AttStatus; }
+interface PendingMark {
+  entityId: string; kind: 'labour' | 'team'; date: string; name: string; defaultCount?: number; status: AttStatus;
+  initial?: { task?: string | null; startTime?: string | null; endTime?: string | null; numLabourers?: number | null };
+}
 
 function PresentModal({
   pending, onClose, onConfirm,
@@ -78,8 +83,10 @@ function PresentModal({
 
   useEffect(() => {
     if (!pending) return;
-    setNumMembers(String(pending.defaultCount ?? 1));
-    setStartTime(''); setEndTime(''); setTask('');
+    setNumMembers(String(pending.initial?.numLabourers ?? pending.defaultCount ?? 1));
+    setStartTime(pending.initial?.startTime?.slice(0, 5) ?? '');
+    setEndTime(pending.initial?.endTime?.slice(0, 5) ?? '');
+    setTask(pending.initial?.task ?? '');
     setPayEnabled(false); setPayAmount(''); setPayMethod('cash');
     setError(null); setClockTarget(null);
   }, [pending]);
@@ -118,8 +125,8 @@ function PresentModal({
         <View style={pm.root}>
           <View style={pm.header}>
             <View style={{ flex: 1 }}>
-              <Text style={pm.title}>{pending.status === 'half_day' ? 'Mark Half Day' : 'Mark Present'}</Text>
-              <Text style={pm.sub} numberOfLines={1}>{pending.name}</Text>
+              <Text style={pm.title}>Attendance Details</Text>
+              <Text style={pm.sub} numberOfLines={1}>{pending.name} · {pending.status === 'half_day' ? 'Half day' : 'Present'}</Text>
             </View>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
               <MaterialCommunityIcons name="close" size={22} color={C.onSurfaceVariant} />
@@ -224,7 +231,7 @@ function PresentModal({
           <View style={pm.footer}>
             <TouchableOpacity style={pm.cancelBtn} onPress={onClose}><Text style={pm.cancelText}>Cancel</Text></TouchableOpacity>
             <TouchableOpacity style={[pm.confirmBtn, saving && { opacity: 0.6 }]} onPress={confirm} disabled={saving}>
-              {saving ? <ActivityIndicator color={C.onPrimary} /> : <Text style={pm.confirmText}>{pending.status === 'half_day' ? 'Mark Half Day' : 'Mark Present'}</Text>}
+              {saving ? <ActivityIndicator color={C.onPrimary} /> : <Text style={pm.confirmText}>Save Details</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -241,15 +248,66 @@ function PresentModal({
   );
 }
 
+// ─── Team member-count stepper ────────────────────────────────────────────────
+
+function TeamCountStepper({ value, onCommit }: { value: number | null; onCommit: (n: number) => void }) {
+  const [text, setText] = useState(value ? String(value) : '');
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Follow the saved value (e.g. after a reload or a save from the details form).
+  useEffect(() => { setText(value ? String(value) : ''); }, [value]);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  function commitSoon(n: number) {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => onCommit(n), 400); // batches rapid +/- taps
+  }
+  function commitNow() {
+    if (timer.current) clearTimeout(timer.current);
+    onCommit(parseInt(text, 10) || 0);
+  }
+  function bump(delta: number) {
+    const n = Math.max(0, (parseInt(text, 10) || 0) + delta);
+    setText(n ? String(n) : '');
+    commitSoon(n);
+  }
+
+  return (
+    <View style={s.stepper}>
+      <TouchableOpacity style={s.stepBtn} onPress={() => bump(-1)} hitSlop={4} accessibilityLabel="Decrease members present">
+        <MaterialCommunityIcons name="minus" size={16} color={C.onSurfaceVariant} />
+      </TouchableOpacity>
+      <TextInput
+        style={[s.stepInput, !!text && s.stepInputFilled]}
+        value={text}
+        onChangeText={(v) => setText(v.replace(/[^0-9]/g, '').slice(0, 3))}
+        onBlur={commitNow}
+        onSubmitEditing={commitNow}
+        keyboardType="number-pad"
+        placeholder="0"
+        placeholderTextColor={C.outline}
+        textAlign="center"
+        selectTextOnFocus
+        accessibilityLabel="Members present"
+      />
+      <TouchableOpacity style={s.stepBtn} onPress={() => bump(1)} hitSlop={4} accessibilityLabel="Increase members present">
+        <MaterialCommunityIcons name="plus" size={16} color={C.primary} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ─── Mark Tab ─────────────────────────────────────────────────────────────────
 
 function MarkTab({
-  markDate, labours, teams, records, onMarkPresent, onToggleOther, onAddToSheet, onRemoveFromSheet, sheetIds,
+  markDate, labours, teams, records, savingKeys, onEdit, onToggleOther, onSetTeamCount, onAddToSheet, onRemoveFromSheet, sheetIds,
 }: {
   markDate: string; labours: Labour[]; teams: Team[];
   records: AttRecord[];
-  onMarkPresent: (id: string, kind: 'labour' | 'team', name: string, defaultCount: number | undefined, status: AttStatus) => void;
+  savingKeys: Set<string>;
+  onEdit: (id: string, kind: 'labour' | 'team', name: string, defaultCount: number | undefined) => void;
   onToggleOther: (id: string, kind: 'labour' | 'team', s: AttStatus, date: string) => void;
+  onSetTeamCount: (id: string, count: number, date: string) => void;
   onAddToSheet: () => void;
   onRemoveFromSheet: (key: string) => void;
   sheetIds: Set<string> | null;
@@ -258,26 +316,29 @@ function MarkTab({
     ...labours.map((l) => ({ id: l.id, name: l.name, kind: 'labour' as const })),
     ...teams.map((t) => ({ id: t.id, name: t.name, kind: 'team' as const, count: t.member_count })),
   ];
+  // Roster (carried forward) plus anyone who already has a mark on this day.
+  const markedToday = new Set(
+    records.filter((r) => r.date === markDate).map((r) => (r.labour_id ? `l:${r.labour_id}` : `t:${r.team_id}`)),
+  );
   const all = sheetIds
-    ? allEntities.filter((e) => sheetIds.has(`${e.kind[0]}:${e.id}`))
+    ? allEntities.filter((e) => {
+        const k = `${e.kind[0]}:${e.id}`;
+        return sheetIds.has(k) || markedToday.has(k);
+      })
     : allEntities;
 
   const dateLabel = new Date(`${markDate}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
 
+  function recordOf(id: string, kind: string) {
+    return records.find((r) => r.date === markDate && (kind === 'labour' ? r.labour_id === id : r.team_id === id));
+  }
   function statusOf(id: string, kind: string) {
     return records.find((r) => r.date === markDate && (kind === 'labour' ? r.labour_id === id : r.team_id === id))?.status ?? null;
   }
 
-  function handleStatusPress(id: string, kind: 'labour' | 'team', name: string, st: AttStatus, existing: AttStatus | null, defaultCount?: number) {
-    if (existing === st) {
-      onToggleOther(id, kind, st, markDate);
-      return;
-    }
-    if (st === 'present' || st === 'half_day') {
-      onMarkPresent(id, kind, name, defaultCount, st);
-    } else {
-      onToggleOther(id, kind, st, markDate);
-    }
+  // Marking is always instant (no popup). Details are added via the pencil button.
+  function handleStatusPress(id: string, kind: 'labour' | 'team', st: AttStatus) {
+    onToggleOther(id, kind, st, markDate);
   }
 
   return (
@@ -291,7 +352,7 @@ function MarkTab({
           <View style={s.markHeaderRow}>
             <View style={{ flex: 1 }}>
               <Text style={s.markDate}>{dateLabel}</Text>
-              <Text style={s.markHint}>Tap P / H / A to mark · tap again to undo.</Text>
+              <Text style={s.markHint}>Tap P / H / A to mark · tap again to undo · teams: enter members present · ✎ adds time/notes.</Text>
             </View>
             <TouchableOpacity style={s.addPersonBtn} onPress={onAddToSheet}>
               <MaterialCommunityIcons name="account-plus-outline" size={14} color={C.primary} />
@@ -303,7 +364,7 @@ function MarkTab({
       ListEmptyComponent={
         <View style={s.centred}>
           <MaterialCommunityIcons name="calendar-account-outline" size={48} color={C.outline} style={{ marginBottom: 8 }} />
-          <Text style={s.emptyDesc}>No one on today's sheet.</Text>
+          <Text style={s.emptyDesc}>No one on your list yet. Add the people you mark attendance for — the list carries forward each day.</Text>
           <TouchableOpacity style={s.addPersonBtn} onPress={onAddToSheet}>
             <MaterialCommunityIcons name="account-plus-outline" size={14} color={C.primary} />
             <Text style={s.addPersonText}>Add Person</Text>
@@ -314,6 +375,7 @@ function MarkTab({
         const status = statusOf(e.id, e.kind);
         const c = AVATAR_COLORS[index % AVATAR_COLORS.length];
         const sheetKey = `${e.kind[0]}:${e.id}`;
+        const saving = savingKeys.has(`${sheetKey}:${markDate}`);
         return (
           <View style={s.entityRow}>
             <View style={[s.entityAvatar, { backgroundColor: c.bg }]}>
@@ -325,20 +387,38 @@ function MarkTab({
                 {e.kind === 'team' ? `Team · ${(e as any).count ?? 0} workers` : 'Individual'}
               </Text>
             </View>
-            <View style={s.statusBtns}>
-              {(['present', 'half_day', 'absent'] as AttStatus[]).map((st) => {
+            <View style={[s.statusBtns, saving && { opacity: 0.7 }]}>
+              {e.kind === 'team' ? (
+                <TeamCountStepper
+                  key={`${e.id}:${markDate}`}
+                  value={status === 'present' || status === 'half_day' ? (recordOf(e.id, 'team')?.num_labourers ?? null) : null}
+                  onCommit={(n) => onSetTeamCount(e.id, n, markDate)}
+                />
+              ) : (['present', 'half_day', 'absent'] as AttStatus[]).map((st) => {
                 const col = STATUS_STYLE[st];
                 const active = status === st;
                 return (
                   <TouchableOpacity
                     key={st}
-                    onPress={() => handleStatusPress(e.id, e.kind, e.name, st, status, (e as any).count)}
+                    onPress={() => handleStatusPress(e.id, e.kind, st)}
                     style={[s.statusBtn, active && { backgroundColor: col.bg, borderColor: col.fg }]}
                   >
-                    <Text style={[s.statusBtnText, active && { color: col.fg }]}>{STATUS_LABEL[st]}</Text>
+                    {active && saving
+                      ? <ActivityIndicator size="small" color={col.fg} />
+                      : <Text style={[s.statusBtnText, active && { color: col.fg }]}>{STATUS_LABEL[st]}</Text>}
                   </TouchableOpacity>
                 );
               })}
+              {(status === 'present' || status === 'half_day') && (
+                <TouchableOpacity
+                  style={s.editBtn}
+                  onPress={() => onEdit(e.id, e.kind, e.name, (e as any).count)}
+                  hitSlop={6}
+                  accessibilityLabel="Add time or notes"
+                >
+                  <MaterialCommunityIcons name="pencil-outline" size={16} color={C.primary} />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={s.removeBtn}
                 onPress={() => onRemoveFromSheet(sheetKey)}
@@ -722,7 +802,8 @@ export default function AttendanceScreen() {
   const weekDates = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const isCurrentWeek = weekStart === mondayOf(today);
   const weekLabel = `${new Date(`${weekStart}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${new Date(`${addDays(weekStart, 6)}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-  const sheetKey = `lb:att-sheet:${weekStart}`;
+  // One roster for all days: whoever you marked (or added) carries forward to the next day.
+  const sheetKey = ROSTER_KEY;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -746,9 +827,15 @@ export default function AttendanceScreen() {
         if (stored) {
           setSheetIds(new Set(JSON.parse(stored)));
         } else {
-          const allKeys = [...lItems.map((l) => `l:${l.id}`), ...tItems.map((t) => `t:${t.id}`)];
-          await AsyncStorage.setItem(sheetKey, JSON.stringify(allKeys));
-          setSheetIds(new Set(allKeys));
+          // First run: start from the people already marked this week (not everyone in the DB).
+          const keys = new Set<string>();
+          for (const r of rs.items ?? []) {
+            if (r.labour_id) keys.add(`l:${r.labour_id}`);
+            else if (r.team_id) keys.add(`t:${r.team_id}`);
+          }
+          const arr = [...keys];
+          await AsyncStorage.setItem(sheetKey, JSON.stringify(arr));
+          setSheetIds(new Set(arr));
         }
       } catch { setSheetIds(null); }
     } catch { setLoadError('Failed to load attendance data. Check your connection.'); }
@@ -768,6 +855,13 @@ export default function AttendanceScreen() {
   }
 
   async function removeFromSheet(key: string) {
+    const isTeam = key.startsWith('t:');
+    const id = key.slice(2);
+    const hasMark = records.some((r) => r.date === markDate && (isTeam ? r.team_id === id : r.labour_id === id));
+    if (hasMark) {
+      Alert.alert('Already marked', 'Clear this person’s mark for the day first, then remove them from the list.');
+      return;
+    }
     const next = new Set(sheetIds ?? []);
     next.delete(key);
     setSheetIds(next);
@@ -776,33 +870,129 @@ export default function AttendanceScreen() {
 
   function upsertLocal(next: AttRecord) {
     setRecords((prev) => [...prev.filter((r) => r.id !== next.id), next]);
+    // Anyone you mark joins the carried-forward list.
+    const key = next.labour_id ? `l:${next.labour_id}` : next.team_id ? `t:${next.team_id}` : null;
+    if (key && sheetIds && !sheetIds.has(key)) addToSheet(key);
   }
 
-  // Called for half_day / absent / undo
-  async function handleToggleOther(entityId: string, kind: 'labour' | 'team', status: AttStatus, date: string) {
-    const existing = records.find((r) => r.date === date && (kind === 'labour' ? r.labour_id === entityId : r.team_id === entityId));
+  // ── Instant feedback ────────────────────────────────────────────────────────
+  // Taps update the row immediately (optimistic); the request runs in the
+  // background, the row shows a spinner while it's in flight, and a failure
+  // rolls the row back with an error. One save per row+day at a time.
+  const inFlight = useRef<Set<string>>(new Set());
+  const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
+
+  function setSaving(key: string, on: boolean) {
+    if (on) inFlight.current.add(key); else inFlight.current.delete(key);
+    setSavingKeys(new Set(inFlight.current));
+  }
+  const rowKey = (kind: 'labour' | 'team', id: string, date: string) => `${kind[0]}:${id}:${date}`;
+  const isRec = (r: AttRecord, kind: 'labour' | 'team', id: string, date: string) =>
+    r.date === date && (kind === 'labour' ? r.labour_id === id : r.team_id === id);
+
+  /** Run `save` with an optimistic local change; roll back to `before` on failure. */
+  async function withOptimistic(
+    kind: 'labour' | 'team', id: string, date: string,
+    optimistic: AttRecord | null, save: () => Promise<AttRecord | null>,
+  ) {
+    const key = rowKey(kind, id, date);
+    if (inFlight.current.has(key)) return;
+    const before = records.find((r) => isRec(r, kind, id, date)) ?? null;
+    setSaving(key, true);
+    setRecords((prev) => {
+      const rest = prev.filter((r) => !isRec(r, kind, id, date));
+      return optimistic ? [...rest, optimistic] : rest;
+    });
     try {
-      if (existing && existing.status === status) {
-        await apiDelete(`/api/v1/attendance/${existing.id}`);
-        setRecords((prev) => prev.filter((r) => r.id !== existing.id));
-        return;
+      const saved = await save();
+      if (saved) {
+        setRecords((prev) => [...prev.filter((r) => !isRec(r, kind, id, date)), saved]);
+        const k = saved.labour_id ? `l:${saved.labour_id}` : saved.team_id ? `t:${saved.team_id}` : null;
+        if (k && sheetIds && !sheetIds.has(k)) addToSheet(k); // marked people join the carried-forward list
       }
-      const team = kind === 'team' ? teams.find((t) => t.id === entityId) : undefined;
-      const payload: Record<string, unknown> = {
-        date, status, wage_type: 'daily',
-        labour_id: kind === 'labour' ? entityId : null,
-        team_id: kind === 'team' ? entityId : null,
-      };
-      if (kind === 'team') payload.num_labourers = team?.member_count || 1;
-      if (existing) payload.id = existing.id;
-      const saved = await apiPost<AttRecord>('/api/v1/attendance', payload);
-      upsertLocal(saved);
-    } catch { Alert.alert('Error', 'Failed to update attendance.'); }
+    } catch {
+      setRecords((prev) => {
+        const rest = prev.filter((r) => !isRec(r, kind, id, date));
+        return before ? [...rest, before] : rest;
+      });
+      Alert.alert('Error', 'Failed to update attendance.');
+    } finally {
+      setSaving(key, false);
+    }
   }
 
-  // Called when "P" or "H" is tapped — opens modal
-  function handleMarkPresent(entityId: string, kind: 'labour' | 'team', name: string, defaultCount: number | undefined, status: AttStatus = 'present') {
-    setPendingMark({ entityId, kind, date: markDate, name, defaultCount, status });
+  // P / H / A tap (and tap-again to undo)
+  function handleToggleOther(entityId: string, kind: 'labour' | 'team', status: AttStatus, date: string) {
+    const existing = records.find((r) => isRec(r, kind, entityId, date));
+    if (existing && existing.status === status) {
+      return withOptimistic(kind, entityId, date, null, async () => {
+        await apiDelete(`/api/v1/attendance/${existing.id}`);
+        return null;
+      });
+    }
+    const team = kind === 'team' ? teams.find((t) => t.id === entityId) : undefined;
+    const payload: Record<string, unknown> = {
+      date, status, wage_type: 'daily',
+      labour_id: kind === 'labour' ? entityId : null,
+      team_id: kind === 'team' ? entityId : null,
+    };
+    if (kind === 'team') payload.num_labourers = team?.member_count || 1;
+    if (existing) {
+      payload.id = existing.id;
+      // Switching between P and H keeps any time / notes already entered.
+      if (existing.task) payload.task = existing.task;
+      if (existing.work_start_time) payload.work_start_time = existing.work_start_time;
+      if (existing.work_end_time) payload.work_end_time = existing.work_end_time;
+      if (kind === 'team' && status !== 'absent' && existing.num_labourers) payload.num_labourers = existing.num_labourers;
+    }
+    const optimistic: AttRecord = {
+      ...(existing ?? {}),
+      id: existing?.id ?? `tmp-${rowKey(kind, entityId, date)}`,
+      date, status,
+      labour_id: kind === 'labour' ? entityId : null,
+      team_id: kind === 'team' ? entityId : null,
+      num_labourers: (payload.num_labourers as number | undefined) ?? existing?.num_labourers ?? null,
+    };
+    return withOptimistic(kind, entityId, date, optimistic, () => apiPost<AttRecord>('/api/v1/attendance', payload));
+  }
+
+  // Team row: set the number of members present. 0 / blank clears the mark.
+  function handleSetTeamCount(entityId: string, count: number, date: string) {
+    const existing = records.find((r) => isRec(r, 'team', entityId, date));
+    if (count <= 0) {
+      if (!existing) return;
+      return withOptimistic('team', entityId, date, null, async () => {
+        await apiDelete(`/api/v1/attendance/${existing.id}`);
+        return null;
+      });
+    }
+    if (existing && existing.status === 'present' && existing.num_labourers === count) return;
+    const payload: Record<string, unknown> = {
+      date, status: 'present', wage_type: 'daily',
+      labour_id: null, team_id: entityId, num_labourers: count,
+    };
+    if (existing) {
+      payload.id = existing.id;
+      if (existing.task) payload.task = existing.task;
+      if (existing.work_start_time) payload.work_start_time = existing.work_start_time;
+      if (existing.work_end_time) payload.work_end_time = existing.work_end_time;
+    }
+    const optimistic: AttRecord = {
+      ...(existing ?? {}),
+      id: existing?.id ?? `tmp-${rowKey('team', entityId, date)}`,
+      date, status: 'present', labour_id: null, team_id: entityId, num_labourers: count,
+    };
+    return withOptimistic('team', entityId, date, optimistic, () => apiPost<AttRecord>('/api/v1/attendance', payload));
+  }
+
+  // Pencil tapped on a P / H row — opens the details form for the existing record.
+  function handleEdit(entityId: string, kind: 'labour' | 'team', name: string, defaultCount: number | undefined) {
+    const rec = records.find((r) => r.date === markDate && (kind === 'labour' ? r.labour_id === entityId : r.team_id === entityId));
+    if (!rec) return;
+    setPendingMark({
+      entityId, kind, date: markDate, name, defaultCount, status: rec.status,
+      initial: { task: rec.task, startTime: rec.work_start_time, endTime: rec.work_end_time, numLabourers: rec.num_labourers },
+    });
   }
 
   // Called from PresentModal on confirm
@@ -844,12 +1034,10 @@ export default function AttendanceScreen() {
   function handleCycle(entityId: string, kind: 'labour' | 'team', date: string) {
     const existing = records.find((r) => r.date === date && (kind === 'labour' ? r.labour_id === entityId : r.team_id === entityId));
     const order: AttStatus[] = ['present', 'half_day', 'absent'];
-    const eName = (labours.find((l) => l.id === entityId) ?? teams.find((t) => t.id === entityId))?.name ?? '';
-    const eCount = kind === 'team' ? teams.find((t) => t.id === entityId)?.member_count : undefined;
-    if (!existing) { handleMarkPresent(entityId, kind, eName, eCount, 'present'); return; }
+    if (!existing) { handleToggleOther(entityId, kind, 'present', date); return; }
     const idx = order.indexOf(existing.status);
+    // After absent, tapping again clears the mark (toggle with the same status deletes it).
     if (idx === order.length - 1) { handleToggleOther(entityId, kind, existing.status, date); return; }
-    if (order[idx + 1] === 'present' || order[idx + 1] === 'half_day') { handleMarkPresent(entityId, kind, eName, eCount, order[idx + 1]); return; }
     handleToggleOther(entityId, kind, order[idx + 1], date);
   }
 
@@ -920,8 +1108,10 @@ export default function AttendanceScreen() {
           labours={labours}
           teams={teams}
           records={records}
-          onMarkPresent={handleMarkPresent}
+          onEdit={handleEdit}
           onToggleOther={handleToggleOther}
+          onSetTeamCount={handleSetTeamCount}
+          savingKeys={savingKeys}
           onAddToSheet={() => setPickerOpen(true)}
           onRemoveFromSheet={removeFromSheet}
           sheetIds={sheetIds}
@@ -987,6 +1177,11 @@ const s = StyleSheet.create({
   statusBtns: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statusBtn: { width: 32, height: 32, borderRadius: R.sm, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: C.outlineVariant, backgroundColor: C.surfaceHigh },
   statusBtnText: { fontSize: 12, fontWeight: '800', color: C.onSurfaceVariant },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  stepBtn: { width: 30, height: 32, borderRadius: R.sm, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: C.outlineVariant, backgroundColor: C.surfaceHigh },
+  stepInput: { width: 44, height: 32, borderRadius: R.sm, borderWidth: 1.5, borderColor: C.outlineVariant, backgroundColor: C.surfaceLowest, fontSize: 14, fontWeight: '800', color: C.onSurface, paddingVertical: 0, paddingHorizontal: 2 },
+  stepInputFilled: { backgroundColor: C.primaryFixed, borderColor: C.primary, color: C.primary },
+  editBtn: { width: 28, height: 28, borderRadius: R.full, backgroundColor: C.primaryFixed, alignItems: 'center', justifyContent: 'center', marginLeft: 2 },
   removeBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', marginLeft: 2 },
 });
 

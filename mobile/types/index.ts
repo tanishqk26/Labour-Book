@@ -1,5 +1,5 @@
 /**
- * LabourBook Mobile — Shared TypeScript Types
+ * KhetKitab Mobile — Shared TypeScript Types
  * Mirrors frontend/types/index.ts
  */
 
