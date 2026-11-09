@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
@@ -251,7 +251,7 @@ function TimelineItem({ op, photos, workers, lifecycle, onPhotoClick }: {
 // Main page
 // ---------------------------------------------------------------------------
 
-export default function FarmYearOverviewPage() {
+function FarmYearOverviewContent() {
   const { t } = useLanguage();
   const router = useRouter();
   const params = useSearchParams();
@@ -685,5 +685,14 @@ export default function FarmYearOverviewPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// useSearchParams() must sit under a Suspense boundary or the static build fails.
+export default function FarmYearOverviewPage() {
+  return (
+    <Suspense fallback={null}>
+      <FarmYearOverviewContent />
+    </Suspense>
   );
 }
