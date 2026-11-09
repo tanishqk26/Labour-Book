@@ -545,7 +545,7 @@ export default function StatementsPage() {
 
   return (
     <>
-      <title>{`${t("statements.title")} | LabourBook`}</title>
+      <title>{`${t("statements.title")} | KhetKitab`}</title>
 
       {/* ── Confirmation Modal ── */}
       {showConfirm && statement && (

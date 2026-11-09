@@ -52,6 +52,9 @@ export default function MarkAttendancePage() {
   const [records, setRecords] = useState<SheetAtt[]>([]);
   const [payments, setPayments] = useState<SheetPayment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedRef = useRef(false);
+  const peopleLoadedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   // Cells (entity:date) with a save in flight — guards against racing clicks.
   const pendingRef = useRef<Set<string>>(new Set());
@@ -71,7 +74,10 @@ export default function MarkAttendancePage() {
   }, []);
 
   const loadWeek = useCallback(async () => {
-    setLoading(true);
+    // Spinner only on the very first load; later week/filter changes keep the
+    // sheet on screen (dimmed) while the new data arrives.
+    if (!hasLoadedRef.current) setLoading(true);
+    else setRefreshing(true);
     setError(null);
     try {
       const params: Record<string, string | number> = {
@@ -83,7 +89,8 @@ export default function MarkAttendancePage() {
       // All four requests in parallel (people + week data) — one round-trip of
       // wall-clock time instead of two sequential ones.
       const [, att, pmt] = await Promise.all([
-        loadPeople(),
+        // The people list rarely changes — fetch it once, not on every week change.
+        peopleLoadedRef.current ? Promise.resolve() : loadPeople().then(() => { peopleLoadedRef.current = true; }),
         apiGet<{ items: SheetAtt[] }>("/api/v1/attendance/history", params),
         apiGet<{ items: SheetPayment[] }>("/api/v1/payments", { date_from: weekStart, date_to: weekEnd, page_size: 100 }),
       ]);
@@ -93,10 +100,12 @@ export default function MarkAttendancePage() {
       const merged = [...new Set([...readRoster(weekStart), ...fromRecords])];
       setListedKeys(merged);
       writeRoster(weekStart, merged);
+      hasLoadedRef.current = true;
     } catch {
       setError(t("attendance.loadErrorMark"));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [weekStart, weekEnd, entityFilter, t, loadPeople]);
 
@@ -203,7 +212,7 @@ export default function MarkAttendancePage() {
 
   return (
     <>
-      <title>{`${markTitle} | LabourBook`}</title>
+      <title>{`${markTitle} | KhetKitab`}</title>
       <LabourModal open={labourModal} onClose={() => setLabourModal(false)} onSuccess={() => { setLabourModal(false); loadPeople(); }} />
       <TeamModal open={teamModal} onClose={() => setTeamModal(false)} onSuccess={() => { setTeamModal(false); loadPeople(); }} />
 
@@ -285,15 +294,17 @@ export default function MarkAttendancePage() {
             </div>
           )}
           {!loading && !error && (
-            <WeeklyAttendanceSheet
-              weekStart={weekStart}
-              entities={entities}
-              records={records}
-              payments={payments}
-              interactive
-              onCellClick={handleCellClick}
-              onRemove={removeFromSheet}
-            />
+            <div style={{ opacity: refreshing ? 0.55 : 1, transition: "opacity 120ms" }}>
+              <WeeklyAttendanceSheet
+                weekStart={weekStart}
+                entities={entities}
+                records={records}
+                payments={payments}
+                interactive
+                onCellClick={handleCellClick}
+                onRemove={removeFromSheet}
+              />
+            </div>
           )}
         </div>
       </div>

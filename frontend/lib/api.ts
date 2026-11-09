@@ -1,5 +1,5 @@
 /**
- * LabourBook API Client
+ * KhetKitab API Client
  *
  * Base fetch wrapper that reads NEXT_PUBLIC_API_URL from environment.
  * All API calls throughout the app should go through these helpers.
@@ -52,8 +52,10 @@ export async function apiFetch<T = unknown>(
   const response = await fetch(url.toString(), {
     ...rest,
     credentials: "include",
+    // Only send Content-Type when there is a body. On GETs it would turn every
+    // request into a "non-simple" CORS request and add a preflight round-trip.
     headers: {
-      "Content-Type": "application/json",
+      ...(rest.body !== undefined && rest.body !== null ? { "Content-Type": "application/json" } : {}),
       ...headers,
     },
   });

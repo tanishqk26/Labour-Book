@@ -96,7 +96,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <title>{`${t("settings.title")} | LabourBook`}</title>
+      <title>{`${t("settings.title")} | KhetKitab`}</title>
       <style>{`.settings-input:focus { border-color: var(--color-primary) !important; box-shadow: 0 0 0 3px var(--color-primary-fixed); }`}</style>
 
       {toast && <Toast msg={toast} onClose={() => setToast(null)} />}

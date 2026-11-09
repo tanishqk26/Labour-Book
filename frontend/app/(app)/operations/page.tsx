@@ -742,7 +742,7 @@ export default function OperationsPage() {
 
   return (
     <>
-      <title>{`${t("operations.pageTitle")} | LabourBook`}</title>
+      <title>{`${t("operations.pageTitle")} | KhetKitab`}</title>
 
       {showForm && (
         <OpForm

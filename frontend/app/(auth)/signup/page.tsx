@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError } from "@/lib/api";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
+import PasswordInput from "@/components/PasswordInput";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -81,17 +82,7 @@ export default function SignupPage() {
         boxShadow: "0 8px 28px rgba(1, 45, 29, 0.12), 0 2px 8px rgba(1, 45, 29, 0.06)",
       }}
     >
-      <div
-        className="w-14 h-14 rounded-2xl flex items-center justify-center"
-        style={{ backgroundColor: "var(--color-primary-fixed)" }}
-      >
-        <span
-          className="material-symbols-outlined icon-fill"
-          style={{ fontSize: "28px", color: "var(--color-primary)" }}
-        >
-          agriculture
-        </span>
-      </div>
+      <img src="/logo-mark.png" alt="KhetKitab" width={44} height={44} style={{ width: 44, height: 44 }} />
 
       <div>
         <h1 className="text-headline-md font-bold" style={{ color: "var(--color-primary)" }}>
@@ -135,8 +126,7 @@ export default function SignupPage() {
           <label className="text-label-caps" style={{ color: "var(--color-on-surface-variant)" }}>
             Password
           </label>
-          <input
-            type="password"
+          <PasswordInput
             required
             minLength={8}
             autoComplete="new-password"

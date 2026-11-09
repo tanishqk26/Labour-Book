@@ -1,5 +1,5 @@
 /**
- * LabourBook Utility Functions
+ * KhetKitab Utility Functions
  *
  * Shared helpers: currency formatting, date formatting, class merging.
  */

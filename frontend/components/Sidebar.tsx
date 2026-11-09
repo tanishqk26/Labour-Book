@@ -39,37 +39,27 @@ export default function Sidebar() {
 
   return (
     <nav
-      className="hidden md:flex flex-col py-8 px-3 border-r"
+      className="hidden md:flex flex-col py-5 px-3 border-r overflow-hidden"
       style={{
         width: "var(--spacing-sidebar-width)",
         position: "fixed",
         top: 0,
         left: 0,
-        height: "100vh",
+        height: "100dvh",
         backgroundColor: "var(--color-surface)",
         borderColor: "var(--color-outline-variant)",
         zIndex: 30,
       }}
     >
       {/* Brand */}
-      <div className="flex items-center gap-3 px-4 mb-10">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center hover-grow"
-          style={{ backgroundColor: "var(--color-primary)" }}
-        >
-          <span
-            className="material-symbols-outlined icon-fill"
-            style={{ color: "#ffffff", fontSize: "18px" }}
-          >
-            agriculture
-          </span>
-        </div>
+      <div className="flex items-center gap-3 px-4 mb-6 shrink-0">
+        <img src="/logo-mark.png" alt="KhetKitab" width={30} height={30} className="hover-grow" style={{ width: 30, height: 30 }} />
         <div>
           <h1
             className="text-headline-md font-extrabold"
             style={{ color: "var(--color-primary)" }}
           >
-            LabourBook
+            KhetKitab
           </h1>
           <p
             className="text-label-caps"
@@ -81,7 +71,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation items */}
-      <div className="flex-1 flex flex-col gap-0.5">
+      <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col gap-0.5 pb-2">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
@@ -113,7 +103,7 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div
-        className="pt-4 flex flex-col gap-0.5"
+        className="pt-4 flex flex-col gap-0.5 shrink-0"
         style={{ borderTop: "1px solid var(--color-outline-variant)" }}
       >
         <Link

@@ -18,7 +18,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [loading, user, router]);
 
-  if (loading || !user) {
+  // While the session check is in flight, render the page right away so its own
+  // data requests start in parallel with /auth/me instead of after it. If the
+  // user turns out to be logged out, we redirect (and any 401s are harmless).
+  if (!loading && !user) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"

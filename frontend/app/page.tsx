@@ -150,7 +150,12 @@ export default function LandingPage() {
         <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(1,45,26,0.92)", backdropFilter: "blur(12px)" }}>
           <div style={{ padding: "0 28px", height: 64, display: "flex", alignItems: "center", gap: 32 }}>
             <a href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", flexShrink: 0 }}>
-              <img src="/LabourBook%20Farm-Inspired%20Logo.png" alt="LabourBook" style={{ height: 52 }} />
+              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ width: 36, height: 36, borderRadius: 10, background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <img src="/logo-mark.png" alt="" style={{ width: 28, height: 28 }} />
+                </span>
+                <span style={{ color: "#ffffff", fontSize: 18, fontWeight: 800, letterSpacing: "-0.01em" }}>KhetKitab</span>
+              </span>
             </a>
             <div className="nav-center-links" style={{ display: "flex", alignItems: "center", gap: 28, flex: 1, justifyContent: "center" }}>
               {[
@@ -189,7 +194,7 @@ export default function LandingPage() {
                 background: "rgba(107,207,142,0.12)", border: "1px solid rgba(107,207,142,0.28)",
                 borderRadius: 100, padding: "5px 16px 5px 6px", marginBottom: 28,
               }}>
-                <span style={{ background: "#1b5e35", borderRadius: "50%", width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>🌿</span>
+                <span style={{ background: "#ffffff", borderRadius: "50%", width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center" }}><img src="/logo-mark.png" alt="" style={{ width: 16, height: 16 }} /></span>
                 <span style={{ color: "#6bcf8e", fontSize: 13, fontWeight: 600 }}>Built for Indian farm owners</span>
               </div>
               <h1 className="hero-h1" style={{ fontSize: "clamp(34px, 5vw, 58px)", fontWeight: 800, color: "white", lineHeight: 1.1, margin: "0 0 20px" }}>
@@ -242,7 +247,7 @@ export default function LandingPage() {
                 Everything you need<br />to manage farm labour
               </h2>
               <p style={{ color: "#4a7a5a", fontSize: 16, marginTop: 12, maxWidth: 420, lineHeight: 1.6 }}>
-                From daily attendance to wages and farm operations, LabourBook helps you stay organised and in control.
+                From daily attendance to wages and farm operations, KhetKitab helps you stay organised and in control.
               </p>
             </div>
             <div style={{ color: "#1b4332", opacity: 0.65, textAlign: "right" as const, paddingTop: 8 }}>
@@ -281,7 +286,7 @@ export default function LandingPage() {
       {/* FEATURES GRID */}
       <section id="features" style={{ background: "white", padding: "88px 24px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <p style={{ color: "#52b788", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", marginBottom: 10, textTransform: "uppercase" as const }}>Why farm owners choose LabourBook</p>
+          <p style={{ color: "#52b788", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", marginBottom: 10, textTransform: "uppercase" as const }}>Why farm owners choose KhetKitab</p>
           <h2 style={{ fontSize: "clamp(26px, 3.8vw, 42px)", fontWeight: 800, color: "#012d1a", marginBottom: 44 }}>Built for real farm needs</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20 }}>
             {[
@@ -310,7 +315,7 @@ export default function LandingPage() {
               Manage your farm<br />from anywhere
             </h2>
             <p style={{ color: "#a8d5b5", fontSize: 16, lineHeight: 1.65, marginBottom: 36, maxWidth: 400 }}>
-              The LabourBook mobile app works on Android. Mark attendance, record payments and track operations right from your field.
+              The KhetKitab mobile app works on Android. Mark attendance, record payments and track operations right from your field.
             </p>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" as const }}>
               <a
@@ -333,7 +338,7 @@ export default function LandingPage() {
           </div>
           {/* Phone preview */}
           <div className="cta-phone" style={{ flex: "0 1 200px", transform: "rotate(-3deg)", opacity: 0.92 }}>
-            <PhoneFrame src={IMG.dashboard} alt="LabourBook mobile app" />
+            <PhoneFrame src={IMG.dashboard} alt="KhetKitab mobile app" />
           </div>
         </div>
       </section>
@@ -345,7 +350,7 @@ export default function LandingPage() {
           <div className="lang-photo" style={{ flex: "1 1 420px", minHeight: 400, position: "relative" }}>
             <img
               src="/Farmer%20Using%20LabourBook%20in%20Vineyard.png"
-              alt="Farmer using LabourBook in vineyard"
+              alt="Farmer using KhetKitab in vineyard"
               style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
             />
             {/* Fade edges into background */}
@@ -368,7 +373,7 @@ export default function LandingPage() {
               Simple, practical and<br />available in your language
             </h2>
             <p style={{ color: "#4a7a5a", fontSize: 16, lineHeight: 1.65, marginBottom: 32, maxWidth: 400 }}>
-              LabourBook is designed for Indian farm owners, with support for English, हिंदी and मराठी. A clean and easy-to-use interface that works for farms of all sizes.
+              KhetKitab is designed for Indian farm owners, with support for English, हिंदी and मराठी. A clean and easy-to-use interface that works for farms of all sizes.
             </p>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" as const }}>
               {[["English", true], ["हिंदी", false], ["मराठी", false]].map(([lang, active]) => (
@@ -394,7 +399,7 @@ export default function LandingPage() {
               Your farm runs better<br />when everything is<br />organised.
             </h2>
             <p style={{ color: "#a8d5b5", fontSize: 16, lineHeight: 1.65, marginBottom: 36 }}>
-              Start using LabourBook for free and make farm labour management simple, transparent and hassle-free.
+              Start using KhetKitab for free and make farm labour management simple, transparent and hassle-free.
             </p>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" as const, marginBottom: 28 }}>
               <Link href="/signup" style={{
@@ -418,7 +423,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="cta-phone" style={{ flex: "0 1 210px", transform: "rotate(3deg)" }}>
-            <PhoneFrame src={IMG.dashboard} alt="LabourBook Dashboard" />
+            <PhoneFrame src={IMG.dashboard} alt="KhetKitab Dashboard" />
           </div>
         </div>
       </section>
@@ -451,7 +456,7 @@ export default function LandingPage() {
           </div>
           <div style={{ borderTop: "1px solid #0e2e18", paddingTop: 16, display: "flex", justifyContent: "space-between", flexWrap: "wrap" as const, gap: 8 }}>
             <p style={{ color: "#1e3a28", fontSize: 13, margin: 0 }}>Farm labour management, made simple.</p>
-            <p style={{ color: "#1e3a28", fontSize: 13, margin: 0 }}>© 2026 LabourBook. All rights reserved.</p>
+            <p style={{ color: "#1e3a28", fontSize: 13, margin: 0 }}>© 2026 KhetKitab. All rights reserved.</p>
           </div>
         </div>
       </footer>

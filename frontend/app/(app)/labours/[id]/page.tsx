@@ -10,6 +10,7 @@ import LabourDrawer from "@/components/LabourDrawer";
 import PaymentModal from "@/components/PaymentModal";
 import DatePicker from "@/components/ui/DatePicker";
 import { useLanguage } from "@/context/LanguageContext";
+import { readCache } from "@/lib/cache";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -72,8 +73,11 @@ export default function LabourDetailPage({ params }: PageProps) {
     other: t("labours.methodOther"),
   };
 
-  const [labour, setLabour] = useState<Labour | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Seed the profile from the Labours list cache so the header shows instantly;
+  // the full record is still fetched in the background.
+  const seed = readCache<{ labours: Labour[] }>("labours:list")?.labours.find((l) => l.id === id) ?? null;
+  const [labour, setLabour] = useState<Labour | null>(seed);
+  const [loading, setLoading] = useState(!seed);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -110,7 +114,7 @@ export default function LabourDetailPage({ params }: PageProps) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function fetchLabour() {
-    setLoading(true);
+    if (!labour) setLoading(true);
     setError(null);
     setNotFound(false);
     try {

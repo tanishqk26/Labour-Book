@@ -11,23 +11,33 @@ import ListViewToggle from "@/components/ListViewToggle";
 import { SheetTable, SheetTh, SheetTd } from "@/components/SheetTable";
 import { useListView } from "@/hooks/useListView";
 import { formatCurrency } from "@/lib/utils";
+import { readCache, writeCache } from "@/lib/cache";
 import { useLanguage } from "@/context/LanguageContext";
 
 // Note: metadata is static — dynamic metadata requires a separate server component
 // The page title is set statically here
-const PAGE_TITLE = "Labours | LabourBook";
+const PAGE_TITLE = "Labours | KhetKitab";
+
+const CACHE_KEY = "labours:list";
+interface LaboursCache {
+  labours: Labour[];
+  total: number;
+  paymentMap: Record<string, EntityPaymentSummary>;
+}
 
 export default function LaboursPage() {
   const { t } = useLanguage();
-  const [labours, setLabours] = useState<Labour[]>([]);
-  const [total, setTotal] = useState(0);
+  // Seed from the last visit (page 1, no search) so navigating back is instant.
+  const cached = readCache<LaboursCache>(CACHE_KEY);
+  const [labours, setLabours] = useState<Labour[]>(cached?.labours ?? []);
+  const [total, setTotal] = useState(cached?.total ?? 0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [paymentMap, setPaymentMap] = useState<Record<string, EntityPaymentSummary>>({});
+  const [paymentMap, setPaymentMap] = useState<Record<string, EntityPaymentSummary>>(cached?.paymentMap ?? {});
   const [listView, setListView] = useListView("lb:view:labours");
 
   const PAGE_SIZE = 20;
@@ -39,7 +49,8 @@ export default function LaboursPage() {
   }, [search]);
 
   // Spinner only on first load; later refreshes update in the background.
-  const hasLoadedRef = useRef(false);
+  const hasLoadedRef = useRef(!!cached);
+  const reqRef = useRef(0);
 
   const fetchLabours = useCallback(async () => {
     if (!hasLoadedRef.current) setLoading(true);
@@ -52,19 +63,38 @@ export default function LaboursPage() {
       };
       if (debouncedSearch) params.search = debouncedSearch;
 
-      const [data, entities] = await Promise.all([
-        apiGet<PaginatedResponse<Labour>>("/api/v1/labours", params),
-        apiGet<EntityPaymentSummary[]>("/api/v1/payments/entities").catch(() => [] as EntityPaymentSummary[]),
-      ]);
+      const reqId = ++reqRef.current;
+      const cacheable = page === 1 && !debouncedSearch;
+      // Both requests start together, but the list renders as soon as IT arrives;
+      // the (slower) balances fill in afterwards instead of blocking the page.
+      const entitiesP = apiGet<EntityPaymentSummary[]>("/api/v1/payments/entities").catch(
+        () => null as EntityPaymentSummary[] | null
+      );
+      const data = await apiGet<PaginatedResponse<Labour>>("/api/v1/labours", params);
+      if (reqId !== reqRef.current) return; // a newer request superseded this one
       setLabours(data.items);
       setTotal(data.total);
+      hasLoadedRef.current = true;
+      setLoading(false);
+      if (cacheable) {
+        writeCache<LaboursCache>(CACHE_KEY, {
+          labours: data.items,
+          total: data.total,
+          paymentMap: readCache<LaboursCache>(CACHE_KEY)?.paymentMap ?? {},
+        });
+      }
+
+      const entities = await entitiesP;
+      if (!entities || reqId !== reqRef.current) return;
       // Build a map: entity_id -> summary (only individual type)
       const map: Record<string, EntityPaymentSummary> = {};
       for (const e of entities) {
         if (e.entity_type === "individual") map[e.entity_id] = e;
       }
       setPaymentMap(map);
-      hasLoadedRef.current = true;
+      if (cacheable) {
+        writeCache<LaboursCache>(CACHE_KEY, { labours: data.items, total: data.total, paymentMap: map });
+      }
     } catch {
       setError(t("labours.loadFailedMessage"));
     } finally {

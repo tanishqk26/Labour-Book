@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import { useLanguage } from "@/context/LanguageContext";
@@ -29,12 +29,15 @@ export default function AttendancePage() {
   const [payments, setPayments] = useState<SheetPayment[]>([]);
   const [todayMarked, setTodayMarked] = useState(false);
   const [loading, setLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
+  const peopleLoadedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   const weekEnd = addDays(weekStart, 6);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    // Spinner only on first load; week/filter changes keep the sheet visible.
+    if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
       const params: Record<string, string | number> = {
@@ -44,18 +47,28 @@ export default function AttendancePage() {
       };
       if (entityFilter !== "all") params.entity_type = entityFilter;
 
+      // People lists rarely change: fetch once. "Today marked" is derived from the
+      // week's records when the week contains today; otherwise one tiny extra query.
+      const weekHasToday = today >= weekStart && today <= weekEnd && entityFilter === "all";
+      const needPeople = !peopleLoadedRef.current;
       const [att, pmt, labourRes, teamRes, todayAtt] = await Promise.all([
         apiGet<{ items: SheetAtt[] }>("/api/v1/attendance/history", params),
         apiGet<{ items: SheetPayment[] }>("/api/v1/payments", { date_from: weekStart, date_to: weekEnd, page_size: 100 }),
-        apiGet<Paginated<LabourItem>>("/api/v1/labours", { status: "active", page_size: 100 }),
-        apiGet<Paginated<TeamItem>>("/api/v1/teams", { status: "active", page_size: 100 }),
-        apiGet<{ items: SheetAtt[] }>("/api/v1/attendance/history", { date_from: today, date_to: today, page_size: 1 }),
+        needPeople ? apiGet<Paginated<LabourItem>>("/api/v1/labours", { status: "active", page_size: 100 }) : null,
+        needPeople ? apiGet<Paginated<TeamItem>>("/api/v1/teams", { status: "active", page_size: 100 }) : null,
+        weekHasToday ? null : apiGet<{ items: SheetAtt[] }>("/api/v1/attendance/history", { date_from: today, date_to: today, page_size: 1 }),
       ]);
       setRecords(att.items);
       setPayments(pmt.items);
-      setLabours(labourRes.items);
-      setTeams(teamRes.items);
-      setTodayMarked(todayAtt.items.length > 0);
+      if (labourRes && teamRes) {
+        setLabours(labourRes.items);
+        setTeams(teamRes.items);
+        peopleLoadedRef.current = true;
+      }
+      setTodayMarked(
+        todayAtt ? todayAtt.items.length > 0 : att.items.some((r) => r.date === today)
+      );
+      hasLoadedRef.current = true;
     } catch {
       setError(t("attendance.loadErrorHistory"));
     } finally {
@@ -93,7 +106,7 @@ export default function AttendancePage() {
 
   return (
     <>
-      <title>{`${t("attendance.pageTitle")} | LabourBook`}</title>
+      <title>{`${t("attendance.pageTitle")} | KhetKitab`}</title>
       <div className="flex flex-col min-h-screen" style={{ backgroundColor: "var(--color-background)" }}>
         <header className="px-4 md:px-8 pt-8 md:pt-10 pb-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">

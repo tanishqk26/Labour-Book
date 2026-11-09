@@ -103,17 +103,23 @@ export default function WeeklyAttendanceSheet({
   const dates = weekDates(weekStart);
   const today = toISODate(new Date());
 
+  // Index once per render instead of scanning every record for every cell.
+  const recIndex = new Map<string, SheetAtt>();
+  for (const r of records) {
+    recIndex.set(`${r.labour_id ? "labour-" + r.labour_id : "team-" + r.team_id}:${r.date}`, r);
+  }
+  const paidIndex = new Map<string, number>();
+  for (const p of payments) {
+    const k = p.labour_id ? `labour-${p.labour_id}` : `team-${p.team_id}`;
+    paidIndex.set(k, (paidIndex.get(k) ?? 0) + p.amount);
+  }
+
   function recFor(entity: SheetEntity, date: string): SheetAtt | null {
-    return (
-      records.find((r) => r.date === date && (entity.kind === "labour" ? r.labour_id === entity.id : r.team_id === entity.id)) ??
-      null
-    );
+    return recIndex.get(`${entity.key}:${date}`) ?? null;
   }
 
   function paidFor(entity: SheetEntity): number {
-    return payments
-      .filter((p) => (entity.kind === "labour" ? p.labour_id === entity.id : p.team_id === entity.id))
-      .reduce((s, p) => s + p.amount, 0);
+    return paidIndex.get(entity.key) ?? 0;
   }
 
   const th: CSSProperties = {

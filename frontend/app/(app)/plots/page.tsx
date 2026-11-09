@@ -257,7 +257,7 @@ export default function PlotsPage() {
 
   return (
     <>
-      <title>{`${t("plots.pageTitle")} | LabourBook`}</title>
+      <title>{`${t("plots.pageTitle")} | KhetKitab`}</title>
 
       {showForm && <PlotForm plot={editingPlot} onSaved={handleSaved} onClose={() => setShowForm(false)} />}
 

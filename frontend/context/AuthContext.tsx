@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { ApiError, apiGet, apiPost } from "@/lib/api";
+import { clearCache } from "@/lib/cache";
 
 export interface AuthUser {
   id: string;
@@ -45,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     function handleUnauthorized() {
+      clearCache();
       setUser(null);
     }
     window.addEventListener("lb:unauthorized", handleUnauthorized);
@@ -70,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await apiPost("/api/v1/auth/logout", {});
     } finally {
+      clearCache();
       setUser(null);
     }
   }, []);

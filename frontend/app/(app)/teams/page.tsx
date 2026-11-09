@@ -12,7 +12,7 @@ import { useListView } from "@/hooks/useListView";
 import { formatCurrency } from "@/lib/utils";
 import { useLanguage } from "@/context/LanguageContext";
 
-const PAGE_TITLE = "Teams | LabourBook";
+const PAGE_TITLE = "Teams | KhetKitab";
 const PAGE_SIZE = 20;
 
 export default function TeamsPage() {

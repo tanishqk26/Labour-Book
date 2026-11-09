@@ -971,7 +971,7 @@ export default function ContractsPage() {
 
   return (
     <>
-      <title>{`${t("contracts.pageTitleTab")} | LabourBook`}</title>
+      <title>{`${t("contracts.pageTitleTab")} | KhetKitab`}</title>
 
       {showForm && (
         <ContractForm

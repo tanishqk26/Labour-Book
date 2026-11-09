@@ -80,7 +80,7 @@ export default function PaymentsPage() {
 
   return (
     <>
-      <title>{`${t("payments.pageTitle")} | LabourBook`}</title>
+      <title>{`${t("payments.pageTitle")} | KhetKitab`}</title>
 
       <PaymentModal
         open={modalOpen}

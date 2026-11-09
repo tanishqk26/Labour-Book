@@ -1,5 +1,5 @@
 /**
- * LabourBook Custom Hooks
+ * KhetKitab Custom Hooks
  *
  * Feature-specific hooks will live here, e.g.:
  *   useLabours.ts

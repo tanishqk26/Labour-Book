@@ -10,7 +10,7 @@ const plans = [
     period: "per month",
     description: "Perfect for small farms managing a handful of labourers.",
     cta: "Get started",
-    ctaHref: `mailto:${CONTACT_EMAIL}?subject=LabourBook Basic Plan`,
+    ctaHref: `mailto:${CONTACT_EMAIL}?subject=KhetKitab Basic Plan`,
     highlight: false,
   },
   {
@@ -19,7 +19,7 @@ const plans = [
     period: "per month",
     description: "For growing farms that need more power and team management.",
     cta: "Get started",
-    ctaHref: `mailto:${CONTACT_EMAIL}?subject=LabourBook Pro Plan`,
+    ctaHref: `mailto:${CONTACT_EMAIL}?subject=KhetKitab Pro Plan`,
     highlight: true,
   },
   {
@@ -28,7 +28,7 @@ const plans = [
     period: "enterprise pricing",
     description: "For Farmer Producer Organisations managing large workforces across multiple farms.",
     cta: "Contact sales",
-    ctaHref: `mailto:${CONTACT_EMAIL}?subject=LabourBook FPO Plan`,
+    ctaHref: `mailto:${CONTACT_EMAIL}?subject=KhetKitab FPO Plan`,
     highlight: false,
   },
 ];
@@ -41,7 +41,12 @@ export default function PricingPage() {
       <nav style={{ background: "#012d1a", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div style={{ padding: "0 28px", height: 64, display: "flex", alignItems: "center", gap: 32 }}>
           <a href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", flexShrink: 0 }}>
-            <img src="/LabourBook%20Farm-Inspired%20Logo.png" alt="LabourBook" style={{ height: 52 }} />
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ width: 36, height: 36, borderRadius: 10, background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <img src="/logo-mark.png" alt="" style={{ width: 28, height: 28 }} />
+                </span>
+                <span style={{ color: "#ffffff", fontSize: 18, fontWeight: 800, letterSpacing: "-0.01em" }}>KhetKitab</span>
+              </span>
           </a>
           <div style={{ flex: 1 }} />
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -143,8 +148,13 @@ export default function PricingPage() {
 
       {/* FOOTER */}
       <footer style={{ background: "#010f08", padding: "24px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" as const, gap: 12 }}>
-        <img src="/LabourBook%20Farm-Inspired%20Logo.png" alt="LabourBook" style={{ height: 26, filter: "brightness(0) invert(1) opacity(0.5)" }} />
-        <p style={{ color: "#1e3a28", fontSize: 13, margin: 0 }}>© 2026 LabourBook. All rights reserved.</p>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ width: 28, height: 28, borderRadius: 8, background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.7 }}>
+            <img src="/logo-mark.png" alt="" style={{ width: 22, height: 22 }} />
+          </span>
+          <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: 700 }}>KhetKitab</span>
+        </span>
+        <p style={{ color: "#1e3a28", fontSize: 13, margin: 0 }}>© 2026 KhetKitab. All rights reserved.</p>
       </footer>
     </div>
   );

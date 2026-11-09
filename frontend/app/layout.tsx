@@ -5,8 +5,8 @@ import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: {
-    default: "LabourBook",
-    template: "%s | LabourBook",
+    default: "KhetKitab",
+    template: "%s | KhetKitab",
   },
   description: "Farm Labour Management System — track attendance, wages, advances and payments.",
   keywords: ["labour management", "farm workers", "attendance", "payroll", "agri"],

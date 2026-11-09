@@ -2,7 +2,7 @@ import { Namespace } from "./types";
 
 export const sidebar: Namespace = {
   en: {
-    brand: "LabourBook",
+    brand: "KhetKitab",
     tagline: "Modern Ledger",
     dashboard: "Dashboard",
     labours: "Labours",
@@ -18,7 +18,7 @@ export const sidebar: Namespace = {
     operations: "Operations",
   },
   hi: {
-    brand: "LabourBook",
+    brand: "KhetKitab",
     tagline: "आधुनिक बहीखाता",
     dashboard: "डैशबोर्ड",
     labours: "मजदूर",
@@ -34,7 +34,7 @@ export const sidebar: Namespace = {
     operations: "खेत कार्य",
   },
   mr: {
-    brand: "LabourBook",
+    brand: "KhetKitab",
     tagline: "आधुनिक हिशोब",
     dashboard: "डॅशबोर्ड",
     labours: "मजूर",

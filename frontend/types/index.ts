@@ -1,5 +1,5 @@
 /**
- * LabourBook — Shared TypeScript Types & Interfaces
+ * KhetKitab — Shared TypeScript Types & Interfaces
  *
  * Core domain types will be defined here as features are built.
  * Keep types lean and close to the API response shapes.

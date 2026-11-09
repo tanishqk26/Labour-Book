@@ -5,6 +5,7 @@ import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import { formatCurrency, getGreeting } from "@/lib/utils";
 import { useLanguage } from "@/context/LanguageContext";
+import { readCache, writeCache } from "@/lib/cache";
 
 interface LabourAttendanceStatus {
   labour_id: string;
@@ -60,18 +61,21 @@ const AVATAR_COLORS = [
 export default function DashboardPage() {
   const { t } = useLanguage();
   const today = todayISO();
-  const [labourRecords, setLabourRecords] = useState<LabourAttendanceStatus[]>([]);
-  const [teamRecords, setTeamRecords] = useState<TeamAttendanceStatus[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = readCache<DailyAttendanceView & { day: string }>("dashboard:daily");
+  const fresh = cached && cached.day === today ? cached : undefined;
+  const [labourRecords, setLabourRecords] = useState<LabourAttendanceStatus[]>(fresh?.labours ?? []);
+  const [teamRecords, setTeamRecords] = useState<TeamAttendanceStatus[]>(fresh?.teams ?? []);
+  const [loading, setLoading] = useState(!fresh);
   const [error, setError] = useState<string | null>(null);
 
   const fetchAttendance = useCallback(async () => {
-    setLoading(true);
+    if (!readCache("dashboard:daily")) setLoading(true);
     setError(null);
     try {
       const data = await apiGet<DailyAttendanceView>(
         `/api/v1/attendance/daily?for_date=${today}`
       );
+      writeCache("dashboard:daily", { ...data, day: today });
       setLabourRecords(data.labours);
       setTeamRecords(data.teams);
     } catch {
@@ -103,7 +107,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <title>{`${t("dashboard.pageTitle")} | LabourBook`}</title>
+      <title>{`${t("dashboard.pageTitle")} | KhetKitab`}</title>
 
       <div className="flex flex-col min-h-screen" style={{ backgroundColor: "var(--color-background)" }}>
         {/* Page Header */}

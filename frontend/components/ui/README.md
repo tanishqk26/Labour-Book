@@ -1,5 +1,5 @@
 /**
- * LabourBook UI Components
+ * KhetKitab UI Components
  *
  * Shared primitive components will live here, e.g.:
  *   Button.tsx
