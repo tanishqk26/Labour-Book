@@ -20,7 +20,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload
 
 from app.core.deps import get_current_user
 from app.database import get_db
@@ -62,8 +62,8 @@ async def _get_worker_or_404(
     result = await db.execute(
         select(PlotOperationWorker)
         .options(
-            selectinload(PlotOperationWorker.labour),
-            selectinload(PlotOperationWorker.team),
+            joinedload(PlotOperationWorker.labour),
+            joinedload(PlotOperationWorker.team),
         )
         .where(
             PlotOperationWorker.id == worker_id,
@@ -83,8 +83,8 @@ async def _load_workers(
     result = await db.execute(
         select(PlotOperationWorker)
         .options(
-            selectinload(PlotOperationWorker.labour),
-            selectinload(PlotOperationWorker.team),
+            joinedload(PlotOperationWorker.labour),
+            joinedload(PlotOperationWorker.team),
         )
         .where(
             PlotOperationWorker.operation_id == operation_id,

@@ -5,7 +5,8 @@ from app.database import AsyncSessionLocal
 router = APIRouter(prefix="/health", tags=["Health"])
 
 
-@router.get("", summary="Health check")
+# HEAD is allowed too: uptime monitors (e.g. UptimeRobot) probe with HEAD requests.
+@router.api_route("", methods=["GET", "HEAD"], summary="Health check", include_in_schema=True)
 async def health_check():
     """
     Returns API status and database connectivity.

@@ -1,5 +1,5 @@
 """
-Pytest configuration and shared fixtures for LabourBook backend tests.
+Pytest configuration and shared fixtures for KhetKitab backend tests.
 
 Strategy
 --------

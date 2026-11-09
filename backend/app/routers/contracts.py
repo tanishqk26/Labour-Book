@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.core.deps import get_current_user
 from app.database import get_db
@@ -175,7 +175,7 @@ async def list_contracts(
     current_user: User = Depends(get_current_user),
 ) -> PaginatedContracts:
     """Paginated list of contracts with optional filters."""
-    query = select(Contract).options(selectinload(Contract.plot)).where(Contract.owner_id == current_user.id)
+    query = select(Contract).where(Contract.owner_id == current_user.id)
 
     if entity_type:
         query = query.where(Contract.entity_type == entity_type)
@@ -186,34 +186,35 @@ async def list_contracts(
     if team_id:
         query = query.where(Contract.team_id == team_id)
 
-    count_q = select(func.count()).select_from(query.subquery())
-    total = (await db.execute(count_q)).scalar_one()
-
+    # ONE round-trip: page of contracts + plot (joinedload) + labour/team names
+    # (outer joins) + total (COUNT(*) OVER () window).
     offset = (page - 1) * page_size
-    query = query.order_by(Contract.assigned_date.desc(), Contract.created_at.desc())
-    query = query.offset(offset).limit(page_size)
-    result = await db.execute(query)
-    contracts = result.scalars().all()
+    paged = (
+        query.outerjoin(Labour, Labour.id == Contract.labour_id)
+        .outerjoin(Team, Team.id == Contract.team_id)
+        .options(joinedload(Contract.plot))
+        .add_columns(
+            Labour.name.label("_labour_name"),
+            Team.name.label("_team_name"),
+            func.count().over().label("_total"),
+        )
+        .order_by(Contract.assigned_date.desc(), Contract.created_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    rows = (await db.execute(paged)).all()
+    if rows:
+        total = rows[0][3]
+    elif page > 1:
+        total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
+    else:
+        total = 0
 
-    # Resolve entity names in batch
-    labour_ids = [c.labour_id for c in contracts if c.labour_id]
-    team_ids = [c.team_id for c in contracts if c.team_id]
-
-    labour_names: dict = {}
-    team_names: dict = {}
-
-    if labour_ids:
-        r = await db.execute(select(Labour.id, Labour.name).where(Labour.id.in_(labour_ids)))
-        labour_names = {row[0]: row[1] for row in r.all()}
-
-    if team_ids:
-        r = await db.execute(select(Team.id, Team.name).where(Team.id.in_(team_ids)))
-        team_names = {row[0]: row[1] for row in r.all()}
-
-    items = []
-    for c in contracts:
-        name = labour_names.get(c.labour_id) if c.entity_type == "individual" else team_names.get(c.team_id)
-        items.append(contract_to_read(c, name))
+    items = [
+        contract_to_read(c, labour_name if c.entity_type == "individual" else team_name)
+        for c, labour_name, team_name, _ in rows
+    ]
+    contracts = [r[0] for r in rows]
 
     return PaginatedContracts(
         items=items,

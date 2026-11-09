@@ -15,7 +15,7 @@ from sqlalchemy.orm import selectinload
 from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.labour import Labour
-from app.models.team import Team
+from app.models.team import Team, team_labours
 from app.models.user import User
 from app.schemas.labour import LabourRead
 from app.schemas.team import (
@@ -70,7 +70,9 @@ def team_to_read(team: Team) -> TeamRead:
     )
 
 
-def team_to_summary(team: Team) -> TeamSummary:
+def team_to_summary(team: Team, member_count: Optional[int] = None) -> TeamSummary:
+    # member_count can be supplied by the query (COUNT subquery) so the members
+    # collection never has to be loaded just to be counted.
     return TeamSummary(
         id=team.id,
         name=team.name,
@@ -81,7 +83,7 @@ def team_to_summary(team: Team) -> TeamSummary:
         manager_fee=float(team.manager_fee),
         is_active=team.is_active,
         status="active" if team.is_active else "inactive",
-        member_count=len(team.members),
+        member_count=member_count if member_count is not None else len(team.members),
         created_at=team.created_at,
         updated_at=team.updated_at,
     )
@@ -149,7 +151,7 @@ async def list_teams(
     current_user: User = Depends(get_current_user),
 ) -> PaginatedTeams:
     """Returns a paginated list of teams."""
-    query = select(Team).options(selectinload(Team.members)).where(Team.owner_id == current_user.id)
+    query = select(Team).where(Team.owner_id == current_user.id)
 
     if status_filter == "active":
         query = query.where(Team.is_active.is_(True))
@@ -160,17 +162,33 @@ async def list_teams(
         term = f"%{search.strip()}%"
         query = query.where(Team.name.ilike(term))
 
-    count_q = select(func.count()).select_from(query.subquery())
-    total_result = await db.execute(count_q)
-    total = total_result.scalar_one()
-
+    # One round-trip: page of teams + member counts (correlated subquery) + total
+    # (COUNT(*) OVER () window) — no selectinload of every member row.
+    member_count_sq = (
+        select(func.count())
+        .select_from(team_labours)
+        .where(team_labours.c.team_id == Team.id)
+        .correlate(Team)
+        .scalar_subquery()
+    )
     offset = (page - 1) * page_size
-    query = query.order_by(Team.name).offset(offset).limit(page_size)
-    result = await db.execute(query)
-    teams = result.scalars().all()
+    paged = (
+        query.add_columns(member_count_sq.label("_members"), func.count().over().label("_total"))
+        .order_by(Team.name)
+        .offset(offset)
+        .limit(page_size)
+    )
+    rows = (await db.execute(paged)).all()
+    teams = [r[0] for r in rows]
+    if rows:
+        total = rows[0][2]
+    elif page > 1:
+        total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
+    else:
+        total = 0
 
     return PaginatedTeams(
-        items=[team_to_summary(t) for t in teams],
+        items=[team_to_summary(r[0], r[1]) for r in rows],
         total=total,
         page=page,
         page_size=page_size,

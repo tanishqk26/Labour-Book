@@ -24,7 +24,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload
 
 from app.config import settings
 from app.core.deps import get_current_user
@@ -95,7 +95,7 @@ async def _get_operation_or_404(
 ) -> PlotOperation:
     result = await db.execute(
         select(PlotOperation)
-        .options(selectinload(PlotOperation.lifecycle))
+        .options(joinedload(PlotOperation.lifecycle))
         .where(
             PlotOperation.id == operation_id,
             PlotOperation.owner_id == owner_id,
@@ -204,7 +204,7 @@ async def list_operations(
     """
     base_q = (
         select(PlotOperation)
-        .options(selectinload(PlotOperation.lifecycle))
+        .options(joinedload(PlotOperation.lifecycle))
         .where(PlotOperation.owner_id == current_user.id)
     )
 
@@ -219,18 +219,22 @@ async def list_operations(
     if date_to is not None:
         base_q = base_q.where(PlotOperation.operation_date <= date_to)
 
-    total = (
-        await db.execute(select(func.count()).select_from(base_q.subquery()))
-    ).scalar_one()
-
+    # Page + lifecycle (joinedload) + total (COUNT(*) OVER () window) in ONE round-trip.
     offset = (page - 1) * page_size
-    result = await db.execute(
+    rows = (await db.execute(
         base_q
+        .add_columns(func.count().over().label("_total"))
         .order_by(PlotOperation.operation_date.desc(), PlotOperation.created_at.desc())
         .offset(offset)
         .limit(page_size)
-    )
-    ops = result.scalars().all()
+    )).all()
+    ops = [r[0] for r in rows]
+    if rows:
+        total = rows[0][1]
+    elif page > 1:
+        total = (await db.execute(select(func.count()).select_from(base_q.subquery()))).scalar_one()
+    else:
+        total = 0
 
     return PaginatedPlotOperations(
         items=[PlotOperationRead.from_orm_obj(o) for o in ops],

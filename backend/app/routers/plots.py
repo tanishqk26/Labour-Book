@@ -53,12 +53,18 @@ async def list_plots(
     elif status == "inactive":
         query = query.where(Plot.is_active.is_(False))
 
-    total_q = select(func.count()).select_from(query.subquery())
-    total = (await db.execute(total_q)).scalar_one()
-
+    # Page + total in ONE round-trip (COUNT(*) OVER () window column).
     offset = (page - 1) * page_size
-    result = await db.execute(query.offset(offset).limit(page_size))
-    plots = result.scalars().all()
+    rows = (await db.execute(
+        query.add_columns(func.count().over().label("_total")).offset(offset).limit(page_size)
+    )).all()
+    plots = [r[0] for r in rows]
+    if rows:
+        total = rows[0][1]
+    elif page > 1:
+        total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
+    else:
+        total = 0
 
     return PaginatedPlots(
         items=[PlotRead.from_orm_obj(p) for p in plots],

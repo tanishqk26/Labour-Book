@@ -1,3 +1,3 @@
 """
-LabourBook App Package
+KhetKitab App Package
 """

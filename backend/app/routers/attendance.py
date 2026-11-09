@@ -17,7 +17,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from app.core.deps import get_current_user
 from app.database import get_db
@@ -523,12 +523,14 @@ async def get_attendance_history(
 ) -> dict:
     """Returns paginated attendance records, optionally filtered by entity type."""
     from sqlalchemy import func as sqlfunc
+    # joinedload (many-to-one) keeps labour/team/contract in the same query, and the
+    # total comes from a COUNT(*) OVER () window column: ONE round-trip, not 5.
     query = (
         select(Attendance)
         .options(
-            selectinload(Attendance.labour),
-            selectinload(Attendance.team),
-            selectinload(Attendance.contract),
+            joinedload(Attendance.labour),
+            joinedload(Attendance.team),
+            joinedload(Attendance.contract),
         )
         .where(Attendance.owner_id == current_user.id)
     )
@@ -541,13 +543,21 @@ async def get_attendance_history(
     if date_to is not None:
         query = query.where(Attendance.date <= date_to)
 
-    count_q = select(sqlfunc.count()).select_from(query.subquery())
-    total = (await db.execute(count_q)).scalar_one()
-
     offset = (page - 1) * page_size
-    query = query.order_by(Attendance.date.desc(), Attendance.created_at.desc()).offset(offset).limit(page_size)
-    result = await db.execute(query)
-    records = [AttendanceRead.model_validate(r) for r in result.scalars().all()]
+    paged = (
+        query.add_columns(sqlfunc.count().over().label("_total"))
+        .order_by(Attendance.date.desc(), Attendance.created_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    rows = (await db.execute(paged)).all()
+    if rows:
+        total = rows[0][1]
+    elif page > 1:
+        total = (await db.execute(select(sqlfunc.count()).select_from(query.subquery()))).scalar_one()
+    else:
+        total = 0
+    records = [AttendanceRead.model_validate(r[0]) for r in rows]
 
     return {
         "items": [r.model_dump() for r in records],

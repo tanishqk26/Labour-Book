@@ -1,5 +1,5 @@
 """
-LabourBook Schemas Package
+KhetKitab Schemas Package
 
 Pydantic schemas for request/response validation live here.
 Each feature module should define its own schemas file.

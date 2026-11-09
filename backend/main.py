@@ -38,12 +38,12 @@ from app.routers.operation_workers import router as operation_workers_router
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     # -- Startup --
-    print(f"[LabourBook] API starting up [{settings.app_env}]")
+    print(f"[KhetKitab] API starting up [{settings.app_env}]")
     keep_warm = asyncio.create_task(_keep_db_warm())
     yield
     # -- Shutdown --
     keep_warm.cancel()
-    print("[LabourBook] API shutting down")
+    print("[KhetKitab] API shutting down")
 
 
 async def _keep_db_warm() -> None:
@@ -59,7 +59,7 @@ async def _keep_db_warm() -> None:
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # never let the keep-alive crash the app
-            print(f"[LabourBook] DB keep-warm ping failed: {exc}")
+            print(f"[KhetKitab] DB keep-warm ping failed: {exc}")
         await asyncio.sleep(45)
 
 
@@ -67,7 +67,7 @@ async def _keep_db_warm() -> None:
 # App
 # ---------------------------------------------------------------------------
 app = FastAPI(
-    title="LabourBook API",
+    title="KhetKitab API",
     description="Farm Labour Management System — backend API",
     version="0.1.0",
     docs_url="/docs" if settings.is_dev else None,
@@ -86,6 +86,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    max_age=600,  # let browsers cache CORS preflights for 10 minutes
 )
 
 
@@ -115,4 +116,4 @@ app.include_router(operation_workers_router, dependencies=_auth_guard)
 # ---------------------------------------------------------------------------
 @app.get("/", include_in_schema=False)
 async def root():
-    return {"message": "LabourBook API", "docs": "/docs"}
+    return {"message": "KhetKitab API", "docs": "/docs"}

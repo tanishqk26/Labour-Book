@@ -15,16 +15,15 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.attendance import Attendance
 from app.models.labour import Labour
 from app.models.payment import Payment
-from app.models.team import Team
+from app.models.team import Team, team_labours
 from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/statements", tags=["Statements"])
@@ -131,14 +130,21 @@ async def _resolve_entity(
             aadhaar=labour.aadhaar,
         )
     elif entity_type == "team":
-        result = await db.execute(
-            select(Team)
-            .options(selectinload(Team.members))
-            .where(Team.id == entity_id, Team.owner_id == owner_id)
+        # Member count via a correlated subquery — one query, no member rows loaded.
+        member_count_sq = (
+            select(func.count())
+            .select_from(team_labours)
+            .where(team_labours.c.team_id == Team.id)
+            .correlate(Team)
+            .scalar_subquery()
         )
-        team = result.scalar_one_or_none()
-        if team is None:
+        row = (await db.execute(
+            select(Team, member_count_sq)
+            .where(Team.id == entity_id, Team.owner_id == owner_id)
+        )).first()
+        if row is None:
             raise HTTPException(status_code=404, detail="Team not found")
+        team, member_count = row
         return EntityInfo(
             id=str(team.id),
             name=team.name,
@@ -147,7 +153,7 @@ async def _resolve_entity(
             hometown=team.hometown,
             car_rent=float(team.car_rent),
             manager_fee=float(team.manager_fee),
-            member_count=len(team.members),
+            member_count=member_count,
         )
     else:
         raise HTTPException(status_code=400, detail="entity_type must be 'individual' or 'team'")

@@ -112,16 +112,23 @@ async def list_labours(
             )
         )
 
-    # Total count
-    count_q = select(func.count()).select_from(query.subquery())
-    total_result = await db.execute(count_q)
-    total = total_result.scalar_one()
-
-    # Paginated data
+    # Paginated data + total in ONE round-trip (COUNT(*) OVER () window column).
     offset = (page - 1) * page_size
-    query = query.order_by(Labour.name).offset(offset).limit(page_size)
-    result = await db.execute(query)
-    labours = result.scalars().all()
+    paged = (
+        query.add_columns(func.count().over().label("_total"))
+        .order_by(Labour.name)
+        .offset(offset)
+        .limit(page_size)
+    )
+    rows = (await db.execute(paged)).all()
+    labours = [r[0] for r in rows]
+    if rows:
+        total = rows[0][1]
+    elif page > 1:
+        # Page is past the end: window total is unavailable, so count separately.
+        total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
+    else:
+        total = 0
 
     return PaginatedLabours(
         items=[labour_to_read(l) for l in labours],

@@ -71,72 +71,15 @@ async def _get_payment_or_404(db: AsyncSession, payment_id: uuid.UUID, owner_id:
     return p
 
 
-async def _compute_entity_summary(
-    db: AsyncSession,
+def _build_entity_summary(
     entity_id: uuid.UUID,
     entity_type: str,  # "individual" | "team"
     entity_name: str,
-    owner_id: uuid.UUID,
+    att_earned: float,
+    contract_earned: float,
+    total_paid: float,
 ) -> EntityPaymentSummary:
-    """Compute total earned, paid, and pending for a single entity."""
-
-    if entity_type == "individual":
-        # Attendance earnings (present + half_day)
-        att_result = await db.execute(
-            select(func.coalesce(func.sum(Attendance.wage_earned), 0)).where(
-                Attendance.labour_id == entity_id,
-                Attendance.status.in_(["present", "half_day"]),
-                Attendance.owner_id == owner_id,
-            )
-        )
-        att_earned = float(att_result.scalar_one())
-
-        # Contract earnings (active + completed, not cancelled)
-        contract_result = await db.execute(
-            select(func.coalesce(func.sum(Contract.amount), 0)).where(
-                Contract.labour_id == entity_id,
-                Contract.status.in_(["active", "completed"]),
-                Contract.owner_id == owner_id,
-            )
-        )
-        contract_earned = float(contract_result.scalar_one())
-
-        # Total paid
-        paid_result = await db.execute(
-            select(func.coalesce(func.sum(Payment.amount), 0)).where(
-                Payment.labour_id == entity_id,
-                Payment.owner_id == owner_id,
-            )
-        )
-        total_paid = float(paid_result.scalar_one())
-
-    else:  # team
-        att_result = await db.execute(
-            select(func.coalesce(func.sum(Attendance.wage_earned), 0)).where(
-                Attendance.team_id == entity_id,
-                Attendance.status.in_(["present", "half_day"]),
-                Attendance.owner_id == owner_id,
-            )
-        )
-        att_earned = float(att_result.scalar_one())
-
-        contract_result = await db.execute(
-            select(func.coalesce(func.sum(Contract.amount), 0)).where(
-                Contract.team_id == entity_id,
-                Contract.status.in_(["active", "completed"]),
-                Contract.owner_id == owner_id,
-            )
-        )
-        contract_earned = float(contract_result.scalar_one())
-
-        paid_result = await db.execute(
-            select(func.coalesce(func.sum(Payment.amount), 0)).where(
-                Payment.team_id == entity_id,
-                Payment.owner_id == owner_id,
-            )
-        )
-        total_paid = float(paid_result.scalar_one())
-
+    """Pure helper: turn raw totals into an EntityPaymentSummary (no DB access)."""
     total_earned = round(att_earned + contract_earned, 2)
     total_paid = round(total_paid, 2)
     pending = round(total_earned - total_paid, 2)
@@ -161,6 +104,74 @@ async def _compute_entity_summary(
     )
 
 
+async def _compute_entity_summary(
+    db: AsyncSession,
+    entity_id: uuid.UUID,
+    entity_type: str,  # "individual" | "team"
+    entity_name: str,
+    owner_id: uuid.UUID,
+) -> EntityPaymentSummary:
+    """Total earned / paid / pending for ONE entity, in a single round-trip."""
+    if entity_type == "individual":
+        att_col, con_col, pay_col = Attendance.labour_id, Contract.labour_id, Payment.labour_id
+    else:
+        att_col, con_col, pay_col = Attendance.team_id, Contract.team_id, Payment.team_id
+
+    row = (await db.execute(
+        select(
+            select(func.coalesce(func.sum(Attendance.wage_earned), 0)).where(
+                att_col == entity_id,
+                Attendance.status.in_(["present", "half_day"]),
+                Attendance.owner_id == owner_id,
+            ).scalar_subquery(),
+            select(func.coalesce(func.sum(Contract.amount), 0)).where(
+                con_col == entity_id,
+                Contract.status.in_(["active", "completed"]),
+                Contract.owner_id == owner_id,
+            ).scalar_subquery(),
+            select(func.coalesce(func.sum(Payment.amount), 0)).where(
+                pay_col == entity_id,
+                Payment.owner_id == owner_id,
+            ).scalar_subquery(),
+        )
+    )).one()
+    return _build_entity_summary(
+        entity_id, entity_type, entity_name, float(row[0]), float(row[1]), float(row[2])
+    )
+
+
+async def _grouped_totals(
+    db: AsyncSession, owner_id: uuid.UUID, entity_type: str
+) -> tuple[dict, dict, dict]:
+    """Per-entity attendance / contract / payment totals via 3 GROUP BY queries
+    (instead of 3 queries per entity)."""
+    if entity_type == "individual":
+        att_col, con_col, pay_col = Attendance.labour_id, Contract.labour_id, Payment.labour_id
+    else:
+        att_col, con_col, pay_col = Attendance.team_id, Contract.team_id, Payment.team_id
+
+    att_rows = await db.execute(
+        select(att_col, func.coalesce(func.sum(Attendance.wage_earned), 0))
+        .where(att_col.isnot(None), Attendance.status.in_(["present", "half_day"]), Attendance.owner_id == owner_id)
+        .group_by(att_col)
+    )
+    con_rows = await db.execute(
+        select(con_col, func.coalesce(func.sum(Contract.amount), 0))
+        .where(con_col.isnot(None), Contract.status.in_(["active", "completed"]), Contract.owner_id == owner_id)
+        .group_by(con_col)
+    )
+    pay_rows = await db.execute(
+        select(pay_col, func.coalesce(func.sum(Payment.amount), 0))
+        .where(pay_col.isnot(None), Payment.owner_id == owner_id)
+        .group_by(pay_col)
+    )
+    return (
+        {k: float(v) for k, v in att_rows.all()},
+        {k: float(v) for k, v in con_rows.all()},
+        {k: float(v) for k, v in pay_rows.all()},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Summary endpoints
 # ---------------------------------------------------------------------------
@@ -179,42 +190,30 @@ async def get_payments_summary(
     today = date_cls.today()
     month_start = today.replace(day=1)
 
-    # Total attendance earnings
-    att_result = await db.execute(
-        select(func.coalesce(func.sum(Attendance.wage_earned), 0)).where(
-            Attendance.status.in_(["present", "half_day"]),
-            Attendance.owner_id == current_user.id,
+    # All four totals in a single round-trip.
+    row = (await db.execute(
+        select(
+            select(func.coalesce(func.sum(Attendance.wage_earned), 0)).where(
+                Attendance.status.in_(["present", "half_day"]),
+                Attendance.owner_id == current_user.id,
+            ).scalar_subquery(),
+            select(func.coalesce(func.sum(Contract.amount), 0)).where(
+                Contract.status.in_(["active", "completed"]),
+                Contract.owner_id == current_user.id,
+            ).scalar_subquery(),
+            select(func.coalesce(func.sum(Payment.amount), 0)).where(
+                Payment.owner_id == current_user.id
+            ).scalar_subquery(),
+            select(func.coalesce(func.sum(Payment.amount), 0)).where(
+                Payment.date >= month_start,
+                Payment.owner_id == current_user.id,
+            ).scalar_subquery(),
         )
-    )
-    att_earned = float(att_result.scalar_one())
-
-    # Total contract earnings
-    contract_result = await db.execute(
-        select(func.coalesce(func.sum(Contract.amount), 0)).where(
-            Contract.status.in_(["active", "completed"]),
-            Contract.owner_id == current_user.id,
-        )
-    )
-    contract_earned = float(contract_result.scalar_one())
-
+    )).one()
+    att_earned, contract_earned = float(row[0]), float(row[1])
     total_earned = round(att_earned + contract_earned, 2)
-
-    # Total paid
-    paid_result = await db.execute(
-        select(func.coalesce(func.sum(Payment.amount), 0)).where(
-            Payment.owner_id == current_user.id
-        )
-    )
-    total_paid = round(float(paid_result.scalar_one()), 2)
-
-    # Paid this month
-    paid_month_result = await db.execute(
-        select(func.coalesce(func.sum(Payment.amount), 0)).where(
-            Payment.date >= month_start,
-            Payment.owner_id == current_user.id,
-        )
-    )
-    paid_this_month = round(float(paid_month_result.scalar_one()), 2)
+    total_paid = round(float(row[2]), 2)
+    paid_this_month = round(float(row[3]), 2)
 
     return PaymentsSummary(
         total_earned=total_earned,
@@ -238,29 +237,21 @@ async def list_entity_summaries(
     """Returns financial summary for every active labourer and team."""
     summaries: list[EntityPaymentSummary] = []
 
-    # Labourers
-    if entity_type in (None, "individual"):
-        labour_result = await db.execute(
-            select(Labour)
-            .where(Labour.is_active.is_(True), Labour.owner_id == current_user.id)
-            .order_by(Labour.name)
-        )
-        labours = labour_result.scalars().all()
-        for labour in labours:
-            s = await _compute_entity_summary(db, labour.id, "individual", labour.name, current_user.id)
-            summaries.append(s)
-
-    # Teams
-    if entity_type in (None, "team"):
-        team_result = await db.execute(
-            select(Team)
-            .where(Team.is_active.is_(True), Team.owner_id == current_user.id)
-            .order_by(Team.name)
-        )
-        teams = team_result.scalars().all()
-        for team in teams:
-            s = await _compute_entity_summary(db, team.id, "team", team.name, current_user.id)
-            summaries.append(s)
+    for kind, model in (("individual", Labour), ("team", Team)):
+        if entity_type not in (None, kind):
+            continue
+        entities = (await db.execute(
+            select(model.id, model.name)
+            .where(model.is_active.is_(True), model.owner_id == current_user.id)
+            .order_by(model.name)
+        )).all()
+        if not entities:
+            continue
+        att, con, pay = await _grouped_totals(db, current_user.id, kind)
+        for eid, ename in entities:
+            summaries.append(
+                _build_entity_summary(eid, kind, ename, att.get(eid, 0.0), con.get(eid, 0.0), pay.get(eid, 0.0))
+            )
 
     # Sorting
     if sort_by == "pending":
@@ -386,30 +377,34 @@ async def list_payments(
     if date_to:
         query = query.where(Payment.date <= date_to)
 
-    count_q = select(func.count()).select_from(query.subquery())
-    total = (await db.execute(count_q)).scalar_one()
-
+    # ONE round-trip: page of payments + labour/team names (outer joins) + total
+    # (COUNT(*) OVER () window).
     offset = (page - 1) * page_size
-    query = query.order_by(Payment.date.desc(), Payment.created_at.desc()).offset(offset).limit(page_size)
-    result = await db.execute(query)
-    payments = result.scalars().all()
+    paged = (
+        query.outerjoin(Labour, Labour.id == Payment.labour_id)
+        .outerjoin(Team, Team.id == Payment.team_id)
+        .add_columns(
+            Labour.name.label("_labour_name"),
+            Team.name.label("_team_name"),
+            func.count().over().label("_total"),
+        )
+        .order_by(Payment.date.desc(), Payment.created_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    rows = (await db.execute(paged)).all()
+    if rows:
+        total = rows[0][3]
+    elif page > 1:
+        total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
+    else:
+        total = 0
 
-    # Resolve entity names
-    labour_ids = [p.labour_id for p in payments if p.labour_id]
-    team_ids = [p.team_id for p in payments if p.team_id]
-    labour_names: dict = {}
-    team_names: dict = {}
-    if labour_ids:
-        r = await db.execute(select(Labour.id, Labour.name).where(Labour.id.in_(labour_ids)))
-        labour_names = {row[0]: row[1] for row in r.all()}
-    if team_ids:
-        r = await db.execute(select(Team.id, Team.name).where(Team.id.in_(team_ids)))
-        team_names = {row[0]: row[1] for row in r.all()}
-
-    items = []
-    for p in payments:
-        name = labour_names.get(p.labour_id) if p.labour_id else team_names.get(p.team_id)
-        items.append(_payment_to_read(p, name))
+    payments = [r[0] for r in rows]
+    items = [
+        _payment_to_read(p, labour_name if p.labour_id else team_name)
+        for p, labour_name, team_name, _ in rows
+    ]
 
     return PaginatedPayments(
         items=items,

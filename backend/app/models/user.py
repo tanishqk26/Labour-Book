@@ -4,7 +4,7 @@ User ORM Model
 Represents an app account, authenticated either via Google Sign-In
 or an email/password. A user may have one, the other, or both linked
 (e.g. sign up with a password, later also sign in with Google using
-the same email). All users share the same LabourBook data (no
+the same email). All users share the same KhetKitab data (no
 per-tenant isolation).
 """
 
