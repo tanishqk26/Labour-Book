@@ -1,6 +1,6 @@
-# AI Agent Instructions — LabourBook (AgroLedger)
+# AI Agent Instructions — KhetKitab (AgroLedger)
 
-Welcome, AI Agent. This document outlines critical rules, architecture pointers, and guidelines for working on the **LabourBook** repository.
+Welcome, AI Agent. This document outlines critical rules, architecture pointers, and guidelines for working on the **KhetKitab** repository.
 
 ---
 

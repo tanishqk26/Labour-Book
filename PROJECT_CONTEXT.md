@@ -1,4 +1,4 @@
-# LabourBook (AgroLedger) — Comprehensive Project Context & Technical Specification
+# KhetKitab (AgroLedger) — Comprehensive Project Context & Technical Specification
 
 > **Target Audience:** Autonomous AI Agents, LLM Coding Assistants, and Human Software Engineers.  
 > **Last Updated:** October 2026  
@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary & Domain Context
 
-**LabourBook** is a specialized Farm Labour & Agricultural Operations Management Platform built primarily for high-value horticulture (specifically **grape farming**, with extensibility to other fruit orchards and crops). 
+**KhetKitab** is a specialized Farm Labour & Agricultural Operations Management Platform built primarily for high-value horticulture (specifically **grape farming**, with extensibility to other fruit orchards and crops). 
 
 ### 1.1 The Problem It Solves
 Grape farming in India (e.g., Maharashtra regions like Nashik, Sangli, Solapur) involves complex seasonal labor dynamics:
@@ -26,7 +26,7 @@ Grape farming in India (e.g., Maharashtra regions like Nashik, Sangli, Solapur) 
 
 ## 2. High-Level System Architecture
 
-LabourBook is architected as a modern, decoupled three-tier system:
+KhetKitab is architected as a modern, decoupled three-tier system:
 
 ```mermaid
 graph TD
@@ -515,7 +515,7 @@ NavigationContainer
 
 ## 9. Multi-Language Localization (i18n) Architecture
 
-LabourBook uses a centralized JSON/TS key-value localization structure across both Web and Mobile.
+KhetKitab uses a centralized JSON/TS key-value localization structure across both Web and Mobile.
 
 ### 9.1 Supported Languages
 - `en`: English (Default)
@@ -599,7 +599,7 @@ alembic upgrade head
 
 ## 11. Instructions & Rules for AI Agents Working on This Codebase
 
-When extending, refactoring, or adding features to LabourBook, follow these non-negotiable rules:
+When extending, refactoring, or adding features to KhetKitab, follow these non-negotiable rules:
 
 1. **Strict Multi-Tenancy:**
    - Every database query in backend routers **must** filter by `owner_id == current_user.id`.
