@@ -412,6 +412,11 @@ All endpoints except `/health` and `/auth/*` require authentication via session 
 | `GET` | `/statements/work` | Work Statement (attendance rows, hours, wages) | `entity_type`, `entity_id`, `date_from`, `date_to` |
 | `GET` | `/statements/payment` | Payment Statement (credit vs. debits/advances) | `entity_type`, `entity_id`, `date_from`, `date_to` |
 | `GET` | `/statements/combined` | Complete ledger statement with running balance | `entity_type`, `entity_id`, `date_from`, `date_to` |
+| `GET` | `/statements/labour/work/{entity_type}/{id}` | Mobile work statement: attendance only (no money), days worked, team labour-days | `year` or `date_from`, `date_to` |
+| `GET` | `/statements/labour/pay/{entity_type}/{id}` | Mobile pay statement: earned per day (wages + contracts) vs. payments, balance brought forward, weekly totals | `year` or `date_from`, `date_to` |
+| `GET` | `/statements/operations` | Operations report: products/doses, workers, linked cost, product usage | `year` or dates, `plot_id` |
+| `GET` | `/statements/expenses` | Expense report: entries, totals by category / plot, dues | `year` or dates, `plot_id` |
+| `GET` | `/statements/contracts` | Contracts report (by assigned date): totals by status | `year` or dates |
 
 ### 6.7 Contracts (`/contracts`)
 | Method | Endpoint | Description | Query / Body |

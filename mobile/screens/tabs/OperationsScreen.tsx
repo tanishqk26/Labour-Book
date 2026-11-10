@@ -15,6 +15,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
+import VoiceOperationSheet from '../../components/VoiceOperationSheet';
 import { useLanguage } from '../../context/LanguageContext';
 import { apiGet, apiPost } from '../../lib/api';
 import { TranslationKey } from '../../lib/i18n';
@@ -22,9 +23,18 @@ import { C, R } from '../../lib/theme';
 import { OperationsStackParamList } from '../details/types';
 
 interface Plot { id: string; name: string; }
-interface FarmYear { id: string; year_label: string; }
-interface Lifecycle { id: string; stage: string; start_date: string | null; end_date: string | null; }
-interface PlotOperation { id: string; plot_id: string; lifecycle_id: string | null; operation_date: string; operation_type: string; notes: string | null; }
+interface PlotOperation {
+  id: string; plot_id: string;
+  lifecycle?: { lifecycle_type: string } | null;
+  operation_date: string; operation_type: string; notes: string | null;
+}
+type StageFilter = 'all' | 'vegetative' | 'fruit_production';
+
+/** April-start farm year a date belongs to (Jan–Mar belong to the previous year). */
+function grapeYearOf(d: Date): number {
+  return d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
+}
+function seasonLabel(y: number): string { return `${y}–${String(y + 1).slice(2)}`; }
 
 type OpGroup = 'Spraying' | 'Labour Work' | 'Fertigation' | 'Other';
 const OP_GROUPS: OpGroup[] = ['Spraying', 'Labour Work', 'Fertigation', 'Other'];
@@ -51,9 +61,9 @@ const GROUP_LABEL_KEY: Record<OpGroup, 'spraying' | 'labour_work' | 'fertigation
   'Other': 'other',
 };
 
-function AddOpModal({ visible, onClose, onSuccess, plotId, lifecycleId }: {
-  visible: boolean; onClose: () => void; onSuccess: () => void;
-  plotId: string | null; lifecycleId: string | null;
+function AddOpModal({ visible, onClose, onSuccess, plotId }: {
+  visible: boolean; onClose: () => void; onSuccess: (savedDate: string) => void;
+  plotId: string | null;
 }) {
   const { t } = useLanguage();
   const [group, setGroup] = useState<OpGroup>('Labour Work');
@@ -67,13 +77,14 @@ function AddOpModal({ visible, onClose, onSuccess, plotId, lifecycleId }: {
     try {
       await apiPost('/api/v1/plot-operations', {
         plot_id: plotId,
-        plot_lifecycle_id: lifecycleId,
+        // season + stage are derived by the server from the date
         operation_date: date,
         operation_type: group,
         notes: detail.trim() || undefined,
       });
+      const savedDate = date;
       setDetail(''); setDate(new Date().toISOString().slice(0, 10));
-      onSuccess(); onClose();
+      onSuccess(savedDate); onClose();
     } catch { Alert.alert('Error', 'Failed to save operation.'); }
     finally { setSaving(false); }
   }
@@ -187,17 +198,18 @@ function Dropdown({ label, valueLabel, options, selectedId, onSelect }: {
 
 export default function OperationsScreen({ navigation }: NativeStackScreenProps<OperationsStackParamList, 'OperationsList'>) {
   const { t } = useLanguage();
+  const currentYear = grapeYearOf(new Date());
   const [plots, setPlots] = useState<Plot[]>([]);
   const [selectedPlotId, setSelectedPlotId] = useState<string | null>(null);
-  const [farmYears, setFarmYears] = useState<FarmYear[]>([]);
-  const [selectedYearId, setSelectedYearId] = useState<string | null>(null);
-  const [lifecycles, setLifecycles] = useState<Lifecycle[]>([]);
-  const [selectedLcId, setSelectedLcId] = useState<string | null>(null);
+  const [seasonYear, setSeasonYear] = useState<number>(currentYear);
+  const [seasonYears, setSeasonYears] = useState<number[]>([currentYear]);
+  const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [operations, setOperations] = useState<PlotOperation[]>([]);
   const [filter, setFilter] = useState<OpGroup | 'All'>('All');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
 
   useEffect(() => {
     apiGet<{ items: Plot[] }>('/api/v1/plots?page=1&page_size=100&status=active')
@@ -205,90 +217,103 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (!selectedPlotId) return;
-    setFarmYears([]); setSelectedYearId(null); setLifecycles([]); setSelectedLcId(null); setOperations([]);
-    apiGet<{ items: { id: string; year: number }[] }>('/api/v1/farm-years', { page_size: 50 })
+  const loadSeasons = useCallback(() => {
+    apiGet<{ items: { year: number }[] }>('/api/v1/farm-years', { page_size: 50 })
       .then((d) => {
-        const years = [...d.items].sort((a, b) => a.year - b.year).map((y) => ({ id: y.id, year_label: String(y.year) }));
-        setFarmYears(years);
-        if (years.length) setSelectedYearId(years[years.length - 1].id);
+        const years = new Set<number>([currentYear, ...d.items.map((y) => y.year)]);
+        setSeasonYears([...years].sort((a, b) => b - a));
       })
       .catch(() => {});
-  }, [selectedPlotId]);
+  }, [currentYear]);
 
-  useEffect(() => {
-    if (!selectedYearId || !selectedPlotId) return;
-    setLifecycles([]); setSelectedLcId(null); setOperations([]);
-    apiGet<{ plot_farm_years: { plot_id: string; lifecycles: { id: string; lifecycle_type: string; start_date: string | null; end_date: string | null }[] }[] }>(`/api/v1/farm-years/${selectedYearId}`)
-      .then((d) => {
-        const enrolled = (d.plot_farm_years ?? []).find((p) => p.plot_id === selectedPlotId);
-        const stages = (enrolled?.lifecycles ?? []).map((lc) => ({
-          id: lc.id, stage: lc.lifecycle_type,
-          start_date: lc.start_date, end_date: lc.end_date,
-        }));
-        setLifecycles(stages);
-        if (stages.length) setSelectedLcId(stages[stages.length - 1].id);
-      })
-      .catch(() => {});
-  }, [selectedYearId, selectedPlotId]);
+  useEffect(() => { loadSeasons(); }, [loadSeasons]);
 
   const loadOps = useCallback(async (silent = false) => {
-    if (!selectedLcId) return;
+    if (!selectedPlotId) return;
     if (!silent) setLoading(true);
     try {
-      const data = await apiGet<{ items: PlotOperation[] }>('/api/v1/plot-operations', { lifecycle_id: selectedLcId, page_size: 100 });
+      const data = await apiGet<{ items: PlotOperation[] }>('/api/v1/plot-operations', {
+        plot_id: selectedPlotId,
+        date_from: `${seasonYear}-04-01`,
+        date_to: `${seasonYear + 1}-03-31`,
+        page_size: 100,
+      });
       setOperations([...data.items].sort((a, b) => a.operation_date.localeCompare(b.operation_date)));
     } catch { Alert.alert('Error', 'Failed to load operations.'); }
     finally { setLoading(false); setRefreshing(false); }
-  }, [selectedLcId]);
+  }, [selectedPlotId, seasonYear]);
 
   useEffect(() => { loadOps(); }, [loadOps]);
 
-  const filtered = filter === 'All' ? operations : operations.filter((op) => opGroupOf(op.operation_type) === filter);
-  const lcLabel = (lc: Lifecycle) => lc.stage === 'vegetative' ? 'Vegetative' : 'Fruit Production';
+  const filtered = operations.filter((op) =>
+    (filter === 'All' || opGroupOf(op.operation_type) === filter) &&
+    (stageFilter === 'all' || op.lifecycle?.lifecycle_type === stageFilter));
 
   const selectedPlot = plots.find((p) => p.id === selectedPlotId);
-  const selectedYear = farmYears.find((y) => y.id === selectedYearId);
-  const selectedLc = lifecycles.find((l) => l.id === selectedLcId);
+  const stageOptions: { id: StageFilter; label: string }[] = [
+    { id: 'all', label: t('all_stages') },
+    { id: 'vegetative', label: t('stage_vegetative') },
+    { id: 'fruit_production', label: t('stage_fruit') },
+  ];
+
+  // After saving work, offer to log what it cost (diesel, medicine, labour) — skippable.
+  function offerCost(date: string, plotId: string | null) {
+    Alert.alert(t('expenses'), t('exp_add_cost_q'), [
+      { text: t('exp_not_now'), style: 'cancel' },
+      {
+        text: t('exp_add_cost'),
+        onPress: () => navigation.getParent()?.navigate('More', {
+          screen: 'Expenses', params: { plotId: plotId ?? undefined, date },
+        } as never),
+      },
+    ]);
+  }
+
+  function handleVoiceSaved(dates: string[]) {
+    setVoiceOpen(false);
+    const latest = [...dates].sort().pop();
+    if (latest) { handleSaved(latest, null); }
+  }
+
+  function handleSaved(savedDate: string, plotId: string | null = selectedPlotId) {
+    setModalOpen(false);
+    offerCost(savedDate, plotId);
+    const y = grapeYearOf(new Date(`${savedDate}T00:00:00`));
+    setSeasonYear(y);            // jump to the season the new entry belongs to
+    setStageFilter('all');
+    loadSeasons();
+    if (y === seasonYear) loadOps(true);
+  }
 
   return (
     <View style={styles.root}>
       <AppHeader screenName={t('operations')} />
 
-      {/* Dropdowns */}
+      {/* Filters — only used to browse history; adding an entry never needs them */}
       <View style={styles.filterCard}>
         <Dropdown
-          label="Plot"
-          valueLabel={selectedPlot?.name ?? 'Select plot'}
+          label={t('plot')}
+          valueLabel={selectedPlot?.name ?? t('select_plot')}
           options={plots.map((p) => ({ id: p.id, label: p.name }))}
           selectedId={selectedPlotId}
           onSelect={setSelectedPlotId}
         />
-        {farmYears.length > 0 && (
-          <>
-            <View style={styles.filterDiv} />
-            <Dropdown
-              label="Season"
-              valueLabel={selectedYear?.year_label ?? '—'}
-              options={farmYears.map((y) => ({ id: y.id, label: y.year_label }))}
-              selectedId={selectedYearId}
-              onSelect={setSelectedYearId}
-            />
-          </>
-        )}
-        {lifecycles.length > 0 && (
-          <>
-            <View style={styles.filterDiv} />
-            <Dropdown
-              label="Stage"
-              valueLabel={selectedLc ? lcLabel(selectedLc) : '—'}
-              options={lifecycles.map((l) => ({ id: l.id, label: lcLabel(l) }))}
-              selectedId={selectedLcId}
-              onSelect={setSelectedLcId}
-            />
-          </>
-        )}
+        <View style={styles.filterDiv} />
+        <Dropdown
+          label={t('season')}
+          valueLabel={seasonLabel(seasonYear)}
+          options={seasonYears.map((y) => ({ id: String(y), label: seasonLabel(y) }))}
+          selectedId={String(seasonYear)}
+          onSelect={(id) => setSeasonYear(Number(id))}
+        />
+        <View style={styles.filterDiv} />
+        <Dropdown
+          label={t('stage')}
+          valueLabel={stageOptions.find((o) => o.id === stageFilter)!.label}
+          options={stageOptions}
+          selectedId={stageFilter}
+          onSelect={(id) => setStageFilter(id as StageFilter)}
+        />
       </View>
 
       {/* Type filter chips */}
@@ -309,20 +334,26 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
       <AddOpModal
         visible={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSuccess={() => { setModalOpen(false); loadOps(true); }}
+        onSuccess={handleSaved}
         plotId={selectedPlotId}
-        lifecycleId={selectedLcId}
+      />
+
+      <VoiceOperationSheet
+        visible={voiceOpen}
+        onClose={() => setVoiceOpen(false)}
+        onSaved={handleVoiceSaved}
+        plots={plots.map((p) => ({ id: p.id, name: p.name }))}
       />
 
       {!selectedPlotId ? (
-        <View style={styles.centred}><Text style={styles.hint}>Select a plot to get started</Text></View>
+        <View style={styles.centred}><Text style={styles.hint}>{t('select_plot_hint')}</Text></View>
       ) : loading ? (
         <View style={styles.centred}><ActivityIndicator size="large" color={C.primary} /></View>
       ) : filtered.length === 0 ? (
         <View style={styles.centred}>
           <MaterialCommunityIcons name="barley" size={52} color={C.outlineVariant} style={{ marginBottom: 10 }} />
-          <Text style={styles.emptyTitle}>{selectedLcId ? 'No operations yet' : 'Select a season & stage'}</Text>
-          <Text style={styles.hint}>{selectedLcId ? 'Tap + to log the first operation' : 'Choose a year and stage above'}</Text>
+          <Text style={styles.emptyTitle}>{t('no_operations_yet')}</Text>
+          <Text style={styles.hint}>{t('tap_plus_to_log')}</Text>
         </View>
       ) : (
         <FlatList
@@ -353,7 +384,15 @@ export default function OperationsScreen({ navigation }: NativeStackScreenProps<
         />
       )}
 
-      {/* FAB — visible whenever a plot is selected */}
+      {/* Voice FAB — the primary way to add; plot comes from what the farmer says */}
+      {plots.length > 0 && (
+        <TouchableOpacity style={styles.micFab} onPress={() => setVoiceOpen(true)} activeOpacity={0.85}>
+          <MaterialCommunityIcons name="microphone" size={28} color={C.onPrimary} />
+          <Text style={styles.micFabText}>{t('voice_add')}</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Manual add — visible whenever a plot is selected */}
       {selectedPlotId && (
         <TouchableOpacity style={styles.fab} onPress={() => setModalOpen(true)} activeOpacity={0.85}>
           <MaterialCommunityIcons name="plus" size={26} color={C.onPrimary} />
@@ -389,6 +428,8 @@ const styles = StyleSheet.create({
   opDate: { fontSize: 11, fontWeight: '600', color: C.onSurfaceVariant },
 
   // FAB
+  micFab: { position: 'absolute', bottom: 28, left: 20, right: 92, height: 56, borderRadius: 28, backgroundColor: C.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, elevation: 6 },
+  micFabText: { color: C.onPrimary, fontSize: 17, fontWeight: '800' },
   fab: { position: 'absolute', bottom: 28, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: C.primaryContainer, alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6 },
 });
 

@@ -48,8 +48,8 @@ async def test_create_farm_year_defaults(client: AsyncClient):
     assert fy["start_date"] == "2026-04-01"
     assert fy["end_date"] == "2027-03-31"
     assert fy["transition_date"] is None
-    # effective_transition_date defaults to Oct 1
-    assert fy["effective_transition_date"] == "2026-10-01"
+    # effective_transition_date defaults to Sep 1
+    assert fy["effective_transition_date"] == "2026-09-01"
     assert fy["plot_count"] == 0
 
 

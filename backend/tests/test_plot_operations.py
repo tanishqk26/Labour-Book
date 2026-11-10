@@ -82,14 +82,67 @@ async def farm_setup(client: AsyncClient, test_plot):
 # ===========================================================================
 
 async def test_create_operation_minimal(client: AsyncClient, test_plot):
-    """Create operation without a lifecycle — should succeed."""
+    """Create operation without a lifecycle — season/stage are auto-resolved."""
     op = await _create_op(client, str(test_plot.id))
 
     assert op["operation_type"] == "irrigation"
     assert op["operation_date"] == "2026-06-15"
     assert op["plot_id"] == str(test_plot.id)
-    assert op["plot_lifecycle_id"] is None
-    assert op["lifecycle"] is None
+    assert op["plot_lifecycle_id"] is not None
+    assert op["lifecycle"]["lifecycle_type"] == "vegetative"
+
+
+@pytest.mark.parametrize(
+    "op_date,expected_stage",
+    [
+        ("2026-04-01", "vegetative"),
+        ("2026-08-31", "vegetative"),
+        ("2026-09-01", "fruit_production"),
+        ("2026-12-20", "fruit_production"),
+        ("2027-03-31", "fruit_production"),   # still season 2026
+    ],
+)
+async def test_auto_stage_follows_date(client: AsyncClient, test_plot, op_date, expected_stage):
+    """Apr-Aug => vegetative, Sep-Mar => fruit production."""
+    op = await _create_op(client, str(test_plot.id), operation_date=op_date)
+    assert op["lifecycle"]["lifecycle_type"] == expected_stage
+
+
+async def test_auto_season_created_and_reused(client: AsyncClient, test_plot):
+    """Jan-Mar dates land in the previous April-start season; seasons are reused."""
+    a = await _create_op(client, str(test_plot.id), operation_date="2027-02-10")
+    b = await _create_op(client, str(test_plot.id), operation_date="2026-10-05")
+    assert a["plot_lifecycle_id"] == b["plot_lifecycle_id"]  # same season 2026, same stage
+
+    r = await client.get("/api/v1/farm-years")
+    years = [fy["year"] for fy in r.json()["items"]]
+    assert years.count(2026) == 1
+    assert 2027 not in years
+
+
+async def test_changing_date_moves_stage(client: AsyncClient, test_plot):
+    """Editing the date re-resolves the stage."""
+    op = await _create_op(client, str(test_plot.id), operation_date="2026-06-01")
+    assert op["lifecycle"]["lifecycle_type"] == "vegetative"
+    r = await client.patch(
+        f"/api/v1/plot-operations/{op['id']}", json={"operation_date": "2026-11-01"}
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["lifecycle"]["lifecycle_type"] == "fruit_production"
+
+
+async def test_category_aliases_are_normalised(client: AsyncClient, test_plot):
+    """Web-style keys are stored as the canonical four categories."""
+    plot_id = str(test_plot.id)
+    for given, stored in [
+        ("spraying", "Spraying"),
+        ("labour_work", "Labour Work"),
+        ("fertigation", "Fertigation"),
+        ("other", "Other"),
+        ("Spraying", "Spraying"),
+    ]:
+        op = await _create_op(client, plot_id, operation_type=given)
+        assert op["operation_type"] == stored
 
 
 async def test_create_operation_with_lifecycle(client: AsyncClient, test_plot, farm_setup):
@@ -128,11 +181,12 @@ async def test_first_operation_sets_stage_start_date(client: AsyncClient, test_p
 
 async def test_create_all_operation_types(client: AsyncClient, test_plot):
     """Every valid operation_type should be accepted."""
+    from app.core.op_categories import normalize_category
     from app.models.plot_operation import OPERATION_TYPES
     plot_id = str(test_plot.id)
     for op_type in OPERATION_TYPES:
         op = await _create_op(client, plot_id, operation_type=op_type)
-        assert op["operation_type"] == op_type
+        assert op["operation_type"] == normalize_category(op_type)
 
 
 async def test_create_free_text_operation_type(client: AsyncClient, test_plot):

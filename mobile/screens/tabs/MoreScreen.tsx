@@ -10,16 +10,17 @@ import { useLanguage } from '../../context/LanguageContext';
 import { C, R, initials } from '../../lib/theme';
 import { MoreStackParamList } from '../details/types';
 
-type NavKey = 'Payments' | 'Contracts' | 'Statements' | 'Plots' | 'Settings';
+type NavKey = 'Expenses' | 'Payments' | 'Contracts' | 'Statements' | 'Plots' | 'Settings';
 
 interface MenuItem {
   iconName: string;
   navKey: NavKey;
-  labelKey: 'payments' | 'contracts' | 'statements' | 'plots' | 'settings';
-  subKey: 'payments_sub' | 'contracts_sub' | 'statements_sub' | 'plots_sub' | 'settings_sub';
+  labelKey: 'expenses' | 'payments' | 'contracts' | 'statements' | 'plots' | 'settings';
+  subKey: 'expenses_sub' | 'payments_sub' | 'contracts_sub' | 'statements_sub' | 'plots_sub' | 'settings_sub';
 }
 
 const MENU_ITEMS: MenuItem[] = [
+  { iconName: 'cash-multiple',        navKey: 'Expenses',   labelKey: 'expenses',   subKey: 'expenses_sub' },
   { iconName: 'credit-card-outline', navKey: 'Payments',   labelKey: 'payments',   subKey: 'payments_sub' },
   { iconName: 'file-document-outline', navKey: 'Contracts', labelKey: 'contracts',  subKey: 'contracts_sub' },
   { iconName: 'chart-bar',             navKey: 'Statements',labelKey: 'statements', subKey: 'statements_sub' },

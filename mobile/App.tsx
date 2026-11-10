@@ -21,8 +21,9 @@ import OperationDetailScreen from './screens/details/OperationDetailScreen';
 import ContractsScreen from './screens/contracts/ContractsScreen';
 import ContractDetailScreen from './screens/contracts/ContractDetailScreen';
 import PaymentsScreen from './screens/payments/PaymentsScreen';
-import { StatementsListScreen, StatementDetailScreen } from './screens/statements/StatementsScreen';
+import { StatementsListScreen, StatementDetailScreen, StatementReportScreen } from './screens/statements/StatementsScreen';
 import PlotsScreen from './screens/plots/PlotsScreen';
+import ExpensesScreen from './screens/expenses/ExpensesScreen';
 import SettingsScreen from './screens/settings/SettingsScreen';
 import { MoreStackParamList, OperationsStackParamList, PeopleStackParamList } from './screens/details/types';
 import { C, R } from './lib/theme';
@@ -61,7 +62,9 @@ function MoreStackScreen() {
       <MoreStack.Screen name="ContractDetail" component={ContractDetailScreen} />
       <MoreStack.Screen name="Statements" component={StatementsListScreen} />
       <MoreStack.Screen name="StatementDetail" component={StatementDetailScreen} />
+      <MoreStack.Screen name="StatementReport" component={StatementReportScreen} />
       <MoreStack.Screen name="Plots" component={PlotsScreen} />
+      <MoreStack.Screen name="Expenses" component={ExpensesScreen as any} />
       <MoreStack.Screen name="Settings" component={SettingsScreen} />
     </MoreStack.Navigator>
   );

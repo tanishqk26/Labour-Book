@@ -18,6 +18,7 @@ from app.models.plot_farm_year import PlotFarmYear, PlotLifecycle  # noqa: F401
 from app.models.plot_operation import PlotOperation  # noqa: F401
 from app.models.plot_operation_photo import PlotOperationPhoto  # noqa: F401
 from app.models.plot_operation_worker import PlotOperationWorker  # noqa: F401
+from app.models.farm_transaction import FarmTransaction  # noqa: F401
 
 __all__ = [
     "Base",

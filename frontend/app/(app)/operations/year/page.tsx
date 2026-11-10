@@ -66,6 +66,8 @@ const OP_TYPE_ICON: Record<string, string> = {
   fungicide: "science", insecticide: "pest_control", leaf_removal: "yard",
   shoot_management: "cut", weeding: "grass", bunch_management: "grapes",
   harvest: "agriculture", other: "more_horiz",
+  // canonical categories (shared with mobile + voice entry)
+  Spraying: "science", Fertigation: "water_drop", "Labour Work": "agriculture", Other: "more_horiz",
 };
 
 const MONTH_ABBR = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];

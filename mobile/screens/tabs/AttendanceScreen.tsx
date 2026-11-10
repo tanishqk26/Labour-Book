@@ -19,6 +19,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
 import { useLanguage } from '../../context/LanguageContext';
 import ClockPicker, { fmt12h } from '../../components/ClockPicker';
+import VoiceAttendanceSheet, { SavedAttendance } from '../../components/VoiceAttendanceSheet';
 import { apiGet, apiPost, apiDelete } from '../../lib/api';
 import { C, R, AVATAR_COLORS, initials } from '../../lib/theme';
 
@@ -345,7 +346,7 @@ function MarkTab({
     <FlatList
       data={all}
       keyExtractor={(e) => `${e.kind}-${e.id}`}
-      contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 8 }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 96, gap: 8 }}
       showsVerticalScrollIndicator={false}
       ListHeaderComponent={
         <View style={s.markHeader}>
@@ -798,6 +799,7 @@ export default function AttendanceScreen() {
   const [sheetIds, setSheetIds] = useState<Set<string> | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pendingMark, setPendingMark] = useState<PendingMark | null>(null);
+  const [voiceOpen, setVoiceOpen] = useState(false);
 
   const weekDates = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const isCurrentWeek = weekStart === mondayOf(today);
@@ -1041,6 +1043,21 @@ export default function AttendanceScreen() {
     handleToggleOther(entityId, kind, order[idx + 1], date);
   }
 
+  // Voice entry saved some marks: put those people on the carried-forward list,
+  // jump to the (latest) day that was marked and reload from the server.
+  async function handleVoiceSaved(saved: SavedAttendance[]) {
+    if (!saved.length) return;
+    const next = new Set(sheetIds ?? []);
+    for (const r of saved) next.add(r.labour_id ? `l:${r.labour_id}` : `t:${r.team_id}`);
+    setSheetIds(next);
+    try { await AsyncStorage.setItem(sheetKey, JSON.stringify([...next])); } catch {}
+    const latest = saved.map((r) => r.date).sort().pop() as string;
+    const targetWeek = mondayOf(latest);
+    setMarkDate(latest);
+    if (targetWeek !== weekStart) setWeekStart(targetWeek);   // the week change triggers a reload
+    else load();
+  }
+
   const dateHasMarks = records.some((r) => r.date === markDate);
 
   return (
@@ -1135,6 +1152,22 @@ export default function AttendanceScreen() {
         onClose={() => setPendingMark(null)}
         onConfirm={confirmPresent}
       />
+
+      {activeTab === 'mark' && !loading && !loadError && (
+        <TouchableOpacity style={s.voiceFab} onPress={() => setVoiceOpen(true)} activeOpacity={0.85} accessibilityLabel={t('voice_att_title')}>
+          <MaterialCommunityIcons name="microphone" size={26} color={C.onPrimary} />
+          <Text style={s.voiceFabText}>{t('voice_add')}</Text>
+        </TouchableOpacity>
+      )}
+
+      <VoiceAttendanceSheet
+        visible={voiceOpen}
+        onClose={() => setVoiceOpen(false)}
+        onSaved={handleVoiceSaved}
+        labours={labours}
+        teams={teams}
+        existingFor={(kind, id, date) => records.find((r) => r.date === date && (kind === 'labour' ? r.labour_id === id : r.team_id === id))}
+      />
     </View>
   );
 }
@@ -1183,6 +1216,8 @@ const s = StyleSheet.create({
   stepInputFilled: { backgroundColor: C.primaryFixed, borderColor: C.primary, color: C.primary },
   editBtn: { width: 28, height: 28, borderRadius: R.full, backgroundColor: C.primaryFixed, alignItems: 'center', justifyContent: 'center', marginLeft: 2 },
   removeBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', marginLeft: 2 },
+  voiceFab: { position: 'absolute', right: 16, bottom: 20, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.primaryContainer, paddingHorizontal: 20, paddingVertical: 14, borderRadius: R.full, elevation: 6 },
+  voiceFabText: { color: C.onPrimary, fontSize: 15, fontWeight: '800' },
 });
 
 const H_NAME = 96;

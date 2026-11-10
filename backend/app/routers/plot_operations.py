@@ -28,6 +28,7 @@ from sqlalchemy.orm import joinedload
 
 from app.config import settings
 from app.core.deps import get_current_user
+from app.core.lifecycle import resolve_lifecycle_id
 from app.core.storage import delete_file
 from app.database import get_db
 from app.models.plot import Plot
@@ -100,6 +101,9 @@ async def _get_operation_or_404(
             PlotOperation.id == operation_id,
             PlotOperation.owner_id == owner_id,
         )
+        # Re-read the lifecycle even if this instance is already in the session
+        # (otherwise a stage change made earlier in the request looks stale).
+        .execution_options(populate_existing=True)
     )
     op = result.scalar_one_or_none()
     if op is None:
@@ -153,27 +157,37 @@ async def create_operation(
     current_user: User = Depends(get_current_user),
 ) -> PlotOperationRead:
     """
-    Record a farm operation (irrigation, pesticide, etc.) against a plot.
-    If `plot_lifecycle_id` is provided it must belong to the specified plot.
+    Record a farm operation against a plot.  Season (farm year) and stage
+    (vegetative / fruit production) are derived from `operation_date` and are
+    created on demand.  If `plot_lifecycle_id` is provided it overrides that
+    and must belong to the specified plot.
     """
     await _assert_plot_owner(db, payload.plot_id, current_user.id)
 
     if payload.plot_lifecycle_id is not None:
+        # Explicit override (advanced) — must belong to this plot
         await _assert_lifecycle_belongs_to_plot(
             db, payload.plot_lifecycle_id, payload.plot_id, current_user.id
+        )
+        lifecycle_id = payload.plot_lifecycle_id
+    else:
+        # Normal path: season + stage derived from the operation date
+        lifecycle_id = await resolve_lifecycle_id(
+            db, current_user.id, payload.plot_id, payload.operation_date
         )
 
     op = PlotOperation(
         owner_id=current_user.id,
         plot_id=payload.plot_id,
-        plot_lifecycle_id=payload.plot_lifecycle_id,
+        plot_lifecycle_id=lifecycle_id,
         operation_date=payload.operation_date,
         operation_type=payload.operation_type,
         notes=payload.notes,
+        details=payload.details,
     )
     db.add(op)
     await db.flush()
-    await _sync_lifecycle_bounds(db, payload.plot_lifecycle_id, current_user.id)
+    await _sync_lifecycle_bounds(db, lifecycle_id, current_user.id)
     op = await _get_operation_or_404(db, op.id, current_user.id)
     return PlotOperationRead.from_orm_obj(op)
 
@@ -294,6 +308,16 @@ async def update_operation(
             await _assert_lifecycle_belongs_to_plot(
                 db, new_lifecycle_id, op.plot_id, current_user.id
             )
+        else:  # explicit null -> let the date decide
+            update_data["plot_lifecycle_id"] = await resolve_lifecycle_id(
+                db, current_user.id, op.plot_id,
+                update_data.get("operation_date") or op.operation_date,
+            )
+    elif update_data.get("operation_date") and update_data["operation_date"] != op.operation_date:
+        # Date moved: stage follows the date unless the caller pinned a stage
+        update_data["plot_lifecycle_id"] = await resolve_lifecycle_id(
+            db, current_user.id, op.plot_id, update_data["operation_date"]
+        )
 
     for field, value in update_data.items():
         setattr(op, field, value)

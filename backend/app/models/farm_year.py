@@ -46,7 +46,7 @@ class FarmYear(Base):
     start_date = Column(Date, nullable=False)   # always April 1 of `year`
     end_date   = Column(Date, nullable=False)   # always March 31 of `year + 1`
 
-    # Configurable stage boundary.  NULL means "use default Oct 1".
+    # Configurable stage boundary.  NULL means "use default Sep 1".
     transition_date = Column(Date, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.deps import get_current_user
+from app.core.seasons import effective_transition
 from app.database import get_db
 from app.models.farm_year import FarmYear
 from app.models.plot import Plot
@@ -54,8 +55,8 @@ router = APIRouter(prefix="/api/v1/farm-years", tags=["Farm Years"])
 # ---------------------------------------------------------------------------
 
 def _effective_transition(farm_year: FarmYear) -> date:
-    """Return the real transition date (default: Oct 1 of year)."""
-    return farm_year.transition_date or date(farm_year.year, 10, 1)
+    """Return the real transition date (default: Sep 1 of year)."""
+    return effective_transition(farm_year.year, farm_year.transition_date)
 
 
 async def _get_farm_year_or_404(
@@ -148,7 +149,7 @@ async def create_farm_year(
     Create a new farm year (Apr 1 → Mar 31).
 
     `year` is the April-start calendar year:  year=2026 → 2026-04-01 … 2027-03-31.
-    `transition_date` is optional; defaults to October 1 of `year` when absent.
+    `transition_date` is optional; defaults to September 1 of `year` when absent.
     start_date / end_date are always computed from `year` and validated server-side.
     """
     # Duplicate check

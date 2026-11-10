@@ -82,15 +82,30 @@ function formatTableDate(s: string) {
 function formatDayName(s: string) {
   return new Date(s + "T00:00:00").toLocaleDateString(undefined, { weekday: "long" });
 }
-// The 3 fixed operation groups
-const OP_GROUPS = ["spraying", "labour_work", "other"] as const;
-type OpGroup = typeof OP_GROUPS[number];
+// The 4 fixed operation groups. `key` drives i18n/icons; `value` is the
+// canonical string stored in plot_operations.operation_type (same as mobile).
+const OP_GROUP_DEFS = [
+  { key: "spraying", value: "Spraying" },
+  { key: "fertigation", value: "Fertigation" },
+  { key: "labour_work", value: "Labour Work" },
+  { key: "other", value: "Other" },
+] as const;
+type OpGroup = typeof OP_GROUP_DEFS[number]["key"];
+const OP_GROUPS: OpGroup[] = OP_GROUP_DEFS.map((g) => g.key);
+
+/** Stored operation_type -> group key, or null for legacy free-text types. */
+function groupKeyOf(storedType: string): OpGroup | null {
+  const def = OP_GROUP_DEFS.find((g) => g.value === storedType || g.key === storedType);
+  return def ? def.key : null;
+}
+function groupValueOf(key: OpGroup): string {
+  return OP_GROUP_DEFS.find((g) => g.key === key)!.value;
+}
 
 function displayOpType(type: string, t: (key: string) => string) {
   // Fixed group keys
-  const groupKey = `operations.group.${type}`;
-  const groupLabel = t(groupKey);
-  if (groupLabel !== groupKey) return groupLabel;
+  const gk = groupKeyOf(type);
+  if (gk) return t(`operations.group.${gk}`);
   // Legacy free-text fallback
   const legacyKey = `operations.type.${type}`;
   const legacyLabel = t(legacyKey);
@@ -98,8 +113,10 @@ function displayOpType(type: string, t: (key: string) => string) {
 }
 
 function opGroupIcon(group: string) {
-  if (group === "spraying") return "science";
-  if (group === "labour_work") return "agriculture";
+  const gk = groupKeyOf(group) ?? group;
+  if (gk === "spraying") return "science";
+  if (gk === "fertigation") return "water_drop";
+  if (gk === "labour_work") return "agriculture";
   return "more_horiz";
 }
 
@@ -370,28 +387,24 @@ interface OpFormProps {
   plots: Plot[];
   defaultPlotId: string;
   defaultDate: string;
-  lifecycles: LifecycleSummary[];
-  defaultLifecycleId: string;
-  onSaved: () => void;
+  onSaved: (savedDate: string) => void;
   onClose: () => void;
 }
 
-function OpForm({ operation, plots, defaultPlotId, defaultDate, lifecycles, defaultLifecycleId, onSaved, onClose }: OpFormProps) {
+function OpForm({ operation, plots, defaultPlotId, defaultDate, onSaved, onClose }: OpFormProps) {
   const { t } = useLanguage();
   const isEdit = !!operation;
 
   // If editing a legacy free-text op that isn't one of the 3 groups, keep it under "other"
-  const existingGroup = (operation && OP_GROUPS.includes(operation.operation_type as OpGroup))
-    ? operation.operation_type as OpGroup
-    : (operation ? "other" : "spraying");
+  const existingGroupKey = operation ? groupKeyOf(operation.operation_type) : null;
+  const existingGroup: OpGroup = existingGroupKey ?? (operation ? "other" : "spraying");
   // detail = what was done specifically (stored in notes, or legacy op_type if not a group)
   const existingDetail = operation
-    ? (OP_GROUPS.includes(operation.operation_type as OpGroup) ? (operation.notes ?? "") : operation.operation_type)
+    ? (existingGroupKey ? (operation.notes ?? "") : operation.operation_type)
     : "";
 
   const [plotId, setPlotId] = useState(operation?.plot_id ?? defaultPlotId);
-  const [lifecycleId, setLifecycleId] = useState(operation?.plot_lifecycle_id ?? defaultLifecycleId);
-  const [group, setGroup] = useState<OpGroup>(existingGroup as OpGroup);
+  const [group, setGroup] = useState<OpGroup>(existingGroup);
   const [detail, setDetail] = useState(existingDetail);
   const [opDate, setOpDate] = useState(operation?.operation_date ?? defaultDate);
   const [submitting, setSubmitting] = useState(false);
@@ -400,13 +413,12 @@ function OpForm({ operation, plots, defaultPlotId, defaultDate, lifecycles, defa
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!plotId) { setError("Please select a plot."); return; }
-    if (!lifecycleId) { setError(t("operations.stageRequired")); return; }
     setSubmitting(true); setError(null);
     try {
       const payload = {
         plot_id: plotId,
-        plot_lifecycle_id: lifecycleId,
-        operation_type: group,
+        // season + stage are derived by the server from operation_date
+        operation_type: groupValueOf(group),
         operation_date: opDate,
         notes: detail.trim() || null,
       };
@@ -415,7 +427,7 @@ function OpForm({ operation, plots, defaultPlotId, defaultDate, lifecycles, defa
       } else {
         await apiPost<PlotOperation>("/api/v1/plot-operations", payload);
       }
-      onSaved();
+      onSaved(opDate);
     } catch (err) {
       const d = err instanceof ApiError ? (err.data as {detail?:string}|null) : null;
       setError(typeof d?.detail === "string" ? d.detail : t("operations.saveError"));
@@ -452,17 +464,10 @@ function OpForm({ operation, plots, defaultPlotId, defaultDate, lifecycles, defa
                 options={plots.map(p => ({ value: p.id, label: p.crop_name ? `${p.name} — ${p.crop_name}` : p.name }))} />
             </div>
 
-            {/* Stage */}
-            <div className="flex flex-col gap-1">
-              <label className="text-label-caps" style={{ color:"var(--color-on-surface-variant)" }}>{t("operations.stageLabel")}</label>
-              <Select value={lifecycleId} onChange={setLifecycleId} placeholder={t("operations.stagePlaceholder")}
-                options={lifecycles.map(lc => ({ value: lc.id, label: stageTitle(lc, t) }))} />
-            </div>
-
             {/* Operation group — 3 fixed buttons */}
             <div className="flex flex-col gap-2">
               <label className="text-label-caps" style={{ color:"var(--color-on-surface-variant)" }}>{t("operations.groupLabel")}</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {OP_GROUPS.map((g) => {
                   const sel = group === g;
                   return (
@@ -484,7 +489,7 @@ function OpForm({ operation, plots, defaultPlotId, defaultDate, lifecycles, defa
             {/* What specifically was done */}
             <div className="flex flex-col gap-1">
               <label className="text-label-caps" style={{ color:"var(--color-on-surface-variant)" }}>
-                {group === "spraying" ? t("operations.detailLabelSpraying") : group === "labour_work" ? t("operations.detailLabelLabour") : t("operations.detailLabelOther")}
+                {group === "spraying" ? t("operations.detailLabelSpraying") : group === "fertigation" ? t("operations.detailLabelFertigation") : group === "labour_work" ? t("operations.detailLabelLabour") : t("operations.detailLabelOther")}
                 <span className="ml-1" style={{ color:"var(--color-on-surface-variant)", opacity:0.6 }}>({t("common.optional")})</span>
               </label>
               <input
@@ -495,6 +500,7 @@ function OpForm({ operation, plots, defaultPlotId, defaultDate, lifecycles, defa
                 onChange={e => setDetail(e.target.value)}
                 placeholder={
                   group === "spraying" ? t("operations.detailPlaceholderSpraying")
+                  : group === "fertigation" ? t("operations.detailPlaceholderFertigation")
                   : group === "labour_work" ? t("operations.detailPlaceholderLabour")
                   : t("operations.detailPlaceholderOther")
                 }
@@ -577,13 +583,13 @@ export default function OperationsPage() {
   }, [stageOps]);
 
   const visibleOps = useMemo(
-    () => opTypeFilter ? stageOps.filter((op) => op.operation_type === opTypeFilter) : stageOps,
+    () => opTypeFilter ? stageOps.filter((op) => (groupKeyOf(op.operation_type) ?? "other") === opTypeFilter) : stageOps,
     [stageOps, opTypeFilter],
   );
 
   // which groups actually have ops in this stage (to show/hide filter buttons)
   const presentGroups = useMemo(
-    () => new Set(stageOps.map((op) => op.operation_type)),
+    () => new Set(stageOps.map((op) => groupKeyOf(op.operation_type) ?? "other")),
     [stageOps],
   );
 
@@ -710,13 +716,19 @@ export default function OperationsPage() {
 
   function openAdd() { setEditingOp(undefined); setShowForm(true); }
   function openEdit(op: PlotOperation) { setEditingOp(op); setShowForm(true); }
-  function handleSaved() {
+  async function handleSaved(savedDate: string) {
     setShowForm(false);
     stageTouched.current = false;
+    // The server may have auto-created the season for this date: refresh the
+    // season list and jump to the season the saved operation belongs to.
+    try {
+      const d = await apiGet<PaginatedFarmYears>("/api/v1/farm-years", { page_size: 100 });
+      setFarmYears(d.items);
+      const wantedYear = grapeYearOf(new Date(savedDate + "T00:00:00"));
+      const match = d.items.find((y) => y.year === wantedYear);
+      if (match) setSelectedYearId(match.id);
+    } catch { /* non-critical */ }
     fetchOperations(selectedPlotId);
-    if (selectedYearId && selectedPlotId) {
-      ensureEnrollment(selectedYearId, selectedPlotId).then(setEnrollment).catch(() => {});
-    }
   }
 
   async function handleDelete(id: string) {
@@ -750,8 +762,6 @@ export default function OperationsPage() {
           plots={plots}
           defaultPlotId={selectedPlotId}
           defaultDate={todayString()}
-          lifecycles={lifecycles}
-          defaultLifecycleId={lifecycleId}
           onSaved={handleSaved}
           onClose={() => setShowForm(false)}
         />
@@ -771,7 +781,7 @@ export default function OperationsPage() {
                 <span className="material-symbols-outlined" style={{ fontSize:"20px" }}>timeline</span>
                 {t("operations.yearOverview")}
               </Link>
-              <button onClick={openAdd} disabled={!selectedPlotId || !lifecycleId} className="h-12 px-6 rounded-xl text-body-md font-semibold flex items-center gap-2 hover:opacity-90 whitespace-nowrap disabled:opacity-50" style={{ backgroundColor:"var(--color-primary)", color:"var(--color-on-primary)" }}>
+              <button onClick={openAdd} disabled={!selectedPlotId} className="h-12 px-6 rounded-xl text-body-md font-semibold flex items-center gap-2 hover:opacity-90 whitespace-nowrap disabled:opacity-50" style={{ backgroundColor:"var(--color-primary)", color:"var(--color-on-primary)" }}>
                 <span className="material-symbols-outlined" style={{ fontSize:"20px" }}>add</span>
                 {t("operations.addOperation")}
               </button>
@@ -952,8 +962,8 @@ export default function OperationsPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-label-caps font-bold"
                               style={{
-                                backgroundColor: op.operation_type === "spraying" ? "var(--color-tertiary-fixed)" : op.operation_type === "labour_work" ? "var(--color-primary-fixed)" : "var(--color-surface-container)",
-                                color: op.operation_type === "spraying" ? "var(--color-tertiary)" : op.operation_type === "labour_work" ? "var(--color-primary)" : "var(--color-on-surface-variant)",
+                                backgroundColor: groupKeyOf(op.operation_type) === "spraying" ? "var(--color-tertiary-fixed)" : groupKeyOf(op.operation_type) === "labour_work" ? "var(--color-primary-fixed)" : groupKeyOf(op.operation_type) === "fertigation" ? "var(--color-secondary-container)" : "var(--color-surface-container)",
+                                color: groupKeyOf(op.operation_type) === "spraying" ? "var(--color-tertiary)" : groupKeyOf(op.operation_type) === "labour_work" ? "var(--color-primary)" : groupKeyOf(op.operation_type) === "fertigation" ? "var(--color-on-secondary-container)" : "var(--color-on-surface-variant)",
                               }}>
                               <span className="material-symbols-outlined" style={{ fontSize:"12px" }}>{opGroupIcon(op.operation_type)}</span>
                               {displayOpType(op.operation_type, t)}

@@ -37,7 +37,14 @@
           "resizeMode": "contain",
           "backgroundColor": "#EDF4ED"
         }
-      ]
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "KhetKitab uses the microphone so you can record your farm work by voice."
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {

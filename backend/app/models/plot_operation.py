@@ -10,7 +10,7 @@ operation_type is free text (what was done on the plot that day).
 import uuid
 
 from sqlalchemy import Column, Date, DateTime, ForeignKey, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -63,6 +63,11 @@ class PlotOperation(Base):
     operation_type = Column(String(200), nullable=False, index=True)
 
     notes = Column(Text, nullable=True)
+
+    # Structured extras (e.g. {"products": [{"name": "Movento", "dose": "2 ml"}],
+    # "source": "voice", "transcript": "..."}). Optional; `notes` stays the
+    # human-readable summary so older clients keep working.
+    details = Column(JSONB, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(

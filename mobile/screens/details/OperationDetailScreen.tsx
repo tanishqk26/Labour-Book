@@ -17,6 +17,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { File } from 'expo-file-system';
 import { ApiError, apiDelete, apiGet, apiPatch, apiPost, apiUpload } from '../../lib/api';
 import { C, R, fmtCurrency, fmtDate } from '../../lib/theme';
 import { Labour, PaginatedResponse, TeamSummary } from '../../types';
@@ -211,13 +212,13 @@ export default function OperationDetailScreen({ route, navigation }: Props) {
     if (picked.canceled || !picked.assets[0]) return;
     const asset = picked.assets[0];
     const name = asset.fileName ?? 'photo.jpg';
-    const type = asset.mimeType ?? 'image/jpeg';
     const form = new FormData();
     if (Platform.OS === 'web') {
       const blob = await (await fetch(asset.uri)).blob();
       form.append('file', blob, name);
     } else {
-      form.append('file', { uri: asset.uri, name, type } as unknown as Blob);
+      // Expo's fetch rejects the old RN {uri,name,type} part; use a real File (Blob).
+      form.append('file', new File(asset.uri) as unknown as Blob, name);
     }
     setUploading(true);
     setError(null);

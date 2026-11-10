@@ -15,9 +15,7 @@ if TYPE_CHECKING:
     from app.schemas.plot_farm_year import PlotFarmYearRead
 
 
-def _effective_transition(year: int, transition_date: Optional[date]) -> date:
-    """Return the real transition date, defaulting to October 1 of `year`."""
-    return transition_date if transition_date is not None else date(year, 10, 1)
+from app.core.seasons import effective_transition as _effective_transition
 
 
 # ---------------------------------------------------------------------------
@@ -27,7 +25,7 @@ def _effective_transition(year: int, transition_date: Optional[date]) -> date:
 class FarmYearCreate(BaseModel):
     year: int = Field(..., ge=2000, le=2100, description="April-start calendar year, e.g. 2026 for season 2026-27")
     transition_date: Optional[date] = Field(
-        None, description="Stage boundary — NULL defaults to Oct 1 of year"
+        None, description="Stage boundary — NULL defaults to Sep 1 of year"
     )
     # start_date / end_date are always April 1 / March 31 — computed server-side,
     # but can be sent explicitly (validated against year).
@@ -60,7 +58,7 @@ class FarmYearCreate(BaseModel):
 
 class FarmYearUpdate(BaseModel):
     transition_date: Optional[date] = Field(
-        None, description="Pass null to clear (revert to Oct 1 default)"
+        None, description="Pass null to clear (revert to Sep 1 default)"
     )
     # year / start_date / end_date are immutable after creation
 
@@ -76,7 +74,7 @@ class FarmYearRead(BaseModel):
     start_date: date
     end_date: date
     transition_date: Optional[date] = None
-    effective_transition_date: date      # Oct 1 of year when transition_date is NULL
+    effective_transition_date: date      # Sep 1 of year when transition_date is NULL
     plot_count: int = 0                  # number of plots enrolled this season
     created_at: datetime
     updated_at: datetime

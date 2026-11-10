@@ -6,9 +6,11 @@ Request/response validation for plot operation CRUD endpoints.
 
 import uuid
 from datetime import date, datetime
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, model_validator
+
+from app.core.op_categories import normalize_category
 
 
 # ---------------------------------------------------------------------------
@@ -17,14 +19,16 @@ from pydantic import BaseModel, Field, model_validator
 
 class PlotOperationCreate(BaseModel):
     plot_id: uuid.UUID
+    # Optional: when omitted the server picks season + stage from operation_date
     plot_lifecycle_id: Optional[uuid.UUID] = None
     operation_date: date
     operation_type: str = Field(..., min_length=1, max_length=200)
     notes: Optional[str] = None
+    details: Optional[dict[str, Any]] = None
 
     @model_validator(mode="after")
     def strip_operation_type(self) -> "PlotOperationCreate":
-        self.operation_type = self.operation_type.strip()
+        self.operation_type = normalize_category(self.operation_type) or ""
         if not self.operation_type:
             raise ValueError("operation_type is required")
         return self
@@ -38,12 +42,13 @@ class PlotOperationUpdate(BaseModel):
     operation_date: Optional[date] = None
     operation_type: Optional[str] = None
     notes: Optional[str] = None
+    details: Optional[dict[str, Any]] = None
     plot_lifecycle_id: Optional[uuid.UUID] = None
 
     @model_validator(mode="after")
     def strip_operation_type(self) -> "PlotOperationUpdate":
         if self.operation_type is not None:
-            self.operation_type = self.operation_type.strip()
+            self.operation_type = normalize_category(self.operation_type) or ""
             if not self.operation_type:
                 raise ValueError("operation_type cannot be empty")
         return self
@@ -76,6 +81,7 @@ class PlotOperationRead(BaseModel):
     operation_date: date
     operation_type: str
     notes: Optional[str] = None
+    details: Optional[dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
 
@@ -101,6 +107,7 @@ class PlotOperationRead(BaseModel):
             operation_date=obj.operation_date,
             operation_type=obj.operation_type,
             notes=obj.notes,
+            details=obj.details,
             created_at=obj.created_at,
             updated_at=obj.updated_at,
         )

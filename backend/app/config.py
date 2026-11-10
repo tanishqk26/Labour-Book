@@ -52,6 +52,18 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     supabase_storage_bucket: str = "farm-media"
 
+    # --- Voice entry (speech-to-text + LLM parsing) ---
+    # Keys live ONLY on the server; clients never see them.
+    soniox_api_key: str = ""
+    soniox_model: str = "stt-async-v6"
+    soniox_base_url: str = "https://api.soniox.com"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.1-flash-lite"
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    voice_max_audio_bytes: int = 8 * 1024 * 1024      # ~8 MB (> 2 min of AAC)
+    voice_max_requests_per_hour: int = 40             # per user
+    voice_stt_timeout_seconds: float = 60.0
+
     @model_validator(mode="after")
     def _ensure_local_cors(self):
         origins = list(self.cors_origins or [])
@@ -91,6 +103,10 @@ class Settings(BaseSettings):
     @property
     def supabase_enabled(self) -> bool:
         return bool(self.supabase_url and self.supabase_service_role_key)
+
+    @property
+    def voice_enabled(self) -> bool:
+        return bool(self.soniox_api_key and self.gemini_api_key)
 
     @property
     def is_dev(self) -> bool:
